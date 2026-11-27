@@ -6,6 +6,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
+	"unicode/utf8"
 )
 
 const projectionAuditDomainV1 = "MYCELIX-OWNER-TEMPORAL-PROJECTION-AUDIT-V0.1\x00"
@@ -21,13 +24,15 @@ const (
 // AcceptedReceiptProjectionV1 is the decoded semantic projection of one accepted receipt.
 // Receipt authenticity/admission is an upstream precondition and is not established here.
 type AcceptedReceiptProjectionV1 struct {
-	ReceiptLogLeafIndex uint64
-	OwnerSequence       uint64
-	ReceiptDigest       string
-	Class               ReceiptProjectionClassV1
-	AssertionRef        string
-	ValidFrom           IntervalInstantV1
-	ValidTo             IntervalEndV1
+	ReceiptLogLeafIndex       uint64
+	OwnerSequence             uint64
+	ReceiptDigest             string
+	CanonicalReceiptEntryBytes []byte
+	AssertionID               string
+	Class                     ReceiptProjectionClassV1
+	AssertionRef              string
+	ValidFrom                 IntervalInstantV1
+	ValidTo                   IntervalEndV1
 }
 
 // AcceptedReceiptInventoryV1 is a claimed complete owner-local receipt-log prefix.
@@ -63,6 +68,8 @@ type OwnerProjectionReplayAuditV1 struct {
 	InventoryDigest              [32]byte
 	DerivedIntervalIndexRoot     [32]byte
 	AuditDigest                  [32]byte
+	RecomputedOwnerLogRoot       [32]byte
+	OwnerLogRootMatches          bool
 	HasOwnerGaps                 bool
 }
 
@@ -106,6 +113,8 @@ func ComputeOwnerProjectionReplayAuditV1(
 	}
 
 	records := make([]IntervalRecordV1, 0, len(inventory.Receipts))
+	receiptEntries := make([][]byte, 0, len(inventory.Receipts))
+	var totalReceiptBytes uint64
 	var nonTemporal uint64
 	var previousSequence uint64
 	for i, receipt := range inventory.Receipts {
@@ -116,13 +125,34 @@ func ComputeOwnerProjectionReplayAuditV1(
 			(i > 0 && receipt.OwnerSequence <= previousSequence) {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionSequenceOrder
 		}
-		if ownerSequenceIsGapV1(binding.Gaps, receipt.OwnerSequence) {
+		expectedLeafIndex, ok := ownerLeafIndexForSequenceV1(binding, receipt.OwnerSequence)
+		if !ok || expectedLeafIndex != uint64(i) {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionSequenceOrder
 		}
-		if validateIntervalDigestV1(receipt.ReceiptDigest) != nil {
+		if validateIntervalDigestV1(receipt.ReceiptDigest) != nil ||
+			len(receipt.CanonicalReceiptEntryBytes) == 0 {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
+		}
+		totalReceiptBytes += uint64(len(receipt.CanonicalReceiptEntryBytes))
+		if totalReceiptBytes > maxProjectionReceiptBytesV1 {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
+		}
+		canonical, err := decodeCanonicalKnowledgeReceiptEntryV1(receipt.CanonicalReceiptEntryBytes)
+		if err != nil {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
+		}
+		if canonical.VerifierRef != scope.VerifierRef ||
+			canonical.PolicyEpochRef != scope.PolicyEpochRef ||
+			canonical.OwnerRef != binding.OwnerRef ||
+			canonical.OwnerSequence != receipt.OwnerSequence ||
+			canonical.AssertionID != receipt.AssertionID {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
+		}
+		if canonical.ReceiptDigest != receipt.ReceiptDigest {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
 		previousSequence = receipt.OwnerSequence
+		receiptEntries = append(receiptEntries, receipt.CanonicalReceiptEntryBytes)
 
 		switch receipt.Class {
 		case ReceiptProjectsIntervalAssertionV1:
@@ -132,7 +162,8 @@ func ComputeOwnerProjectionReplayAuditV1(
 				ValidTo: receipt.ValidTo,
 				ReceiptDigest: receipt.ReceiptDigest,
 			}
-			if validateIntervalRecordV1(record) != nil {
+			if receipt.AssertionRef == "" || receipt.AssertionRef != canonical.AssertionID ||
+				validateIntervalRecordV1(record) != nil {
 				return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 			}
 			records = append(records, record)
@@ -146,6 +177,11 @@ func ComputeOwnerProjectionReplayAuditV1(
 		default:
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
+	}
+
+	recomputedLogRoot := rfc9162TreeHashV1(receiptEntries)
+	if fmt.Sprintf("sha256:%x", recomputedLogRoot) != binding.OwnerLogRootDigest {
+		return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 	}
 
 	tree, err := NewIntervalTreeV1(scope, records)
@@ -164,7 +200,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 	hasGaps := len(binding.Gaps) > 0
 	return OwnerProjectionReplayAuditV1{
 		Disposition: ProjectionMatchesSuppliedAcceptedInventoryV1,
-		ReceiptInventoryAuthentication: ReceiptInventoryAuthenticationNotEvaluatedV1,
+		ReceiptInventoryAuthentication: ReceiptLogRootRecomputedButTrustExternalV1,
 		OwnerRef: binding.OwnerRef,
 		OwnerHistoryRef: binding.OwnerHistoryRef,
 		OwnerSequenceCut: binding.OwnerSequence,
@@ -175,6 +211,8 @@ func ComputeOwnerProjectionReplayAuditV1(
 		InventoryDigest: inventoryDigest,
 		DerivedIntervalIndexRoot: tree.RootHash(),
 		AuditDigest: auditDigest,
+		RecomputedOwnerLogRoot: recomputedLogRoot,
+		OwnerLogRootMatches: true,
 		HasOwnerGaps: hasGaps,
 	}, nil
 }
@@ -228,6 +266,9 @@ func hashAcceptedReceiptInventoryV1(
 		_ = binary.Write(&preimage, binary.BigEndian, receipt.ReceiptLogLeafIndex)
 		_ = binary.Write(&preimage, binary.BigEndian, receipt.OwnerSequence)
 		appendForestStringV1(&preimage, receipt.ReceiptDigest)
+		_ = binary.Write(&preimage, binary.BigEndian, uint32(len(receipt.CanonicalReceiptEntryBytes)))
+		preimage.Write(receipt.CanonicalReceiptEntryBytes)
+		appendForestStringV1(&preimage, receipt.AssertionID)
 		preimage.WriteByte(byte(receipt.Class))
 		if receipt.Class == ReceiptProjectsIntervalAssertionV1 {
 			record := IntervalRecordV1{
@@ -293,4 +334,160 @@ func appendIntervalRecordBytesV1(dst *bytes.Buffer, record IntervalRecordV1) {
 	dst.WriteByte(0)
 	_ = binary.Write(dst, binary.BigEndian, record.ValidTo.At.Seconds)
 	_ = binary.Write(dst, binary.BigEndian, record.ValidTo.At.Nanos)
+}
+
+
+type canonicalKnowledgeReceiptFieldsV1 struct {
+	ReceiptID      string
+	VerifierRef    string
+	PolicyEpochRef string
+	AssertionID    string
+	AssertionDigest string
+	OwnerRef       string
+	OwnerSequence  uint64
+	ReceiptDigest  string
+}
+
+func decodeCanonicalKnowledgeReceiptEntryV1(entry []byte) (canonicalKnowledgeReceiptFieldsV1, error) {
+	var fields canonicalKnowledgeReceiptFieldsV1
+	if len(entry) == 0 || len(entry) > 64*1024 {
+		return fields, ErrProjectionReceiptClass
+	}
+	reader := bytes.NewReader(entry)
+	magic := make([]byte, len(canonicalKnowledgeReceiptMagicV1))
+	if _, err := io.ReadFull(reader, magic); err != nil || string(magic) != canonicalKnowledgeReceiptMagicV1 {
+		return fields, ErrProjectionReceiptClass
+	}
+	stringsOut := []*string{
+		&fields.ReceiptID, &fields.VerifierRef, &fields.PolicyEpochRef,
+		&fields.AssertionID, &fields.AssertionDigest, &fields.OwnerRef,
+	}
+	for _, field := range stringsOut {
+		value, err := readCanonicalReceiptStringV1(reader)
+		if err != nil {
+			return fields, err
+		}
+		*field = value
+	}
+	if validateIntervalDigestV1(fields.AssertionDigest) != nil {
+		return fields, ErrProjectionReceiptClass
+	}
+	if binary.Read(reader, binary.BigEndian, &fields.OwnerSequence) != nil || fields.OwnerSequence == 0 {
+		return fields, ErrProjectionReceiptClass
+	}
+	var dependencyCount uint32
+	if binary.Read(reader, binary.BigEndian, &dependencyCount) != nil || dependencyCount > maxProjectionDependenciesV1 {
+		return fields, ErrProjectionReceiptClass
+	}
+	previousOwner := ""
+	var previousSequence uint64
+	for i := uint32(0); i < dependencyCount; i++ {
+		owner, err := readCanonicalReceiptStringV1(reader)
+		if err != nil {
+			return fields, err
+		}
+		var sequence uint64
+		if binary.Read(reader, binary.BigEndian, &sequence) != nil || sequence == 0 {
+			return fields, ErrProjectionReceiptClass
+		}
+		if owner == fields.OwnerRef && sequence >= fields.OwnerSequence {
+			return fields, ErrProjectionReceiptClass
+		}
+		if i > 0 && (owner < previousOwner || (owner == previousOwner && sequence <= previousSequence)) {
+			return fields, ErrProjectionReceiptClass
+		}
+		previousOwner, previousSequence = owner, sequence
+	}
+	if reader.Len() != 0 {
+		return fields, ErrProjectionReceiptClass
+	}
+	sum := sha256.Sum256(entry)
+	fields.ReceiptDigest = fmt.Sprintf("sha256:%x", sum)
+	return fields, nil
+}
+
+func readCanonicalReceiptStringV1(reader *bytes.Reader) (string, error) {
+	var length uint32
+	if binary.Read(reader, binary.BigEndian, &length) != nil ||
+		length == 0 || length > 1_024 || uint64(length) > uint64(reader.Len()) {
+		return "", ErrProjectionReceiptClass
+	}
+	data := make([]byte, int(length))
+	if _, err := io.ReadFull(reader, data); err != nil || !utf8.Valid(data) {
+		return "", ErrProjectionReceiptClass
+	}
+	value := string(data)
+	if strings.TrimSpace(value) == "" {
+		return "", ErrProjectionReceiptClass
+	}
+	return value, nil
+}
+
+func ownerLeafIndexForSequenceV1(binding OwnerIntervalIndexBindingV1, sequence uint64) (uint64, bool) {
+	if sequence == 0 || sequence > binding.OwnerSequence || ownerSequenceIsGapV1(binding.Gaps, sequence) {
+		return 0, false
+	}
+	var missingBefore uint64
+	for _, gap := range binding.Gaps {
+		if gap.Last >= sequence {
+			break
+		}
+		width := gap.Last - gap.First + 1
+		if ^uint64(0)-missingBefore < width {
+			return 0, false
+		}
+		missingBefore += width
+	}
+	if sequence-1 < missingBefore {
+		return 0, false
+	}
+	return sequence - 1 - missingBefore, true
+}
+
+func rfc9162LeafHashV1(entry []byte) [32]byte {
+	preimage := make([]byte, 1+len(entry))
+	preimage[0] = 0x00
+	copy(preimage[1:], entry)
+	return sha256.Sum256(preimage)
+}
+
+func rfc9162NodeHashV1(left, right [32]byte) [32]byte {
+	var preimage [65]byte
+	preimage[0] = 0x01
+	copy(preimage[1:33], left[:])
+	copy(preimage[33:], right[:])
+	return sha256.Sum256(preimage[:])
+}
+
+func rfc9162LargestPowerOfTwoLessThanV1(value int) int {
+	power := 1
+	for power<<1 < value {
+		power <<= 1
+	}
+	return power
+}
+
+func rfc9162TreeHashV1(entries [][]byte) [32]byte {
+	if len(entries) == 0 {
+		return sha256.Sum256(nil)
+	}
+	leaves := make([][32]byte, len(entries))
+	for i, entry := range entries {
+		leaves[i] = rfc9162LeafHashV1(entry)
+	}
+	var treeHash func([][32]byte) [32]byte
+	treeHash = func(values [][32]byte) [32]byte {
+		switch len(values) {
+		case 0:
+			return sha256.Sum256(nil)
+		case 1:
+			return values[0]
+		default:
+			split := rfc9162LargestPowerOfTwoLessThanV1(len(values))
+			left := treeHash(values[:split])
+			right := treeHash(values[split:])
+			return rfc9162NodeHashV1(left, right)
+		}
+	}
+	return treeHash(leaves)
 }
