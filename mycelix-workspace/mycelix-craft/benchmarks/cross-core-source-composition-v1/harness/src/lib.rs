@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod ocel_profile;
+pub mod temporal_replay;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
