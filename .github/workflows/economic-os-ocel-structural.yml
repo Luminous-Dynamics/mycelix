@@ -1,0 +1,257 @@
+name: Economic OS OCEL Structural Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/economic/ocel/**'
+      - '.github/workflows/economic-os-ocel-structural.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/economic/ocel/**'
+      - '.github/workflows/economic-os-ocel-structural.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  structural-qualification:
+    name: OCEL 2.0 JSON and causal-sidecar structural gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: \${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Parse JSON artefacts
+        run: |
+          set -euo pipefail
+          jq --version
+          for file in \
+            docs/economic/ocel/economic-os-ocel-crosswalk.v0.1.json \
+            docs/economic/ocel/fixtures/economic-os-procurement-split-obligation-v0.1.json \
+            docs/economic/ocel/fixtures/economic-os-procurement-fixture-metadata.v0.1.json \
+            docs/economic/ocel/fixtures/economic-os-procurement-causal-sidecar.v0.1.json \
+            docs/economic/ocel/fixtures/economic-os-procurement-loss-manifest.v0.1.json \
+            docs/economic/ocel/benchmarks/economic-os-ocel-adversarial-corpus.v0.1.json \
+            docs/economic/ocel/benchmarks/external-reference-datasets.v0.1.json \
+            docs/economic/ocel/schemas/economic-os-causal-sidecar.v1.schema.json \
+            docs/economic/ocel/schemas/economic-os-ocel-adversarial-corpus.v0.1.schema.json; do
+            jq -e . "$file" >/dev/null
+            printf 'JSON syntax PASS: %s\n' "$file"
+          done
+
+      - name: Validate OCEL 2.0 JSON shape and semantic references
+        run: |
+          set -euo pipefail
+          OCEL=docs/economic/ocel/fixtures/economic-os-procurement-split-obligation-v0.1.json
+          CROSSWALK=docs/economic/ocel/economic-os-ocel-crosswalk.v0.1.json
+
+          jq -e '
+            def iso8601:
+              type == "string" and
+              test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$");
+            (keys == ["eventTypes","events","objectTypes","objects"]) and
+            (.eventTypes | type == "array" and length > 0) and
+            (.events | type == "array" and length > 0) and
+            (.objectTypes | type == "array" and length > 0) and
+            (.objects | type == "array" and length > 0) and
+            (([.eventTypes[].name] | length) == ([.eventTypes[].name] | unique | length)) and
+            (([.objectTypes[].name] | length) == ([.objectTypes[].name] | unique | length)) and
+            (([.events[].id] | length) == ([.events[].id] | unique | length)) and
+            (([.objects[].id] | length) == ([.objects[].id] | unique | length)) and
+            (. as $log |
+              all($log.events[];
+                . as $event |
+                ($event.id | type == "string" and length > 0) and
+                ($event.time | iso8601) and
+                (($event.relationships | length) > 0) and
+                (any($event.attributes[]; .name == "time_basis" and .value == "source_record_event_time")) and
+                (any($event.attributes[]; .name == "time_evidence_ref" and (.value | type == "string" and startswith("synthetic:")))) and
+                (any($event.attributes[]; .name == "source_event_ref" and (.value | type == "string" and length > 0))) and
+                (any($log.eventTypes[]; .name == $event.type)) and
+                (all($event.relationships[]?;
+                  . as $rel |
+                  ($rel.qualifier | type == "string" and length > 0) and
+                  any($log.objects[]; .id == $rel.objectId)
+                ))
+              )
+            ) and
+            (. as $log |
+              all($log.objects[];
+                . as $object |
+                ($object.id | type == "string" and length > 0) and
+                (any($log.objectTypes[]; .name == $object.type)) and
+                (all($object.attributes[];
+                  (.time | iso8601) and
+                  (.name | type == "string" and length > 0)
+                )) and
+                (all($object.relationships[]?;
+                  . as $rel |
+                  ($rel.qualifier | type == "string" and length > 0) and
+                  any($log.objects[]; .id == $rel.objectId)
+                ))
+              )
+            )
+          ' "$OCEL" >/dev/null
+
+          jq -e --slurpfile ocel "$OCEL" '
+            ([.event_types[].name] | sort) == ([$ocel[0].eventTypes[].name] | sort) and
+            ([.object_types[].name] | sort) == ([$ocel[0].objectTypes[].name] | sort) and
+            ([.event_types[].name] | length) == ([.event_types[].name] | unique | length) and
+            ([.object_types[].name] | length) == ([.object_types[].name] | unique | length)
+          ' "$CROSSWALK" >/dev/null
+
+          jq -r '"OCEL 2.0 fixture PASS: objects=\(.objects|length), events=\(.events|length), object_types=\(.objectTypes|length), event_types=\(.eventTypes|length)"' "$OCEL"
+
+      - name: Validate owner-scoped causal sidecar and DAG
+        run: |
+          set -euo pipefail
+          SIDECAR=docs/economic/ocel/fixtures/economic-os-procurement-causal-sidecar.v0.1.json
+          OCEL=docs/economic/ocel/fixtures/economic-os-procurement-split-obligation-v0.1.json
+
+          jq -e '
+            def key($ref): ($ref.owner_id + "\u001f" + $ref.event_id);
+            def cycle_from($edges; $origin; $current; $visited):
+              [$edges[] | select(.from == $current) | .to] |
+              any(.[] as $next;
+                if $next == $origin then true
+                elif ($visited | index($next)) != null then false
+                else cycle_from($edges; $origin; $next; ($visited + [$next]))
+                end
+              );
+            (.profile == "MYCELIX-ECONOMIC-CAUSAL-SIDECAR-V1") and
+            (.nodes | type == "array" and length > 0) and
+            (.nodes as $nodes |
+              ([ $nodes[] | key(.) ] | length) ==
+              ([ $nodes[] | key(.) ] | unique | length)
+            ) and
+            (.nodes | group_by(.owner_id) |
+              all(.[]; [.[].owner_sequence] == [range(0; length)])
+            ) and
+            (.nodes as $nodes |
+              all($nodes[];
+                . as $node |
+                if $node.owner_sequence == 0 then
+                  $node.owner_predecessor == null
+                else
+                  any($nodes[];
+                    .owner_id == $node.owner_predecessor.owner_id and
+                    .event_id == $node.owner_predecessor.event_id and
+                    .owner_sequence == ($node.owner_sequence - 1)
+                  )
+                end
+              )
+            ) and
+            (.nodes as $nodes |
+              all($nodes[];
+                . as $node |
+                all($node.caused_by[]?;
+                  . as $parent |
+                  any($nodes[];
+                    .owner_id == $parent.owner_id and .event_id == $parent.event_id
+                  ) and
+                  ($parent.owner_id != $node.owner_id or $parent.event_id != $node.event_id)
+                )
+              )
+            ) and
+            (.nodes as $nodes |
+              (
+                [ $nodes[] as $node |
+                  select($node.owner_predecessor != null) |
+                  {from:key($node.owner_predecessor),to:key($node)}
+                ] +
+                [ $nodes[] as $node | $node.caused_by[]? as $parent |
+                  {from:key($parent),to:key($node)}
+                ]
+              ) as $edges |
+              [ $nodes[] | key(.) ] as $ids |
+              all($ids[] as $start; (cycle_from($edges; $start; $start; [$start]) | not))
+            ) and
+            (.nodes | all(.[]; (.owner_id|type=="string" and length>0) and (.event_id|type=="string" and length>0) and (.ocel_event_id|type=="string" and length>0)))
+          ' "$SIDECAR" >/dev/null
+
+          jq -e --slurpfile ocel "$OCEL" '
+            ([.nodes[].ocel_event_id] | sort) == ([$ocel[0].events[].id] | sort) and
+            ([.nodes[].ocel_event_id] | length) == ([.nodes[].ocel_event_id] | unique | length)
+          ' "$SIDECAR" >/dev/null
+
+          jq -r '"Causal sidecar PASS: nodes=\(.nodes|length), owner_count=(.nodes|map(.owner_id)|unique|length)"' "$SIDECAR"
+
+      - name: Validate loss manifest and adversarial corpus
+        run: |
+          set -euo pipefail
+          LOSS=docs/economic/ocel/fixtures/economic-os-procurement-loss-manifest.v0.1.json
+          CORPUS=docs/economic/ocel/benchmarks/economic-os-ocel-adversarial-corpus.v0.1.json
+
+          jq -e '
+            (.rules.no_silent_loss == true) and
+            (.rules.no_event_time_fallback == true) and
+            (.excluded_sources | length >= 2) and
+            (all(.excluded_sources[];
+              .disposition == "HELD_NOT_EXPORTED" and
+              (.reason | type == "string" and length > 0) and
+              (.forbidden_fallback | type == "string" and length > 0) and
+              (.required_resolution | type == "string" and length > 0)
+            ))
+          ' "$LOSS" >/dev/null
+
+          jq -e '
+            (.target_profile == "OCEL-2.0-JSON") and
+            (.case_count == 36) and
+            (.cases | length == .case_count) and
+            ([.cases[].id] | length) == ([.cases[].id] | unique | length) and
+            (.allowed_dispositions as $allowed |
+              all(.cases[]; .expected_disposition as $d | ($allowed | index($d)) != null)
+            )
+          ' "$CORPUS" >/dev/null
+
+          jq -r '"Loss manifest PASS: held_sources=\(.excluded_sources|length)"' "$LOSS"
+          jq -r '"Adversarial corpus PASS: cases=\(.cases|length), dimensions=\(.cases|map(.dimension)|unique|length)"' "$CORPUS"
+
+      - name: Validate external reference dataset benchmark manifest
+        run: |
+          set -euo pipefail
+          FILE=docs/economic/ocel/benchmarks/external-reference-datasets.v0.1.json
+          jq -e '
+            (.benchmark == "Economic OS external object-centric event-log reference datasets") and
+            (.status == "pinned_public_dataset_manifest_not_executed_benchmark_result") and
+            (.datasets | length == 2) and
+            ([.datasets[].id] | length == ([.datasets[].id] | unique | length)) and
+            (.datasets[] | select(.id == "ocel-p2p-simulation") |
+              .properties.event_types == 10 and
+              .properties.object_types == 7 and
+              .properties.events == 14671 and
+              .properties.objects == 9543 and
+              (.behaviors | index("duplicate payments") != null)
+            ) and
+            (.datasets[] | select(.id == "ocel-synthetic-relational-v1") |
+              .seed == 20260820 and
+              .primary_instances_per_scenario == 3000 and
+              (.scenarios | length == 6) and
+              ([.scenarios[].slug] | length == ([.scenarios[].slug] | unique | length)) and
+              all(.scenarios[]; .source_rows > 0 and .reference_events > 0 and .reference_objects > 0)
+            ) and
+            (.matched_arms | map(.id) == ["A","B","C","D"]) and
+            (.guardrails | length >= 4)
+          ' "$FILE" >/dev/null
+          jq -r '"External OCEL manifest PASS: datasets=(.datasets|length), relational_scenarios=(.datasets[]|select(.id=="ocel-synthetic-relational-v1")|.scenarios|length)"' "$FILE"
+
+      - name: Report qualification boundary
+        run: |
+          printf '%s\n' \
+            'PASS = local structural checks for the pinned synthetic OCEL 2.0 JSON, crosswalk, loss manifest, causal sidecar and adversarial corpus.' \
+            'NOT TESTED = official full JSON Schema validation, PM4Py/Ocelot round-trip, OCEL 2.1 CSV/Parquet compatibility, real source adapters, event-time authenticity, legal authority, settlement, or production performance.' \
+            'No standard certification or production conformance is implied.'

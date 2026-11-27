@@ -1,0 +1,40 @@
+{
+  "manifest": "Economic OS OCEL v0.1 loss and exclusion manifest",
+  "version": "0.1",
+  "status": "synthetic_development_fixture",
+  "projection_profile": "OCEL-2.0-JSON",
+  "source_graph_ref": "economic-os-procurement-split-obligation-v0.1",
+  "rules": {
+    "no_silent_loss": true,
+    "no_event_time_fallback": true,
+    "no_timestamp_inference_from_owner_sequence": true,
+    "no_unsupported_attribute_coercion": true,
+    "preserve_original_effect_and_append_correction": true
+  },
+  "excluded_sources": [
+    {
+      "source_record_ref": "synthetic:temperature-scan-without-event-time",
+      "source_owner": "warehouse:receiver-1",
+      "disposition": "HELD_NOT_EXPORTED",
+      "reason": "The source record contains a measurement but no qualified event-time assertion.",
+      "observed_record_time": "2026-11-21T13:04:00Z",
+      "forbidden_fallback": "Do not substitute record_time for event_time.",
+      "required_resolution": "Obtain source event-time evidence or export only under a separately approved extension with explicit time semantics."
+    },
+    {
+      "source_record_ref": "synthetic:provider-status-conflicting-time",
+      "source_owner": "provider:rail-1",
+      "disposition": "HELD_NOT_EXPORTED",
+      "reason": "Two source messages disagree about the event time and neither is authoritative under the pinned provider profile.",
+      "observed_record_times": [
+        "2026-11-22T08:02:00Z",
+        "2026-11-22T08:05:00Z"
+      ],
+      "forbidden_fallback": "Do not choose earliest/latest ingestion time or infer order from file position.",
+      "required_resolution": "Resolve the contradiction against the source provider profile or keep the record outside the OCEL event set."
+    }
+  ],
+  "declared_losses": [],
+  "excluded_root_fields": [],
+  "note": "This manifest is part of the projection evidence. It is not itself proof that the source set is complete."
+}

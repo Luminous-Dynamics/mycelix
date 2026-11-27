@@ -1,0 +1,172 @@
+{
+  "profile": "MYCELIX-ECONOMIC-CAUSAL-SIDECAR-V1",
+  "version": "1.0",
+  "status": "synthetic_development_fixture_not_authenticated_source_evidence",
+  "relationship_rule": "Only explicit owner_predecessor and caused_by references create event-event order. No wall-clock or ingestion order is inferred.",
+  "event_mapping_profile": "economic-os-ocel-crosswalk-v0.1",
+  "owner_frontier_semantics": "Per-owner sequence numbers are independent; no global counter is created.",
+  "nodes": [
+    {
+      "owner_id": "governance:grant-001",
+      "event_id": "source:budget-reserved-1",
+      "ocel_event_id": "e-budget",
+      "owner_sequence": 0,
+      "owner_predecessor": null,
+      "caused_by": []
+    },
+    {
+      "owner_id": "procurement:obligation-001",
+      "event_id": "source:po-commit-1",
+      "ocel_event_id": "e-order",
+      "owner_sequence": 0,
+      "owner_predecessor": null,
+      "caused_by": [
+        {
+          "owner_id": "governance:grant-001",
+          "event_id": "source:budget-reserved-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "supplier:sup-001",
+      "event_id": "source:supplier-commitment-1",
+      "ocel_event_id": "e-supplier-commit",
+      "owner_sequence": 0,
+      "owner_predecessor": null,
+      "caused_by": [
+        {
+          "owner_id": "procurement:obligation-001",
+          "event_id": "source:po-commit-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "supplier:sup-001",
+      "event_id": "source:delivery-dispatch-1",
+      "ocel_event_id": "e-dispatch",
+      "owner_sequence": 1,
+      "owner_predecessor": {
+        "owner_id": "supplier:sup-001",
+        "event_id": "source:supplier-commitment-1"
+      },
+      "caused_by": [
+        {
+          "owner_id": "procurement:obligation-001",
+          "event_id": "source:po-commit-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "procurement:obligation-001",
+      "event_id": "source:goods-received-1",
+      "ocel_event_id": "e-receipt",
+      "owner_sequence": 1,
+      "owner_predecessor": {
+        "owner_id": "procurement:obligation-001",
+        "event_id": "source:po-commit-1"
+      },
+      "caused_by": [
+        {
+          "owner_id": "supplier:sup-001",
+          "event_id": "source:delivery-dispatch-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "procurement:obligation-001",
+      "event_id": "source:beneficiary-acceptance-1",
+      "ocel_event_id": "e-accept",
+      "owner_sequence": 2,
+      "owner_predecessor": {
+        "owner_id": "procurement:obligation-001",
+        "event_id": "source:goods-received-1"
+      },
+      "caused_by": []
+    },
+    {
+      "owner_id": "supplier:sup-001",
+      "event_id": "source:invoice-issued-1",
+      "ocel_event_id": "e-invoice",
+      "owner_sequence": 2,
+      "owner_predecessor": {
+        "owner_id": "supplier:sup-001",
+        "event_id": "source:delivery-dispatch-1"
+      },
+      "caused_by": [
+        {
+          "owner_id": "procurement:obligation-001",
+          "event_id": "source:beneficiary-acceptance-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "procurement:obligation-001",
+      "event_id": "source:payable-recognized-1",
+      "ocel_event_id": "e-payable",
+      "owner_sequence": 3,
+      "owner_predecessor": {
+        "owner_id": "procurement:obligation-001",
+        "event_id": "source:beneficiary-acceptance-1"
+      },
+      "caused_by": [
+        {
+          "owner_id": "supplier:sup-001",
+          "event_id": "source:invoice-issued-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "treasury:owner-001",
+      "event_id": "source:payment-instruction-1",
+      "ocel_event_id": "e-instruction",
+      "owner_sequence": 0,
+      "owner_predecessor": null,
+      "caused_by": [
+        {
+          "owner_id": "procurement:obligation-001",
+          "event_id": "source:payable-recognized-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "treasury:owner-001",
+      "event_id": "source:provider-status-1",
+      "ocel_event_id": "e-provider-status",
+      "owner_sequence": 1,
+      "owner_predecessor": {
+        "owner_id": "treasury:owner-001",
+        "event_id": "source:payment-instruction-1"
+      },
+      "caused_by": []
+    },
+    {
+      "owner_id": "bank:account-sup-001",
+      "event_id": "source:statement-entry-1",
+      "ocel_event_id": "e-statement",
+      "owner_sequence": 0,
+      "owner_predecessor": null,
+      "caused_by": [
+        {
+          "owner_id": "treasury:owner-001",
+          "event_id": "source:provider-status-1"
+        }
+      ]
+    },
+    {
+      "owner_id": "supplier:sup-001",
+      "event_id": "source:receipt-claim-1",
+      "ocel_event_id": "e-claim",
+      "owner_sequence": 3,
+      "owner_predecessor": {
+        "owner_id": "supplier:sup-001",
+        "event_id": "source:invoice-issued-1"
+      },
+      "caused_by": [
+        {
+          "owner_id": "bank:account-sup-001",
+          "event_id": "source:statement-entry-1"
+        }
+      ]
+    }
+  ]
+}

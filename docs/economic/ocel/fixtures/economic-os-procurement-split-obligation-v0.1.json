@@ -1,0 +1,1230 @@
+{
+  "objectTypes": [
+    {
+      "name": "EconomicObligation",
+      "attributes": [
+        {
+          "name": "amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        },
+        {
+          "name": "obligation_status",
+          "type": "string"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "GrantAllocation",
+      "attributes": [
+        {
+          "name": "reserved_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        },
+        {
+          "name": "allocation_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "PurchaseOrder",
+      "attributes": [
+        {
+          "name": "order_quantity",
+          "type": "integer"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        },
+        {
+          "name": "order_amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "order_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Supplier",
+      "attributes": [
+        {
+          "name": "supplier_status",
+          "type": "string"
+        },
+        {
+          "name": "supplier_code",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "DeliveryLot",
+      "attributes": [
+        {
+          "name": "quantity",
+          "type": "integer"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        },
+        {
+          "name": "quality_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Beneficiary",
+      "attributes": [
+        {
+          "name": "beneficiary_kind",
+          "type": "string"
+        },
+        {
+          "name": "acceptance_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Invoice",
+      "attributes": [
+        {
+          "name": "invoice_amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        },
+        {
+          "name": "invoice_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Payable",
+      "attributes": [
+        {
+          "name": "payable_amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        },
+        {
+          "name": "payable_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "PaymentInstruction",
+      "attributes": [
+        {
+          "name": "amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        },
+        {
+          "name": "instruction_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "TreasuryOwner",
+      "attributes": [
+        {
+          "name": "owner_domain",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ExternalAccount",
+      "attributes": [
+        {
+          "name": "account_profile",
+          "type": "string"
+        },
+        {
+          "name": "account_owner_ref",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "eventTypes": [
+    {
+      "name": "budget_reserved",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "reserved_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "purchase_order_committed",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "order_quantity",
+          "type": "integer"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "supplier_committed",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "commitment_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "delivery_dispatched",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "quantity",
+          "type": "integer"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "goods_received",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "quantity",
+          "type": "integer"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "beneficiary_accepted",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "accepted_quantity",
+          "type": "integer"
+        },
+        {
+          "name": "unit_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "invoice_issued",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "invoice_amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "payable_recognized",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "payable_amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "payment_instruction_sent",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "instrument_profile",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "provider_status_observed",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "provider_status",
+          "type": "string"
+        },
+        {
+          "name": "status_scope",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "statement_entry_observed",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "statement_entry_class",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "beneficiary_receipt_claimed",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "type": "string"
+        },
+        {
+          "name": "time_evidence_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_event_ref",
+          "type": "string"
+        },
+        {
+          "name": "claimed_amount_minor",
+          "type": "integer"
+        },
+        {
+          "name": "claim_status",
+          "type": "string"
+        },
+        {
+          "name": "claimant_kind",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "OBL-001",
+      "type": "EconomicObligation",
+      "attributes": [
+        {
+          "name": "amount_minor",
+          "time": "2026-11-20T08:00:00Z",
+          "value": 125000
+        },
+        {
+          "name": "instrument_profile",
+          "time": "2026-11-20T08:00:00Z",
+          "value": "SAP-NOTE-V1"
+        },
+        {
+          "name": "obligation_status",
+          "time": "2026-11-20T08:00:00Z",
+          "value": "approved"
+        }
+      ]
+    },
+    {
+      "id": "GRANT-001",
+      "type": "GrantAllocation",
+      "attributes": [
+        {
+          "name": "reserved_minor",
+          "time": "2026-11-20T08:00:00Z",
+          "value": 125000
+        },
+        {
+          "name": "instrument_profile",
+          "time": "2026-11-20T08:00:00Z",
+          "value": "SAP-NOTE-V1"
+        },
+        {
+          "name": "allocation_status",
+          "time": "2026-11-20T08:00:00Z",
+          "value": "reserved"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "OBL-001",
+          "qualifier": "budget_source_for"
+        }
+      ]
+    },
+    {
+      "id": "PO-001",
+      "type": "PurchaseOrder",
+      "attributes": [
+        {
+          "name": "order_quantity",
+          "time": "2026-11-20T09:00:00Z",
+          "value": 250
+        },
+        {
+          "name": "unit_profile",
+          "time": "2026-11-20T09:00:00Z",
+          "value": "filter_cartridge"
+        },
+        {
+          "name": "order_amount_minor",
+          "time": "2026-11-20T09:00:00Z",
+          "value": 125000
+        },
+        {
+          "name": "order_status",
+          "time": "2026-11-20T09:00:00Z",
+          "value": "committed"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "OBL-001",
+          "qualifier": "obligation_for"
+        },
+        {
+          "objectId": "SUP-001",
+          "qualifier": "supplier_for_order"
+        }
+      ]
+    },
+    {
+      "id": "SUP-001",
+      "type": "Supplier",
+      "attributes": [
+        {
+          "name": "supplier_status",
+          "time": "2026-11-20T09:00:00Z",
+          "value": "contracted"
+        },
+        {
+          "name": "supplier_code",
+          "time": "2026-11-20T09:00:00Z",
+          "value": "SUP-7"
+        }
+      ]
+    },
+    {
+      "id": "LOT-001",
+      "type": "DeliveryLot",
+      "attributes": [
+        {
+          "name": "quantity",
+          "time": "2026-11-21T10:00:00Z",
+          "value": 250
+        },
+        {
+          "name": "unit_profile",
+          "time": "2026-11-21T10:00:00Z",
+          "value": "filter_cartridge"
+        },
+        {
+          "name": "quality_status",
+          "time": "2026-11-21T10:00:00Z",
+          "value": "inspection_pending"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PO-001",
+          "qualifier": "lot_for_order"
+        }
+      ]
+    },
+    {
+      "id": "BEN-001",
+      "type": "Beneficiary",
+      "attributes": [
+        {
+          "name": "beneficiary_kind",
+          "time": "2026-11-21T14:00:00Z",
+          "value": "community_service_recipient"
+        },
+        {
+          "name": "acceptance_profile",
+          "time": "2026-11-21T14:00:00Z",
+          "value": "community_goods_acceptance_v1"
+        }
+      ]
+    },
+    {
+      "id": "INV-001",
+      "type": "Invoice",
+      "attributes": [
+        {
+          "name": "invoice_amount_minor",
+          "time": "2026-11-21T14:30:00Z",
+          "value": 100000
+        },
+        {
+          "name": "instrument_profile",
+          "time": "2026-11-21T14:30:00Z",
+          "value": "SAP-NOTE-V1"
+        },
+        {
+          "name": "invoice_status",
+          "time": "2026-11-21T14:30:00Z",
+          "value": "issued"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PO-001",
+          "qualifier": "invoice_for_order"
+        }
+      ]
+    },
+    {
+      "id": "PAYABLE-001",
+      "type": "Payable",
+      "attributes": [
+        {
+          "name": "payable_amount_minor",
+          "time": "2026-11-21T15:00:00Z",
+          "value": 100000
+        },
+        {
+          "name": "instrument_profile",
+          "time": "2026-11-21T15:00:00Z",
+          "value": "SAP-NOTE-V1"
+        },
+        {
+          "name": "payable_status",
+          "time": "2026-11-21T15:00:00Z",
+          "value": "recognized"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "INV-001",
+          "qualifier": "payable_for_invoice"
+        }
+      ]
+    },
+    {
+      "id": "TREASURY-001",
+      "type": "TreasuryOwner",
+      "attributes": [
+        {
+          "name": "owner_domain",
+          "time": "2026-11-22T08:00:00Z",
+          "value": "Treasury"
+        }
+      ]
+    },
+    {
+      "id": "PAY-001",
+      "type": "PaymentInstruction",
+      "attributes": [
+        {
+          "name": "amount_minor",
+          "time": "2026-11-22T08:00:00Z",
+          "value": 100000
+        },
+        {
+          "name": "instrument_profile",
+          "time": "2026-11-22T08:00:00Z",
+          "value": "SAP-NOTE-V1"
+        },
+        {
+          "name": "instruction_status",
+          "time": "2026-11-22T08:00:00Z",
+          "value": "dispatched"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PAYABLE-001",
+          "qualifier": "instruction_for_payable"
+        },
+        {
+          "objectId": "SUP-001",
+          "qualifier": "instruction_to_supplier"
+        },
+        {
+          "objectId": "TREASURY-001",
+          "qualifier": "authorized_from_owner"
+        }
+      ]
+    },
+    {
+      "id": "BANK-001",
+      "type": "ExternalAccount",
+      "attributes": [
+        {
+          "name": "account_profile",
+          "time": "2026-11-22T08:01:00Z",
+          "value": "synthetic-bank-statement-v1"
+        },
+        {
+          "name": "account_owner_ref",
+          "time": "2026-11-22T08:01:00Z",
+          "value": "SUP-001"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PAY-001",
+          "qualifier": "statement_for_instruction"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "e-budget",
+      "type": "budget_reserved",
+      "time": "2026-11-20T08:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:grant-reservation-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:grant-reservation-1"
+        },
+        {
+          "name": "reserved_minor",
+          "value": 125000
+        },
+        {
+          "name": "instrument_profile",
+          "value": "SAP-NOTE-V1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "OBL-001",
+          "qualifier": "obligation"
+        },
+        {
+          "objectId": "GRANT-001",
+          "qualifier": "budget_owner"
+        }
+      ]
+    },
+    {
+      "id": "e-order",
+      "type": "purchase_order_committed",
+      "time": "2026-11-20T09:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:purchase-order-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:purchase-order-1"
+        },
+        {
+          "name": "order_quantity",
+          "value": 250
+        },
+        {
+          "name": "unit_profile",
+          "value": "filter_cartridge"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PO-001",
+          "qualifier": "purchase_order"
+        },
+        {
+          "objectId": "SUP-001",
+          "qualifier": "supplier"
+        },
+        {
+          "objectId": "OBL-001",
+          "qualifier": "obligation"
+        }
+      ]
+    },
+    {
+      "id": "e-supplier-commit",
+      "type": "supplier_committed",
+      "time": "2026-11-20T09:15:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:supplier-commitment-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:supplier-commitment-1"
+        },
+        {
+          "name": "commitment_profile",
+          "value": "supplier_commitment_recorded_v1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "SUP-001",
+          "qualifier": "committing_supplier"
+        },
+        {
+          "objectId": "PO-001",
+          "qualifier": "committed_order"
+        }
+      ]
+    },
+    {
+      "id": "e-dispatch",
+      "type": "delivery_dispatched",
+      "time": "2026-11-21T10:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:epcis-dispatch-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:epcis-dispatch-1"
+        },
+        {
+          "name": "quantity",
+          "value": 250
+        },
+        {
+          "name": "unit_profile",
+          "value": "filter_cartridge"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "SUP-001",
+          "qualifier": "shipping_party"
+        },
+        {
+          "objectId": "LOT-001",
+          "qualifier": "delivery_lot"
+        },
+        {
+          "objectId": "PO-001",
+          "qualifier": "purchase_order"
+        }
+      ]
+    },
+    {
+      "id": "e-receipt",
+      "type": "goods_received",
+      "time": "2026-11-21T13:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:goods-receipt-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:goods-receipt-1"
+        },
+        {
+          "name": "quantity",
+          "value": 250
+        },
+        {
+          "name": "unit_profile",
+          "value": "filter_cartridge"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "LOT-001",
+          "qualifier": "received_lot"
+        },
+        {
+          "objectId": "PO-001",
+          "qualifier": "purchase_order"
+        }
+      ]
+    },
+    {
+      "id": "e-accept",
+      "type": "beneficiary_accepted",
+      "time": "2026-11-21T14:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:beneficiary-acceptance-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:beneficiary-acceptance-1"
+        },
+        {
+          "name": "accepted_quantity",
+          "value": 250
+        },
+        {
+          "name": "unit_profile",
+          "value": "filter_cartridge"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "BEN-001",
+          "qualifier": "accepting_beneficiary"
+        },
+        {
+          "objectId": "LOT-001",
+          "qualifier": "accepted_lot"
+        },
+        {
+          "objectId": "OBL-001",
+          "qualifier": "fulfilled_obligation"
+        }
+      ]
+    },
+    {
+      "id": "e-invoice",
+      "type": "invoice_issued",
+      "time": "2026-11-21T14:30:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:supplier-invoice-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:supplier-invoice-1"
+        },
+        {
+          "name": "invoice_amount_minor",
+          "value": 100000
+        },
+        {
+          "name": "instrument_profile",
+          "value": "SAP-NOTE-V1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "SUP-001",
+          "qualifier": "issuing_supplier"
+        },
+        {
+          "objectId": "INV-001",
+          "qualifier": "invoice"
+        },
+        {
+          "objectId": "PO-001",
+          "qualifier": "invoice_for_order"
+        }
+      ]
+    },
+    {
+      "id": "e-payable",
+      "type": "payable_recognized",
+      "time": "2026-11-21T15:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:payable-journal-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:payable-journal-1"
+        },
+        {
+          "name": "payable_amount_minor",
+          "value": 100000
+        },
+        {
+          "name": "instrument_profile",
+          "value": "SAP-NOTE-V1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PAYABLE-001",
+          "qualifier": "payable"
+        },
+        {
+          "objectId": "INV-001",
+          "qualifier": "source_invoice"
+        },
+        {
+          "objectId": "TREASURY-001",
+          "qualifier": "journal_owner"
+        }
+      ]
+    },
+    {
+      "id": "e-instruction",
+      "type": "payment_instruction_sent",
+      "time": "2026-11-22T08:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:payment-instruction-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:payment-instruction-1"
+        },
+        {
+          "name": "amount_minor",
+          "value": 100000
+        },
+        {
+          "name": "instrument_profile",
+          "value": "SAP-NOTE-V1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PAY-001",
+          "qualifier": "payment_instruction"
+        },
+        {
+          "objectId": "PAYABLE-001",
+          "qualifier": "payable"
+        },
+        {
+          "objectId": "SUP-001",
+          "qualifier": "payee"
+        },
+        {
+          "objectId": "TREASURY-001",
+          "qualifier": "dispatch_owner"
+        }
+      ]
+    },
+    {
+      "id": "e-provider-status",
+      "type": "provider_status_observed",
+      "time": "2026-11-22T08:01:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:provider-status-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:provider-status-1"
+        },
+        {
+          "name": "provider_status",
+          "value": "accepted_for_processing"
+        },
+        {
+          "name": "status_scope",
+          "value": "provider_acknowledgement_only"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "PAY-001",
+          "qualifier": "instruction"
+        },
+        {
+          "objectId": "SUP-001",
+          "qualifier": "named_payee"
+        }
+      ]
+    },
+    {
+      "id": "e-statement",
+      "type": "statement_entry_observed",
+      "time": "2026-11-23T08:30:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:statement-entry-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:statement-entry-1"
+        },
+        {
+          "name": "amount_minor",
+          "value": 100000
+        },
+        {
+          "name": "statement_entry_class",
+          "value": "credit_entry_observed"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "BANK-001",
+          "qualifier": "statement_source"
+        },
+        {
+          "objectId": "PAY-001",
+          "qualifier": "correlated_instruction"
+        },
+        {
+          "objectId": "SUP-001",
+          "qualifier": "account_owner"
+        }
+      ]
+    },
+    {
+      "id": "e-claim",
+      "type": "beneficiary_receipt_claimed",
+      "time": "2026-11-23T09:00:00Z",
+      "attributes": [
+        {
+          "name": "time_basis",
+          "value": "source_record_event_time"
+        },
+        {
+          "name": "time_evidence_ref",
+          "value": "synthetic:recipient-claim-1:event-time"
+        },
+        {
+          "name": "source_event_ref",
+          "value": "synthetic:recipient-claim-1"
+        },
+        {
+          "name": "claimed_amount_minor",
+          "value": 100000
+        },
+        {
+          "name": "claim_status",
+          "value": "claimed_received"
+        },
+        {
+          "name": "claimant_kind",
+          "value": "supplier"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "SUP-001",
+          "qualifier": "recipient_claimant"
+        },
+        {
+          "objectId": "PAY-001",
+          "qualifier": "referenced_instruction"
+        },
+        {
+          "objectId": "OBL-001",
+          "qualifier": "referenced_obligation"
+        }
+      ]
+    }
+  ]
+}

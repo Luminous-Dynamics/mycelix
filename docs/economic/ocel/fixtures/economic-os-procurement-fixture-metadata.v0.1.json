@@ -1,0 +1,9 @@
+{
+  "profile": "OCEL-2.0-JSON",
+  "fixture": "economic-os-procurement-split-obligation-v0.1",
+  "status": "synthetic_development_fixture_not_real_economic_activity",
+  "event_time_policy": "All event time values are synthetic source_record_event_time assertions with explicit synthetic time_evidence_ref attributes. Production export must not use these placeholders.",
+  "money_policy": "Amounts are integer minor units under explicit SAP-NOTE-V1; no floating point or implied FX conversion.",
+  "causal_policy": "Event-event causal references are not encoded as OCEL relationships; see the separate owner-scoped causal sidecar.",
+  "strictness": "No nonstandard metadata is added to the OCEL document root. This metadata is maintained separately."
+}
