@@ -215,10 +215,9 @@ impl TemporalEvidenceSetV1 {
             validate_identifier(&assertion.assertion_id)?;
             validate_identifier(&assertion.claim_id)?;
             validate_identifier(&assertion.subject_ref)?;
-            if let Some(previous_subject) = claim_subjects.insert(
-                assertion.claim_id.as_str(),
-                assertion.subject_ref.as_str(),
-            ) {
+            if let Some(previous_subject) =
+                claim_subjects.insert(assertion.claim_id.as_str(), assertion.subject_ref.as_str())
+            {
                 if previous_subject != assertion.subject_ref {
                     return Err(TemporalKernelErrorV1::ClaimSubjectMismatch);
                 }
@@ -340,9 +339,7 @@ impl TemporalEvidenceSetV1 {
                         entry.insert(1);
                         path.push(id);
                     }
-                    std::collections::btree_map::Entry::Occupied(entry)
-                        if *entry.get() == 1 =>
-                    {
+                    std::collections::btree_map::Entry::Occupied(entry) if *entry.get() == 1 => {
                         return Err(TemporalKernelErrorV1::SupersessionCycle);
                     }
                     std::collections::btree_map::Entry::Occupied(_) => break,
@@ -375,7 +372,11 @@ impl TemporalEvidenceSetV1 {
     ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
         self.validate()?;
         self.evaluate_valid_at_validated(
-            claim_id, verifier_ref, valid_at, known_at, allow_open_ended_valid_to,
+            claim_id,
+            verifier_ref,
+            valid_at,
+            known_at,
+            allow_open_ended_valid_to,
         )
     }
 
@@ -395,9 +396,7 @@ impl TemporalEvidenceSetV1 {
         let claim_assertions: Vec<&TemporalAssertionV1> = self
             .assertions
             .iter()
-            .filter(|assertion| {
-                assertion.claim_id == claim_id && assertion.dimension.is_fact()
-            })
+            .filter(|assertion| assertion.claim_id == claim_id && assertion.dimension.is_fact())
             .collect();
 
         let Some(subject_ref) = claim_assertions
@@ -432,9 +431,9 @@ impl TemporalEvidenceSetV1 {
 
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
-            Selection::Missing
-            | Selection::NotKnown
-            | Selection::Indeterminate => (None, Vec::new()),
+            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
+                (None, Vec::new())
+            }
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
                     disposition: QueryDispositionV1::Conflict,
@@ -540,7 +539,6 @@ impl TemporalEvidenceSetV1 {
         }))
     }
 
-
     /// Return the occurrence-time assertion visible to verifier X by K.
     /// If a later correction was not yet known at K, the earlier assertion
     /// remains the historical answer.
@@ -617,7 +615,6 @@ impl TemporalEvidenceSetV1 {
         Ok(result)
     }
 
-
     fn select_as_known(
         &self,
         claim_id: &str,
@@ -632,9 +629,11 @@ impl TemporalEvidenceSetV1 {
             .collect();
 
         let mut eligible: Vec<(&TemporalAssertionV1, Vec<String>)> = Vec::new();
-        for assertion in self.assertions.iter().filter(|assertion| {
-            assertion.claim_id == claim_id && assertion.dimension == dimension
-        }) {
+        for assertion in self
+            .assertions
+            .iter()
+            .filter(|assertion| assertion.claim_id == claim_id && assertion.dimension == dimension)
+        {
             let mut knowledge_ids = Vec::new();
             let mut contested_knowledge = false;
             let mut uncertain_knowledge = false;
@@ -668,7 +667,11 @@ impl TemporalEvidenceSetV1 {
             let has_assertion = self.assertions.iter().any(|assertion| {
                 assertion.claim_id == claim_id && assertion.dimension == dimension
             });
-            return Ok(if has_assertion { Selection::NotKnown } else { Selection::Missing });
+            return Ok(if has_assertion {
+                Selection::NotKnown
+            } else {
+                Selection::Missing
+            });
         }
 
         let eligible_ids: BTreeSet<&str> = eligible
@@ -706,10 +709,7 @@ impl TemporalEvidenceSetV1 {
             .unwrap_or_default();
         Ok(Selection::Selected(selected, knowledge_ids))
     }
-
-
 }
-
 
 /// Query-ready evidence snapshot. Build once after authenticating and validating
 /// the input assertions; subsequent queries touch only the relevant claim,
@@ -807,9 +807,9 @@ impl TemporalEvidenceIndexV1 {
         )?;
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
-            Selection::Missing
-            | Selection::NotKnown
-            | Selection::Indeterminate => (None, Vec::new()),
+            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
+                (None, Vec::new())
+            }
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
                     disposition: QueryDispositionV1::Conflict,
@@ -1002,9 +1002,7 @@ impl TemporalEvidenceIndexV1 {
             let mut knowledge_ids = Vec::new();
             let mut contested_knowledge = false;
             let mut uncertain_knowledge = false;
-            if let Some(knowledge_positions) =
-                self.knowledge_by_fact_verifier.get(&knowledge_key)
-            {
+            if let Some(knowledge_positions) = self.knowledge_by_fact_verifier.get(&knowledge_key) {
                 for knowledge_position in knowledge_positions {
                     let knowledge = &self.evidence.assertions[*knowledge_position];
                     match knowledge_visibility(knowledge, known_at)? {
@@ -1067,8 +1065,6 @@ impl TemporalEvidenceIndexV1 {
             .unwrap_or_default();
         Ok(Selection::Selected(selected, knowledge_ids))
     }
-
-
 }
 
 enum Selection<'a> {
@@ -1106,7 +1102,11 @@ impl TemporalEvidenceScanV1 {
         allow_open_ended_valid_to: bool,
     ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
         self.evidence.evaluate_valid_at_validated(
-            claim_id, verifier_ref, valid_at, known_at, allow_open_ended_valid_to,
+            claim_id,
+            verifier_ref,
+            valid_at,
+            known_at,
+            allow_open_ended_valid_to,
         )
     }
 
@@ -1167,7 +1167,6 @@ fn knowledge_visibility(
         }
     }
 }
-
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BoundaryResult {
@@ -1260,8 +1259,11 @@ fn normalize_utc(value: &str) -> Result<NormalizedTime, TemporalKernelErrorV1> {
         return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
     let bytes = whole_seconds.as_bytes();
-    if bytes[4] != b'-' || bytes[7] != b'-' || bytes[10] != b'T'
-        || bytes[13] != b':' || bytes[16] != b':'
+    if bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
     {
         return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
@@ -1272,8 +1274,11 @@ fn normalize_utc(value: &str) -> Result<NormalizedTime, TemporalKernelErrorV1> {
     let hour = parse_digits(bytes, 11, 2).ok_or(TemporalKernelErrorV1::InvalidTimestamp)?;
     let minute = parse_digits(bytes, 14, 2).ok_or(TemporalKernelErrorV1::InvalidTimestamp)?;
     let second = parse_digits(bytes, 17, 2).ok_or(TemporalKernelErrorV1::InvalidTimestamp)?;
-    if year == 0 || !(1..=12).contains(&month) || !(0..=23).contains(&hour)
-        || !(0..=59).contains(&minute) || !(0..=59).contains(&second)
+    if year == 0
+        || !(1..=12).contains(&month)
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=59).contains(&second)
     {
         return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
@@ -1313,12 +1318,19 @@ fn parse_digits(bytes: &[u8], start: usize, count: usize) -> Option<u32> {
 
 fn timestamp_matches_precision(value: &NormalizedTime, precision: TemporalPrecisionV1) -> bool {
     let bytes = value.sortable.as_bytes();
-    let Some(hour) = parse_digits(bytes, 11, 2) else { return false; };
-    let Some(minute) = parse_digits(bytes, 14, 2) else { return false; };
-    let Some(second) = parse_digits(bytes, 17, 2) else { return false; };
+    let Some(hour) = parse_digits(bytes, 11, 2) else {
+        return false;
+    };
+    let Some(minute) = parse_digits(bytes, 14, 2) else {
+        return false;
+    };
+    let Some(second) = parse_digits(bytes, 17, 2) else {
+        return false;
+    };
     match precision {
-        TemporalPrecisionV1::Day => hour == 0 && minute == 0 && second == 0
-            && value.fractional_digits == 0,
+        TemporalPrecisionV1::Day => {
+            hour == 0 && minute == 0 && second == 0 && value.fractional_digits == 0
+        }
         TemporalPrecisionV1::Minute => second == 0 && value.fractional_digits == 0,
         TemporalPrecisionV1::Second => value.fractional_digits == 0,
         TemporalPrecisionV1::Millisecond => value.fractional_digits == 3,
@@ -1488,55 +1500,72 @@ mod tests {
             ("2026-11-19T00:00:00Z", "2026-11-21T00:00:00Z"),
             ("2026-11-22T00:00:00Z", "2026-11-21T00:00:00Z"),
         ] {
-            let scan_result = scan.evaluate_valid_at(
-                "grant-1", VERIFIER, valid_at, known_at, false
-            ).unwrap();
+            let scan_result = scan
+                .evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false)
+                .unwrap();
             assert_eq!(
                 evidence.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false),
                 index.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false)
             );
             assert_eq!(
                 scan_result,
-                index.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false).unwrap()
+                index
+                    .evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false)
+                    .unwrap()
             );
         }
 
         let occurrence_evidence = TemporalEvidenceSetV1 {
             assertions: vec![
                 fact(
-                    "occurred-v1", "delivery-1", "delivery:1",
+                    "occurred-v1",
+                    "delivery-1",
+                    "delivery:1",
                     TemporalDimensionV1::OccurredAt,
-                    "2026-11-21T10:00:00Z", None,
+                    "2026-11-21T10:00:00Z",
+                    None,
                 ),
                 fact(
-                    "occurred-v2", "delivery-1", "delivery:1",
+                    "occurred-v2",
+                    "delivery-1",
+                    "delivery:1",
                     TemporalDimensionV1::OccurredAt,
-                    "2026-11-21T10:00:02Z", Some("occurred-v1"),
+                    "2026-11-21T10:00:02Z",
+                    Some("occurred-v1"),
                 ),
                 knowledge(
-                    "v1-known", "delivery-1", "delivery:1", "occurred-v1",
-                    VERIFIER, "2026-11-21T10:00:10Z",
+                    "v1-known",
+                    "delivery-1",
+                    "delivery:1",
+                    "occurred-v1",
+                    VERIFIER,
+                    "2026-11-21T10:00:10Z",
                 ),
                 knowledge(
-                    "v2-known", "delivery-1", "delivery:1", "occurred-v2",
-                    VERIFIER, "2026-11-21T10:00:30Z",
+                    "v2-known",
+                    "delivery-1",
+                    "delivery:1",
+                    "occurred-v2",
+                    VERIFIER,
+                    "2026-11-21T10:00:30Z",
                 ),
             ],
         };
-        let occurrence_scan =
-            TemporalEvidenceScanV1::new(occurrence_evidence.clone()).unwrap();
-        let occurrence_index =
-            TemporalEvidenceIndexV1::new(occurrence_evidence.clone()).unwrap();
+        let occurrence_scan = TemporalEvidenceScanV1::new(occurrence_evidence.clone()).unwrap();
+        let occurrence_index = TemporalEvidenceIndexV1::new(occurrence_evidence.clone()).unwrap();
         for known_at in ["2026-11-21T10:00:20Z", "2026-11-21T10:00:40Z"] {
             let scan_result = occurrence_scan
-                .occurred_at_as_known("delivery-1", VERIFIER, known_at).unwrap();
+                .occurred_at_as_known("delivery-1", VERIFIER, known_at)
+                .unwrap();
             assert_eq!(
                 occurrence_evidence.occurred_at_as_known("delivery-1", VERIFIER, known_at),
                 occurrence_index.occurred_at_as_known("delivery-1", VERIFIER, known_at)
             );
             assert_eq!(
                 scan_result,
-                occurrence_index.occurred_at_as_known("delivery-1", VERIFIER, known_at).unwrap()
+                occurrence_index
+                    .occurred_at_as_known("delivery-1", VERIFIER, known_at)
+                    .unwrap()
             );
         }
     }
@@ -1608,14 +1637,26 @@ mod tests {
         let before_correction = assertions
             .occurred_at_as_known("delivery-1", VERIFIER, "2026-11-21T10:00:20Z")
             .unwrap();
-        assert_eq!(before_correction.assertion_id.as_deref(), Some("occurred-v1"));
-        assert_eq!(before_correction.occurred_at.as_deref(), Some("2026-11-21T10:00:00Z"));
+        assert_eq!(
+            before_correction.assertion_id.as_deref(),
+            Some("occurred-v1")
+        );
+        assert_eq!(
+            before_correction.occurred_at.as_deref(),
+            Some("2026-11-21T10:00:00Z")
+        );
 
         let after_correction = assertions
             .occurred_at_as_known("delivery-1", VERIFIER, "2026-11-21T10:00:40Z")
             .unwrap();
-        assert_eq!(after_correction.assertion_id.as_deref(), Some("occurred-v2"));
-        assert_eq!(after_correction.occurred_at.as_deref(), Some("2026-11-21T10:00:02Z"));
+        assert_eq!(
+            after_correction.assertion_id.as_deref(),
+            Some("occurred-v2")
+        );
+        assert_eq!(
+            after_correction.occurred_at.as_deref(),
+            Some("2026-11-21T10:00:02Z")
+        );
         assertions.validate().unwrap();
     }
 
@@ -1694,7 +1735,9 @@ mod tests {
         let index = TemporalEvidenceIndexV1::new(assertions.clone()).unwrap();
         assert_eq!(
             result,
-            index.occurred_at_as_known("claim", VERIFIER, "2026-11-21T10:00:30Z").unwrap()
+            index
+                .occurred_at_as_known("claim", VERIFIER, "2026-11-21T10:00:30Z")
+                .unwrap()
         );
         assert_eq!(result.disposition, OccurrenceQueryDispositionV1::Conflict);
         assert_eq!(result.assertion_id, None);
@@ -1756,27 +1799,43 @@ mod tests {
     #[test]
     fn unknown_valid_to_is_not_treated_as_open_ended() {
         let mut assertions = valid_fixture();
-        assertions.assertions.retain(|assertion| assertion.assertion_id != "to-known");
+        assertions
+            .assertions
+            .retain(|assertion| assertion.assertion_id != "to-known");
         let scan = TemporalEvidenceScanV1::new(assertions.clone()).unwrap();
         let index = TemporalEvidenceIndexV1::new(assertions.clone()).unwrap();
-        let result = assertions.evaluate_valid_at(
-            "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
-            "2026-11-21T00:00:00Z", true
-        ).unwrap();
+        let result = assertions
+            .evaluate_valid_at(
+                "grant-1",
+                VERIFIER,
+                "2026-11-21T00:00:00Z",
+                "2026-11-21T00:00:00Z",
+                true,
+            )
+            .unwrap();
         assert_eq!(result.disposition, QueryDispositionV1::Indeterminate);
         assert_eq!(
             result,
             scan.evaluate_valid_at(
-                "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
-                "2026-11-21T00:00:00Z", true
-            ).unwrap()
+                "grant-1",
+                VERIFIER,
+                "2026-11-21T00:00:00Z",
+                "2026-11-21T00:00:00Z",
+                true
+            )
+            .unwrap()
         );
         assert_eq!(
             result,
-            index.evaluate_valid_at(
-                "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
-                "2026-11-21T00:00:00Z", true
-            ).unwrap()
+            index
+                .evaluate_valid_at(
+                    "grant-1",
+                    VERIFIER,
+                    "2026-11-21T00:00:00Z",
+                    "2026-11-21T00:00:00Z",
+                    true
+                )
+                .unwrap()
         );
     }
 
@@ -1808,7 +1867,9 @@ mod tests {
     #[test]
     fn uncertain_knowledge_frontier_is_indeterminate_until_window_closes() {
         let mut evidence = valid_fixture();
-        let receipt = evidence.assertions.iter_mut()
+        let receipt = evidence
+            .assertions
+            .iter_mut()
             .find(|assertion| assertion.assertion_id == "from-known")
             .unwrap();
         receipt.quality = TemporalQualityV1::Uncertain;
@@ -1823,12 +1884,12 @@ mod tests {
             ("2026-11-20T08:00:25Z", QueryDispositionV1::Indeterminate),
             ("2026-11-20T08:00:30Z", QueryDispositionV1::ValidAtQuery),
         ] {
-            let reference = evidence.evaluate_valid_at(
-                "grant-1", VERIFIER, "2026-11-19T00:00:00Z", known_at, false
-            ).unwrap();
-            let indexed = index.evaluate_valid_at(
-                "grant-1", VERIFIER, "2026-11-19T00:00:00Z", known_at, false
-            ).unwrap();
+            let reference = evidence
+                .evaluate_valid_at("grant-1", VERIFIER, "2026-11-19T00:00:00Z", known_at, false)
+                .unwrap();
+            let indexed = index
+                .evaluate_valid_at("grant-1", VERIFIER, "2026-11-19T00:00:00Z", known_at, false)
+                .unwrap();
             assert_eq!(reference, indexed);
             assert_eq!(indexed.disposition, expected);
         }
@@ -1837,8 +1898,11 @@ mod tests {
     #[test]
     fn estimated_boundary_requires_explicit_uncertainty_window() {
         let mut assertions = valid_fixture();
-        let from = assertions.assertions.iter_mut()
-            .find(|assertion| assertion.assertion_id == "from-v1").unwrap();
+        let from = assertions
+            .assertions
+            .iter_mut()
+            .find(|assertion| assertion.assertion_id == "from-v1")
+            .unwrap();
         from.quality = TemporalQualityV1::Estimated;
         from.uncertainty_window = None;
         assert_eq!(
@@ -1885,7 +1949,10 @@ mod tests {
     #[test]
     fn offsets_are_rejected_until_a_pinned_normalization_profile_exists() {
         let result = normalize_utc("2026-11-21T10:00:00+02:00");
-        assert_eq!(result, Err(TemporalKernelErrorV1::NonUtcTimestampUnsupported));
+        assert_eq!(
+            result,
+            Err(TemporalKernelErrorV1::NonUtcTimestampUnsupported)
+        );
     }
 
     #[test]
@@ -1904,11 +1971,23 @@ mod tests {
     #[test]
     fn declared_fractional_precision_must_match_encoded_digits() {
         let millis = normalize_utc("2026-11-21T10:00:00.123Z").unwrap();
-        assert!(timestamp_matches_precision(&millis, TemporalPrecisionV1::Millisecond));
-        assert!(!timestamp_matches_precision(&millis, TemporalPrecisionV1::Microsecond));
+        assert!(timestamp_matches_precision(
+            &millis,
+            TemporalPrecisionV1::Millisecond
+        ));
+        assert!(!timestamp_matches_precision(
+            &millis,
+            TemporalPrecisionV1::Microsecond
+        ));
         let whole_second = normalize_utc("2026-11-21T10:00:00Z").unwrap();
-        assert!(timestamp_matches_precision(&whole_second, TemporalPrecisionV1::Second));
-        assert!(!timestamp_matches_precision(&whole_second, TemporalPrecisionV1::Nanosecond));
+        assert!(timestamp_matches_precision(
+            &whole_second,
+            TemporalPrecisionV1::Second
+        ));
+        assert!(!timestamp_matches_precision(
+            &whole_second,
+            TemporalPrecisionV1::Nanosecond
+        ));
     }
 
     #[test]
@@ -1921,14 +2000,19 @@ mod tests {
         );
 
         let mut reversed = valid_fixture();
-        let to = reversed.assertions.iter_mut()
+        let to = reversed
+            .assertions
+            .iter_mut()
             .find(|assertion| assertion.assertion_id == "to-v1")
             .unwrap();
         to.time_value = "2026-11-17T00:00:00Z".into();
         assert_eq!(
             reversed.evaluate_valid_at(
-                "grant-1", VERIFIER, "2026-11-19T00:00:00Z",
-                "2026-11-21T00:00:00Z", false
+                "grant-1",
+                VERIFIER,
+                "2026-11-19T00:00:00Z",
+                "2026-11-21T00:00:00Z",
+                false
             ),
             Err(TemporalKernelErrorV1::InvalidValidityInterval)
         );

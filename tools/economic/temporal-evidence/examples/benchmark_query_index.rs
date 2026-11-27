@@ -2,8 +2,8 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use mycelix_temporal_evidence_kernel::{
-    TemporalAssertionV1, TemporalDimensionV1, TemporalEvidenceIndexV1,
-    TemporalEvidenceScanV1, TemporalEvidenceSetV1, TemporalPrecisionV1, TemporalQualityV1,
+    TemporalAssertionV1, TemporalDimensionV1, TemporalEvidenceIndexV1, TemporalEvidenceScanV1,
+    TemporalEvidenceSetV1, TemporalPrecisionV1, TemporalQualityV1,
 };
 
 const VERIFIER: &str = "did:mycelix:verifier:benchmark-v1";
@@ -39,12 +39,7 @@ fn fact(
     }
 }
 
-fn knowledge(
-    id: String,
-    claim_id: &str,
-    subject_ref: &str,
-    fact_id: &str,
-) -> TemporalAssertionV1 {
+fn knowledge(id: String, claim_id: &str, subject_ref: &str, fact_id: &str) -> TemporalAssertionV1 {
     let mut assertion = fact(
         id.clone(),
         claim_id,
@@ -97,7 +92,9 @@ fn workload(claim_count: usize) -> TemporalEvidenceSetV1 {
 }
 
 fn main() {
-    println!("claims,assertions,queries,scan_build_us,index_build_us,scan_query_us,indexed_query_us,speedup");
+    println!(
+        "claims,assertions,queries,scan_build_us,index_build_us,scan_query_us,indexed_query_us,speedup"
+    );
     for claim_count in [32_usize, 64, 128, 256] {
         let evidence = workload(claim_count);
 

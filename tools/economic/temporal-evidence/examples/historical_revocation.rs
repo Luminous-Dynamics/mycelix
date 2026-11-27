@@ -17,7 +17,8 @@ fn main() {
                 clock_profile: "governance-record-clock-v1".into(),
                 source_authority_ref: "governance:grant-issuer-001".into(),
                 evidence_ref: "source:revocation-effective-time".into(),
-                content_digest: "sha256:df712b09b28ea02dd0b9dcf0c4b4e37db262a98c964885067c530f14f9fdb7a0".into(),
+                content_digest:
+                    "sha256:df712b09b28ea02dd0b9dcf0c4b4e37db262a98c964885067c530f14f9fdb7a0".into(),
                 assertion_ref: None,
                 verifier_ref: None,
                 knowledge_frontier_ref: None,
@@ -35,7 +36,8 @@ fn main() {
                 clock_profile: "mycelix-verifier-clock-v1".into(),
                 source_authority_ref: "mycelix:finance-verifier-v1".into(),
                 evidence_ref: "source:revocation-verifier-receipt".into(),
-                content_digest: "sha256:cfd66f3484835f962ed1ea0050718840ebd13688bdd8b5c782c600dc2db8a942".into(),
+                content_digest:
+                    "sha256:cfd66f3484835f962ed1ea0050718840ebd13688bdd8b5c782c600dc2db8a942".into(),
                 assertion_ref: Some("grant-revoked-valid-from".into()),
                 verifier_ref: Some("did:mycelix:verifier:finance-v1".into()),
                 knowledge_frontier_ref: Some("checkpoint:finance-verifier-frontier-001".into()),
@@ -44,7 +46,9 @@ fn main() {
             },
         ],
     };
-    assertions.validate().expect("the synthetic temporal evidence set is structurally valid");
+    assertions
+        .validate()
+        .expect("the synthetic temporal evidence set is structurally valid");
 
     let historical = assertions
         .evaluate_valid_at(
@@ -55,7 +59,10 @@ fn main() {
             true,
         )
         .expect("historical query succeeds");
-    println!("as-known-before-verifier-receipt: {:?}", historical.disposition);
+    println!(
+        "as-known-before-verifier-receipt: {:?}",
+        historical.disposition
+    );
 
     let current_knowledge = assertions
         .evaluate_valid_at(
@@ -66,5 +73,8 @@ fn main() {
             true,
         )
         .expect("current-knowledge query succeeds");
-    println!("as-known-after-verifier-receipt: {:?}", current_knowledge.disposition);
+    println!(
+        "as-known-after-verifier-receipt: {:?}",
+        current_knowledge.disposition
+    );
 }
