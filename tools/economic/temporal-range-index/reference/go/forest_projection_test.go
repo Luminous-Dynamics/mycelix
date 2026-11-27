@@ -33,8 +33,11 @@ func TestFrontierProjectionReplayRequiresEveryOwnerAndCommittedAudit(t *testing.
 	if result.Disposition != ProjectionMatchesAllSuppliedOwnerInventoriesV1 {
 		t.Fatalf("wrong projection disposition: %s", result.Disposition)
 	}
-	if result.ReceiptInventoryAuthentication != ReceiptInventoryAuthenticationNotEvaluatedV1 {
-		t.Fatalf("receipt inventory authentication was upgraded: %s", result.ReceiptInventoryAuthentication)
+	if result.ReceiptInventoryAuthentication != ReceiptLogRootRecomputedButTrustExternalV1 {
+		t.Fatalf("owner log root was not independently reconstructed: %s", result.ReceiptInventoryAuthentication)
+	}
+	if result.ProjectionMappingAuthentication != ProjectionMappingAuthenticationNotEvaluatedV1 {
+		t.Fatalf("projection semantics were overclaimed: %s", result.ProjectionMappingAuthentication)
 	}
 	if result.OwnerCount != 1 || !result.HasOwnerGaps || len(result.OwnerAudits) != 1 {
 		t.Fatalf("unexpected owner projection result: %+v", result)
