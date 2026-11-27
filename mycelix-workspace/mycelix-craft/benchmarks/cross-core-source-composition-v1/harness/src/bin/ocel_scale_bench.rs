@@ -163,8 +163,16 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
     elapsed_ns.sort_unstable();
     let p50 = percentile(&elapsed_ns, 50, 100);
     let p95 = percentile(&elapsed_ns, 95, 100);
-    let (canonical_sha256, object_type_count, event_type_count, object_count, event_count, e2o_count, o2o_count, canonical_bytes) =
-        first_receipt.ok_or("benchmark produced no validation receipt")?;
+    let (
+        canonical_sha256,
+        object_type_count,
+        event_type_count,
+        object_count,
+        event_count,
+        e2o_count,
+        o2o_count,
+        canonical_bytes,
+    ) = first_receipt.ok_or("benchmark produced no validation receipt")?;
     let seconds = p50 as f64 / 1_000_000_000.0;
     let events_per_second = if seconds > 0.0 {
         event_count as f64 / seconds
