@@ -45,7 +45,9 @@ type OwnerFrontierBinding struct {
 	Gaps []GapRange
 }
 type FrontierSnapshot struct {
-	VerifierRef, PolicyEpochRef, ScopeDigest, FrontierDigest string
+	VerifierRef, PolicyEpochRef string
+	RegistryRef, RegistryEpoch, UniverseProfileRef string
+	ScopeDigest, FrontierDigest string
 	Owners []OwnerFrontierBinding
 }
 type Disposition string
@@ -141,6 +143,10 @@ func Reconcile(scope QueryScope, manifest ScopeClosureManifest, universe Univers
 	if manifest.RegistryRef=="" || manifest.RegistryEpoch=="" || manifest.ProfileRef=="" ||
 		manifest.RegistryRef!=universe.RegistryRef || manifest.RegistryEpoch!=universe.RegistryEpoch || manifest.ProfileRef!=universe.ProfileRef {
 		return finalize(base,"registry, epoch or owner-universe profile mismatch")
+	}
+	if frontier.RegistryRef!=manifest.RegistryRef || frontier.RegistryEpoch!=manifest.RegistryEpoch ||
+		frontier.UniverseProfileRef!=manifest.ProfileRef {
+		return finalize(base,"frontier registry identity, epoch or owner-universe profile mismatch")
 	}
 	if manifest.CandidateRoot!=root || manifest.CandidateRoot!=manifestRoot || manifest.SourceProofDigest=="" ||
 		manifest.SourceProofDigest!=universe.SourceProofDigest || !validDigest(universe.SourceProofDigest) {
