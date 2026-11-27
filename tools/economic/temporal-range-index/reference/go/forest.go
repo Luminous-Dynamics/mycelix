@@ -11,6 +11,7 @@ import (
 )
 
 const frontierForestDomainV1 = "MYCELIX-TEMPORAL-FRONTIER-INDEX-FOREST-V0.1\x00"
+const intervalProfileV1 = "MYCELIX-INTERVAL-TREE-V0.1"
 
 const (
 	maxForestOwnersV1 = 100_000
@@ -162,6 +163,9 @@ func VerifyTemporalFrontierQueryProofV1(
 	if proof.Manifest.FrontierDigest != expectedFrontierDigest {
 		return TemporalFrontierQueryResultV1{}, ErrForestFrontierMismatch
 	}
+	if proof.Manifest.IntervalProfile != intervalProfileV1 {
+		return TemporalFrontierQueryResultV1{}, ErrForestMalformed
+	}
 	if proof.Manifest.QueryScope != expectedScope ||
 		expectedScope.VerifierRef != expectedVerifier ||
 		expectedScope.PolicyEpochRef != expectedPolicyEpoch ||
@@ -255,7 +259,7 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 		if validateForestStringV1(owner.OwnerRef) != nil ||
 			validateForestStringV1(owner.OwnerHistoryRef) != nil ||
 			validateForestDigestV1(owner.OwnerLogRootDigest) != nil ||
-			validateForestDigestV1(owner.ProjectionAuditDigest) != nil ||
+			(owner.ProjectionAuditDigest != "" && validateForestDigestV1(owner.ProjectionAuditDigest) != nil) ||
 			owner.TreeSize > owner.OwnerSequence {
 			return ErrForestMalformed
 		}
