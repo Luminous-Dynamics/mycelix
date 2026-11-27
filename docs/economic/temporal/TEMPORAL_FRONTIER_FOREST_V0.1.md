@@ -97,6 +97,12 @@ The verifier:
 
 A receipt leaf without a temporal or non-temporal projection is rejected. A non-receipt log leaf cannot carry a receipt projection. Malformed lookalike knowledge-receipt prefixes are rejected rather than treated as ordinary events.
 
+### Assertion payload byte binding
+
+Every projected knowledge receipt also carries the exact assertion payload bytes identified by its canonical `assertion_digest`. The replay recomputes SHA-256 over these bytes, checks the digest carried in the receipt, enforces 1 MiB per payload and 64 MiB total payload bounds, and commits the payload bytes into the inventory digest.
+
+This binds the semantic mapper's future input bytes to the accepted receipt. It does not parse the assertion schema or derive `valid_from` / `valid_to`; that remains the independent #6786 obligation, and the result remains `ProjectionMappingAuthentication=NotEvaluated`.
+
 ### Claim ceiling
 
 The replay disposition is `ProjectionMatchesSuppliedAcceptedInventory`. The result reports:
