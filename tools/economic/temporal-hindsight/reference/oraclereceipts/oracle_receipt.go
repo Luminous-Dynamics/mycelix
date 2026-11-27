@@ -17,6 +17,7 @@ const (
 	MaxAnswerBytes = 1 << 20
 	MaxSignatureBytes = 16 << 10
 	MaxReceiptCount = 1_000_000
+	MaxReceiptEncodingBytes uint64 = 67_108_864
 
 	DispositionAffirm AnswerDispositionV1 = "Affirm"
 	DispositionReject AnswerDispositionV1 = "Reject"
@@ -94,6 +95,8 @@ type ChainResultV1 struct {
 	ScopeDigest                    string
 	ExpectedReceiptCount           uint64
 	ObservedReceiptCount           uint64
+	ExpectedTailDigest             string
+	SubmittedReceiptsDigest        string
 	GenesisDigest                  string
 	ObservedTailDigest             string
 	ReceiptChainDigest             string
@@ -233,9 +236,6 @@ func validateAnswerDisposition(disposition AnswerDispositionV1, payload []byte) 
 }
 
 func validateValidTime(value ValidTimeV1) error {
-	if value.FromUnixNanos <= 0 {
-		return errors.New("valid-time start must be a positive Unix-nanosecond value")
-	}
 	if value.OpenEnded {
 		if value.ToUnixNanos != nil {
 			return errors.New("open-ended valid time must not include an end value")
@@ -383,6 +383,134 @@ func ReceiptDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, erro
 	return digestBytes(b.Bytes()), nil
 }
 
+func rawOracleReceiptSubmissionDigest(receipts []OracleReceiptV1) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-ORACLE-RECEIPT-SUBMISSION-V1")
+	writeUint64(&b, uint64(len(receipts)))
+	for _, receipt := range receipts {
+		writeUint64(&b, receipt.Sequence)
+		for _, value := range []string{
+			receipt.ReceiptID, receipt.PreviousReceiptDigest,
+			receipt.OracleRef, receipt.KeyEpoch, receipt.AuthorityGrantRef,
+			receipt.AuthorityScopeDigest, receipt.QueryDigest,
+			receipt.InputCommitmentDigest, receipt.EvidenceFrontierDigest,
+			receipt.AnswerSchemaRef, string(receipt.AnswerDisposition),
+			receipt.AnswerDigest, receipt.SupersedesReceiptID,
+			receipt.SignatureScheme, receipt.SignedMessageDigest,
+			receipt.ReceiptDigest,
+		} {
+			writeString(&b, value)
+		}
+		writeUint64(&b, uint64(len(receipt.AnswerPayload)))
+		_, _ = b.Write(receipt.AnswerPayload)
+		writeUint64(&b, uint64(len(receipt.SignatureBytes)))
+		_, _ = b.Write(receipt.SignatureBytes)
+		writeUint64(&b, uint64(receipt.RecordedAtUnixNanos))
+		writeUint64(&b, uint64(receipt.ValidTime.FromUnixNanos))
+		if receipt.ValidTime.OpenEnded {
+			b.WriteByte(1)
+		} else {
+			b.WriteByte(0)
+		}
+		if receipt.ValidTime.ToUnixNanos == nil {
+			b.WriteByte(0)
+		} else {
+			b.WriteByte(1)
+			writeUint64(&b, uint64(*receipt.ValidTime.ToUnixNanos))
+		}
+		writeUint32(&b, uint32(len(receipt.EvidenceReferences)))
+		for _, ref := range receipt.EvidenceReferences {
+			writeString(&b, ref.Reference)
+			writeString(&b, ref.Kind)
+			writeString(&b, ref.Digest)
+		}
+	}
+	return digestBytes(b.Bytes())
+}
+
+func oversizedOracleReceiptSubmissionDigest(receiptCount uint64, index uint64, field string, value string) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-ORACLE-RECEIPT-OVERSIZE-SUBMISSION-V1")
+	writeUint64(&b, receiptCount)
+	writeUint64(&b, index)
+	writeString(&b, field)
+	writeUint64(&b, uint64(len(value)))
+	if len(value) <= 128 {
+		writeString(&b, value)
+	} else {
+		writeString(&b, value[:64])
+		writeString(&b, value[len(value)-64:])
+	}
+	return digestBytes(b.Bytes())
+}
+
+func preflightOracleReceiptSubmissions(receipts []OracleReceiptV1) (string, string) {
+	if uint64(len(receipts)) > MaxReceiptCount {
+		return "", digestBytes([]byte(fmt.Sprintf(
+			"MYCELIX-ORACLE-RECEIPT-COUNT-OVERLIMIT|%d", len(receipts),
+		)))
+	}
+	var totalBytes uint64
+	addString := func(index uint64, label, value string) (string, bool) {
+		if len(value) > MaxIdentifierBytes || uint64(len(value)) > MaxReceiptEncodingBytes-totalBytes {
+			return oversizedOracleReceiptSubmissionDigest(uint64(len(receipts)), index, label, value), false
+		}
+		totalBytes += uint64(len(value))
+		return "", true
+	}
+	for index, receipt := range receipts {
+		for _, field := range []struct{ label, value string }{
+			{"receipt_id", receipt.ReceiptID},
+			{"previous_digest", receipt.PreviousReceiptDigest},
+			{"oracle_ref", receipt.OracleRef},
+			{"key_epoch", receipt.KeyEpoch},
+			{"authority_grant_ref", receipt.AuthorityGrantRef},
+			{"authority_scope_digest", receipt.AuthorityScopeDigest},
+			{"query_digest", receipt.QueryDigest},
+			{"input_commitment_digest", receipt.InputCommitmentDigest},
+			{"evidence_frontier_digest", receipt.EvidenceFrontierDigest},
+			{"answer_schema_ref", receipt.AnswerSchemaRef},
+			{"answer_disposition", string(receipt.AnswerDisposition)},
+			{"answer_digest", receipt.AnswerDigest},
+			{"supersedes_receipt_id", receipt.SupersedesReceiptID},
+			{"signature_scheme", receipt.SignatureScheme},
+			{"signed_message_digest", receipt.SignedMessageDigest},
+			{"receipt_digest", receipt.ReceiptDigest},
+		} {
+			if digest, ok := addString(uint64(index), field.label, field.value); !ok {
+				return fmt.Sprintf("receipt %d %s exceeds the configured encoding budget", index, field.label), digest
+			}
+		}
+		for _, field := range []struct{ label string; value []byte; limit uint64 }{
+			{"answer_payload", receipt.AnswerPayload, MaxAnswerBytes},
+			{"signature_bytes", receipt.SignatureBytes, MaxSignatureBytes},
+		} {
+			if uint64(len(field.value)) > field.limit || uint64(len(field.value)) > MaxReceiptEncodingBytes-totalBytes {
+				return fmt.Sprintf("receipt %d %s exceeds the configured byte budget", index, field.label),
+					oversizedOracleReceiptSubmissionDigest(uint64(len(receipts)), uint64(index), field.label, string(field.value))
+			}
+			totalBytes += uint64(len(field.value))
+		}
+		if len(receipt.EvidenceReferences) > MaxEvidenceReferences {
+			return fmt.Sprintf("receipt %d evidence reference count exceeds configured limit", index),
+				digestBytes([]byte(fmt.Sprintf("MYCELIX-ORACLE-RECEIPT-OVERSIZE-REFS|%d|%d", len(receipts), index)))
+		}
+		for refIndex, ref := range receipt.EvidenceReferences {
+			for _, field := range []struct{ label, value string }{
+				{"evidence_reference", ref.Reference},
+				{"evidence_kind", ref.Kind},
+				{"evidence_digest", ref.Digest},
+			} {
+				label := fmt.Sprintf("%s[%d]", field.label, refIndex)
+				if digest, ok := addString(uint64(index), label, field.value); !ok {
+					return fmt.Sprintf("receipt %d %s exceeds the configured encoding budget", index, label), digest
+				}
+			}
+		}
+	}
+	return "", rawOracleReceiptSubmissionDigest(receipts)
+}
+
 func genesisDigest(scopeDigest string) string {
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-RECEIPT-GENESIS-V1")
@@ -398,6 +526,8 @@ func finalizeChainResult(result ChainResultV1) ChainResultV1 {
 	writeString(&b, result.ScopeDigest)
 	writeUint64(&b, result.ExpectedReceiptCount)
 	writeUint64(&b, result.ObservedReceiptCount)
+	writeString(&b, result.ExpectedTailDigest)
+	writeString(&b, result.SubmittedReceiptsDigest)
 	writeString(&b, result.GenesisDigest)
 	writeString(&b, result.ObservedTailDigest)
 	writeString(&b, result.ReceiptChainDigest)
@@ -426,6 +556,13 @@ func VerifyOracleReceiptChainV1(scope OracleScopeV1, receipts []OracleReceiptV1,
 		SourceUniverseCompleteness: NotEvaluated,
 		AnswerTruth: NotEvaluated,
 	}
+	result.ExpectedTailDigest = expectedTail
+	if reason, submissionDigest := preflightOracleReceiptSubmissions(receipts); reason != "" {
+		result.Reason = reason
+		result.SubmittedReceiptsDigest = submissionDigest
+		return finalizeChainResult(result)
+	}
+	result.SubmittedReceiptsDigest = rawOracleReceiptSubmissionDigest(receipts)
 	scopeDigest, err := ScopeDigestV1(scope)
 	if err != nil {
 		result.Reason = "invalid oracle scope: " + err.Error()
