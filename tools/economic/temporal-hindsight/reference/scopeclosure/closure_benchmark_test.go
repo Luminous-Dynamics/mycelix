@@ -12,7 +12,7 @@ func benchmarkFixture(n int)(QueryScope,ScopeClosureManifest,UniverseSnapshot,Fr
 	root,_:=CandidateRoot(candidates)
 	u:=UniverseSnapshot{RegistryRef:"registry:bench",RegistryEpoch:"epoch:1",ProfileRef:"universe:bench",ScopeDigest:digest,SourceProofDigest:"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",Candidates:candidates}
 	m:=ScopeClosureManifest{RegistryRef:u.RegistryRef,RegistryEpoch:u.RegistryEpoch,ProfileRef:u.ProfileRef,ScopeDigest:digest,CandidateRoot:root,SourceProofDigest:u.SourceProofDigest,Candidates:candidates}
-	f:=FrontierSnapshot{VerifierRef:s.VerifierRef,PolicyEpochRef:s.PolicyEpochRef,ScopeDigest:digest,FrontierDigest:"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",Owners:owners}
+	f:=FrontierSnapshot{VerifierRef:s.VerifierRef,PolicyEpochRef:s.PolicyEpochRef,RegistryRef:u.RegistryRef,RegistryEpoch:u.RegistryEpoch,UniverseProfileRef:u.ProfileRef,ScopeDigest:digest,FrontierDigest:"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",Owners:owners}
 	return s,m,u,f
 }
 func BenchmarkScopeFrontierReconciliation(b *testing.B){
