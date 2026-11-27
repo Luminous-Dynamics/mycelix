@@ -45,7 +45,12 @@ jobs:
       - name: Go formatting
         working-directory: tools/economic/temporal-range-index/reference/go
         run: |
-          test -z "$(gofmt -l .)"
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf 'Files requiring gofmt:\\n%s\\n' "$unformatted"
+            gofmt -d $unformatted
+            exit 1
+          fi
 
       - name: Go adversarial and semantic-oracle tests
         working-directory: tools/economic/temporal-range-index/reference/go
