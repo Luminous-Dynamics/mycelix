@@ -30,6 +30,23 @@ cargo +1.96.0 clippy --manifest-path "$OUT_DIR/Cargo.toml" --workspace --all-tar
 
 The materializer checks both the remote branch tip and the Git blob IDs for each package manifest and library source before copying them. Any branch movement or file substitution fails closed. The generated source receipt records the exact revisions and content IDs. The separate `harness` workspace member is taken from the exact harness commit checked out by CI; its manifest and source SHA-256 values are also recorded.
 
+### Independent PM4Py OCEL 2.0 oracle (test-only)
+
+An optional differential oracle is provided at `oracles/pm4py_ocel2_roundtrip.py`. It imports the fixture with PM4Py's standard OCEL 2.0 JSON importer, exports it again, and compares a normalized inventory of declarations, typed attributes, timestamps, event/object identities, and qualified E2O/O2O relationships.
+
+Run it in an isolated test environment with Python 3.11+ and the exact PM4Py release used by the oracle:
+
+```sh
+python3 -m venv "$OUT_DIR/pm4py-venv"
+"$OUT_DIR/pm4py-venv/bin/python" -m pip install 'pm4py[ocel]==2.7.23.15'
+"$OUT_DIR/pm4py-venv/bin/python" \
+  mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/pm4py_ocel2_roundtrip.py \
+  --source mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/ocel/ocel-water-service-v1.json \
+  --roundtrip "$OUT_DIR/pm4py-roundtrip.json"
+```
+
+This pins the direct PM4Py version, but does not yet pin the complete transitive Python dependency graph or wheel hashes. Treat it as an executable exploratory oracle, not an exact-head CI qualification, until the independent-oracle workflow has a reviewed lock/constraints file and emits its own reproducible environment receipt. Python and PM4Py remain outside the Rust production dependency graph.
+
 ## Claim boundary
 
 A green result establishes that the six pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.
