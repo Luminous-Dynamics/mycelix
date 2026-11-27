@@ -20,5 +20,6 @@
     "SOTA performance",
     "source independence inferred from identifiers"
   ],
-  "scorecard_metric_count": 15
+  "scorecard_metric_count": 15,
+  "comparator_count": 9
 }
