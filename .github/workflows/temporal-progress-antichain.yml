@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test -run 'Test(Incomparable|AnyPredecessor|SingleOwner|EmptyAntichain|Dominated|Duplicate|MissingAndForeign|ScopeAndEpoch|ProgressAdvance|ProgressDigests|Malformed)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
+          go test -run 'Test(Incomparable|AnyPredecessor|SingleOwner|EmptyAntichain|Dominated|Duplicate|MissingAndForeign|ScopeAndEpoch|ProgressAdvance|ProgressDigests|Malformed|DistinctMalformed|Oversized|OwnerUniverseLimit|AntichainWidthLimit|ProgressWorkBudget|PairwiseComparisonBudget|VectorMaterializationBudget|AdvanceComparisonBudget)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
 
       - name: Check bounded progress antichain model
         id: progress_tlc
