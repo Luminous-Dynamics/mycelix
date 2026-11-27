@@ -54,3 +54,10 @@ The package now includes `enumeration.go`, which validates the internal structur
 The positive disposition is only `EnumerationPageChainWellFormed`. Both `PageChainAuthentication` and `SourceCompletenessAuthentication` remain `NotEvaluated`. A source's declaration that it completed pagination, and a digest-shaped receipt reference, are not proof that the source is honest, authoritative, complete, current, or exhaustive. A separate verifier must qualify the source/checkpoint/receipt and the enumeration semantics before the owner universe can be called closed. The page-chain validator therefore does **not** upgrade the package's `FrontierCoversSuppliedRequiredRoster` result to `RosterClosedForDeclaredScope`.
 
 Adversarial tests cover truncated chains, page-index gaps, cursor discontinuities and cycles, early/missing terminal markers, duplicate owners across pages, foreign snapshots/epochs/predicates, missing completion receipts, Unknown/Incomplete source declarations, page/root tampering, manifest digest substitution, deterministic failures and candidate-order canonicalization.
+
+
+## Bounded pagination model
+
+The formal directory also contains `TemporalEnumerationContinuity.tla` and a separate truncated-page mutant. The correct finite model requires all three modeled pages to be observed in order, the continuation cursor to close, and exactly the final page to be terminal before `chainWellFormed` can become true. The mutant declares completion after page zero and must violate `CompletePageSet`.
+
+This model checks only the bounded three-page abstraction. It does not authenticate cursor tokens, page signatures, source identity, registry snapshot completeness, or arbitrary-length enumerations. Those trust obligations remain external and are not promoted by the Go structural page-chain result.
