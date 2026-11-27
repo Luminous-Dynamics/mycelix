@@ -306,3 +306,19 @@ func TestFrontierForestRejectsInvalidUTF8AndNonCanonicalOwnerOrder(t *testing.T)
 		t.Fatal("invalid UTF-8 owner reference passed")
 	}
 }
+
+
+func TestFrontierForestRejectsUnsupportedIntervalProfile(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	manifest := TemporalFrontierIndexManifestV1{
+		VerifierRef: scope.VerifierRef, PolicyEpochRef: scope.PolicyEpochRef,
+		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-UNREVIEWED-INTERVAL-PROFILE",
+		QueryScope: scope,
+		Owners: []OwnerIntervalIndexBindingV1{
+			forestOwnerBindingV1("owner:A", "history:A", 5, 6, [32]byte{1}, nil),
+		},
+	}
+	if _, err := TemporalFrontierForestRootV1(manifest); err == nil {
+		t.Fatal("unsupported interval proof profile passed")
+	}
+}
