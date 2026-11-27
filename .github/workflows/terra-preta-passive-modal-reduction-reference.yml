@@ -1,0 +1,71 @@
+name: Terra Preta passive modal reduction reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/passive-modal-reduction-reference/**'
+      - '.github/workflows/terra-preta-passive-modal-reduction-reference.yml'
+  push:
+    branches: ['research/terra-passive-modal-reduction-v0.1']
+    paths:
+      - 'research/terra-preta/tools/passive-modal-reduction-reference/**'
+      - '.github/workflows/terra-preta-passive-modal-reduction-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  passive-modal-reduction-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Apply pinned rustfmt normalization
+        run: cargo fmt --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml
+      - name: Export normalized Rust source
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-passive-modal-rustfmt-source
+          path: research/terra-preta/tools/passive-modal-reduction-reference/src/main.rs
+          if-no-files-found: error
+          retention-days: 1
+      - name: Verify normalized formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Execute manufactured modal fixture
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml -- \
+            research/terra-preta/tools/passive-modal-reduction-reference/fixtures/three-edge-chain.json \
+            "$RUNNER_TEMP/passive-modal-report.json"
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            ((.eigenvalues[0] - 2.0 | fabs) < 1e-10) and
+            ((.eigenvalues[1] - 6.5 | fabs) < 1e-10) and
+            (.dc_response_relative_error < 1e-10) and
+            (.eigenpair_residual_max < 1e-10) and
+            (.eigenvector_orthogonality_error_max < 1e-10) and
+            (.full_passivity_matrix_min_eigenvalue > -1e-10) and
+            (.reduced_passivity_matrix_min_eigenvalue > -1e-10) and
+            (.unstable_reduced_pole_count == 0) and
+            ([.frequency_results[] | select(.full_modal_vs_direct_relative_error < 1e-10 and .conjugate_symmetry_error < 1e-10)] | length == 5) and
+            ([.frequency_results[] | select(.full_positive_real_min_eigenvalue > -1e-10 and .reduced_positive_real_min_eigenvalue > -1e-10)] | length == 5)
+          ' "$RUNNER_TEMP/passive-modal-report.json"
+      - name: Reject output overwrite
+        run: |
+          before=$(sha256sum "$RUNNER_TEMP/passive-modal-report.json" | cut -d ' ' -f 1)
+          if cargo run --quiet --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml -- \
+            research/terra-preta/tools/passive-modal-reduction-reference/fixtures/three-edge-chain.json \
+            "$RUNNER_TEMP/passive-modal-report.json"; then
+            echo "unexpected overwrite success" >&2
+            exit 1
+          fi
+          after=$(sha256sum "$RUNNER_TEMP/passive-modal-report.json" | cut -d ' ' -f 1)
+          test "$before" = "$after"
