@@ -1,0 +1,34 @@
+{
+  "schema_version": "hydraulic-experiment-design-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "two-parallel-path-active-design",
+  "conductances": [2.0, 2.0, 2.0, 2.0],
+  "baseline_bulk_noise_std": 0.02,
+  "acquisition_budget": 4,
+  "candidates": [
+    {
+      "candidate_id": "upper-pressure-probe",
+      "observation": "upper_pressure",
+      "noise_std": 0.01,
+      "cost": 1
+    },
+    {
+      "candidate_id": "lower-pressure-probe",
+      "observation": "lower_pressure",
+      "noise_std": 0.01,
+      "cost": 1
+    },
+    {
+      "candidate_id": "localized-upper-path-flow",
+      "observation": "upper_path_flow",
+      "noise_std": 0.02,
+      "cost": 2
+    },
+    {
+      "candidate_id": "repeat-bulk-measurement",
+      "observation": "bulk_conductance",
+      "noise_std": 0.02,
+      "cost": 1
+    }
+  ]
+}
