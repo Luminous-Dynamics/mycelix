@@ -35,9 +35,10 @@ const (
 type AcceptedReceiptProjectionV1 struct {
 	ReceiptLogLeafIndex       uint64
 	OwnerSequence             uint64
-	ReceiptDigest             string
+	ReceiptDigest              string
+	AssertionDigest            string
 	CanonicalReceiptEntryBytes []byte
-	AssertionID               string
+	AssertionID                string
 	Class                     ReceiptProjectionClassV1
 	AssertionRef              string
 	ValidFrom                 IntervalInstantV1
@@ -213,7 +214,9 @@ func ComputeOwnerProjectionReplayAuditV1(
 			canonical.AssertionID != projection.AssertionID {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 		}
-		if canonical.ReceiptDigest != projection.ReceiptDigest {
+		if canonical.ReceiptDigest != projection.ReceiptDigest ||
+			canonical.AssertionDigest != projection.AssertionDigest ||
+			validateIntervalDigestV1(projection.AssertionDigest) != nil {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
 		if projection.Class == ReceiptProjectsIntervalAssertionV1 {
@@ -344,6 +347,7 @@ func hashAcceptedReceiptInventoryV1(
 		_ = binary.Write(&preimage, binary.BigEndian, receipt.ReceiptLogLeafIndex)
 		_ = binary.Write(&preimage, binary.BigEndian, receipt.OwnerSequence)
 		appendForestStringV1(&preimage, receipt.ReceiptDigest)
+		appendForestStringV1(&preimage, receipt.AssertionDigest)
 		_ = binary.Write(&preimage, binary.BigEndian, uint32(len(receipt.CanonicalReceiptEntryBytes)))
 		preimage.Write(receipt.CanonicalReceiptEntryBytes)
 		appendForestStringV1(&preimage, receipt.AssertionID)
