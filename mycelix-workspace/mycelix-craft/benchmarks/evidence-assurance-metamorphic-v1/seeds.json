@@ -92,5 +92,9 @@
         "decision_status": "no_authenticated_compromise_or_consensus_record"
       }
     }
+  ],
+  "source_benchmarks": [
+    "CRAFT-WATER-SERVICE-REPAIR-V1",
+    "CRAFT-NEED-INTAKE-V1"
   ]
 }
