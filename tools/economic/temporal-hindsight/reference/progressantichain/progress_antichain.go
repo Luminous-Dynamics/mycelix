@@ -130,7 +130,7 @@ func exceedsProgressWorkBudget(limit uint64, factors ...uint64) bool {
 const maxRawProgressDigestEntries = 32768
 
 func writeRawProgressStringV1(b *bytes.Buffer, value string) {
-	_ = writeUint64V1(b, uint64(len(value)))
+	writeUint64V1(b, uint64(len(value)))
 	if len(value) <= 128 {
 		writeStringV1(b, value)
 		return
@@ -151,7 +151,7 @@ func rawProgressScopeDigestV1(scope ProgressScopeV1) string {
 	} {
 		writeRawProgressStringV1(&b, value)
 	}
-	_ = writeUint64V1(&b, uint64(len(scope.OwnerRefs)))
+	writeUint64V1(&b, uint64(len(scope.OwnerRefs)))
 	limit := len(scope.OwnerRefs)
 	if limit > maxRawProgressDigestEntries {
 		limit = maxRawProgressDigestEntries
@@ -175,21 +175,21 @@ func rawProgressAntichainDigestV1(antichain ProgressAntichainV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-ANTICHAIN-SUBMISSION-V1")
 	writeStringV1(&b, rawProgressScopeDigestV1(antichain.Scope))
-	_ = writeUint64V1(&b, uint64(len(antichain.Points)))
+	writeUint64V1(&b, uint64(len(antichain.Points)))
 	pointLimit := len(antichain.Points)
 	if pointLimit > maxProgressPoints {
 		pointLimit = maxProgressPoints
 	}
 	remaining := maxRawProgressDigestEntries
 	for _, point := range antichain.Points[:pointLimit] {
-		_ = writeUint64V1(&b, uint64(len(point.Owners)))
+		writeUint64V1(&b, uint64(len(point.Owners)))
 		coordinateLimit := len(point.Owners)
 		if coordinateLimit > remaining {
 			coordinateLimit = remaining
 		}
 		for _, coordinate := range point.Owners[:coordinateLimit] {
 			writeRawProgressStringV1(&b, coordinate.OwnerRef)
-			_ = writeUint64V1(&b, coordinate.Sequence)
+			writeUint64V1(&b, coordinate.Sequence)
 		}
 		remaining -= coordinateLimit
 		if coordinateLimit < len(point.Owners) || remaining == 0 {
@@ -211,14 +211,14 @@ func rawProgressCutDigestV1(scopeDigest string, cut ProgressCutV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-CUT-SUBMISSION-V1")
 	writeStringV1(&b, scopeDigest)
-	_ = writeUint64V1(&b, uint64(len(cut.Owners)))
+	writeUint64V1(&b, uint64(len(cut.Owners)))
 	limit := len(cut.Owners)
 	if limit > maxRawProgressDigestEntries {
 		limit = maxRawProgressDigestEntries
 	}
 	for _, coordinate := range cut.Owners[:limit] {
 		writeRawProgressStringV1(&b, coordinate.OwnerRef)
-		_ = writeUint64V1(&b, coordinate.Sequence)
+		writeUint64V1(&b, coordinate.Sequence)
 	}
 	if limit < len(cut.Owners) {
 		b.WriteByte(1)
@@ -279,7 +279,7 @@ func ProgressScopeDigestV1(scope ProgressScopeV1) (string, error) {
 	} {
 		writeStringV1(&b, value)
 	}
-	_ = writeUint32V1(&b, uint32(len(owners)))
+	writeUint32V1(&b, uint32(len(owners)))
 	for _, owner := range owners {
 		writeStringV1(&b, owner)
 	}
@@ -324,7 +324,7 @@ func progressPointDigestV1(scopeDigest string, owners []string, values []uint64)
 	writeStringV1(&b, scopeDigest)
 	for i, owner := range owners {
 		writeStringV1(&b, owner)
-		_ = writeUint64V1(&b, values[i])
+		writeUint64V1(&b, values[i])
 	}
 	digest := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(digest[:])
@@ -392,7 +392,7 @@ func validateProgressAntichainV1(antichain ProgressAntichainV1) (string, string,
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-ANTICHAIN-V1")
 	writeStringV1(&b, scopeDigest)
-	_ = writeUint32V1(&b, uint32(len(points)))
+	writeUint32V1(&b, uint32(len(points)))
 	for _, point := range points {
 		writeStringV1(&b, point.digest)
 	}
