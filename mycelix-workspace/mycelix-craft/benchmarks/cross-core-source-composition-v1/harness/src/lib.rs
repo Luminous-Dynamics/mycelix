@@ -59,7 +59,6 @@ pub fn independent_oracle(episode: WaterEpisode) -> ExpectedDisposition {
     }
 }
 
-
 /// Exact, authority-referenced set of actions for one service episode.
 ///
 /// The digest and revision are supplied by the owner that approved the
