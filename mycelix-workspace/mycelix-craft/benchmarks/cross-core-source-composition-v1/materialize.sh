@@ -69,6 +69,17 @@ if [[ "$count" -ne 6 ]]; then
   exit 1
 fi
 
+# The harness source belongs to the exact harness commit already checked out
+# by CI. Preserve it as a distinct workspace member, not as a seventh owner.
+HARNESS_SRC="$SCRIPT_DIR/harness"
+test -s "$HARNESS_SRC/Cargo.toml"
+test -s "$HARNESS_SRC/src/lib.rs"
+mkdir -p "$OUT_DIR/harness/src"
+cp "$HARNESS_SRC/Cargo.toml" "$OUT_DIR/harness/Cargo.toml"
+cp "$HARNESS_SRC/src/lib.rs" "$OUT_DIR/harness/src/lib.rs"
+sha256sum "$HARNESS_SRC/Cargo.toml" "$HARNESS_SRC/src/lib.rs" \
+  | awk '{print "harness_source_sha256\\t" $1}' >> "$OUT_DIR/source-receipt.tsv"
+
 cat > "$OUT_DIR/Cargo.toml" <<'TOML'
 [workspace]
 resolver = "2"
@@ -79,6 +90,7 @@ members = [
   "crates/decision-closure-v1",
   "crates/evidence-lineage-v1",
   "crates/impact-qualification-v1",
+  "harness",
 ]
 TOML
 
