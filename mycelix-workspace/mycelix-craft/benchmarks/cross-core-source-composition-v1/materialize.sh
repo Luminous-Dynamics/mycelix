@@ -70,15 +70,25 @@ if [[ "$count" -ne 6 ]]; then
 fi
 
 # The harness source belongs to the exact harness commit already checked out
-# by CI. Preserve it as a distinct workspace member, not as a seventh owner.
+# by CI. Preserve the complete source tree as a distinct workspace member,
+# not as a seventh owner. Hash every copied source file for an exact receipt.
 HARNESS_SRC="$SCRIPT_DIR/harness"
 test -s "$HARNESS_SRC/Cargo.toml"
 test -s "$HARNESS_SRC/src/lib.rs"
+if find "$HARNESS_SRC/src" -type l -print -quit | grep -q .; then
+  printf 'Refusing symlinked harness source; source receipt would be ambiguous.\n' >&2
+  exit 1
+fi
 mkdir -p "$OUT_DIR/harness/src"
 cp "$HARNESS_SRC/Cargo.toml" "$OUT_DIR/harness/Cargo.toml"
-cp "$HARNESS_SRC/src/lib.rs" "$OUT_DIR/harness/src/lib.rs"
-sha256sum "$HARNESS_SRC/Cargo.toml" "$HARNESS_SRC/src/lib.rs" \
-  | awk '{print "harness_source_sha256\t" $1}' >> "$OUT_DIR/source-receipt.tsv"
+cp -R "$HARNESS_SRC/src/." "$OUT_DIR/harness/src/"
+sha256sum "$HARNESS_SRC/Cargo.toml" \
+  | awk '{print "harness_manifest_sha256\t" $1}' >> "$OUT_DIR/source-receipt.tsv"
+while IFS= read -r source_file; do
+  relative_path="${source_file#"$HARNESS_SRC/"}"
+  digest="$(sha256sum "$source_file" | awk '{print $1}')"
+  printf 'harness_source_sha256\t%s\t%s\n' "$relative_path" "$digest" >> "$OUT_DIR/source-receipt.tsv"
+done < <(find "$HARNESS_SRC/src" -type f -print | LC_ALL=C sort)
 
 cat > "$OUT_DIR/Cargo.toml" <<'TOML'
 [workspace]
