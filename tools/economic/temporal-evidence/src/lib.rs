@@ -1555,6 +1555,11 @@ mod tests {
             source_authority_ref: "source-authority-v1".into(),
             evidence_ref: format!("evidence:{id}"),
             content_digest: format!("sha256:{}", "a".repeat(64)),
+            validity_interval_ref: matches!(
+                dimension,
+                TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo
+            )
+            .then(|| format!("validity-episode:{claim}")),
             assertion_ref: None,
             verifier_ref: None,
             knowledge_frontier_ref: None,
@@ -1583,6 +1588,7 @@ mod tests {
             source_authority_ref: "verifier-profile-v1".into(),
             evidence_ref: format!("evidence:{id}"),
             content_digest: format!("sha256:{}", "b".repeat(64)),
+            validity_interval_ref: None,
             assertion_ref: Some(assertion_ref.into()),
             verifier_ref: Some(verifier.into()),
             knowledge_frontier_ref: Some(format!("frontier:{id}")),
