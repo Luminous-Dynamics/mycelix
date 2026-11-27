@@ -1,6 +1,7 @@
 package temporalrange
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"testing"
 )
@@ -16,7 +17,9 @@ func BenchmarkOwnerProjectionReplayV1(b *testing.B) {
 		logEntries := make([][]byte, size)
 		for i := 0; i < size; i++ {
 			assertionID := fmt.Sprintf("assertion:%08d", i)
-			assertionDigest := fmt.Sprintf("sha256:%064x", uint64(i+100))
+			assertionPayload := []byte(fmt.Sprintf(`{"profile":"MYCELIX-INTERVAL-ASSERTION-BENCH-V1","assertion_id":"%s","valid_from":%d,"valid_to":%d}`, assertionID, i, i+100))
+			assertionDigestBytes := sha256.Sum256(assertionPayload)
+			assertionDigest := fmt.Sprintf("sha256:%x", assertionDigestBytes)
 			sequence := uint64(i + 1)
 			entry := canonicalReceiptFixtureV1(scope, fmt.Sprintf("receipt:%08d", i), assertionID, assertionDigest, owner, sequence)
 			receiptDigest := receiptDigestFixtureV1(entry)
@@ -32,6 +35,7 @@ func BenchmarkOwnerProjectionReplayV1(b *testing.B) {
 				OwnerSequence: sequence,
 				ReceiptDigest: receiptDigest,
 				AssertionDigest: assertionDigest,
+				AssertionPayloadBytes: assertionPayload,
 				CanonicalReceiptEntryBytes: entry,
 				AssertionID: assertionID,
 				Class: ReceiptProjectsIntervalAssertionV1,
