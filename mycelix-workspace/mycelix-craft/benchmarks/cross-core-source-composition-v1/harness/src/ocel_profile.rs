@@ -7,7 +7,7 @@
 //! evidence independence, temporal authority, or the semantics of a service
 //! conclusion. Owner-native Craft packets remain the assurance layer.
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -177,8 +177,8 @@ fn valid_timestamp(value: &str) -> bool {
     }
 
     match bytes.get(cursor) {
-        Some(b'Z') => cursor + 1 == bytes.len(),
-        Some(b'+') | Some(b'-') => {
+        Some(&b'Z') => cursor + 1 == bytes.len(),
+        Some(&b'+') | Some(&b'-') => {
             if cursor + 6 != bytes.len()
                 || bytes.get(cursor + 3) != Some(&b':')
                 || !bytes
@@ -229,7 +229,7 @@ fn validate_attributes(
             .ok_or(OcelProfileErrorV1::InvalidAttribute)?;
 
         if !value_matches(kind, value) {
-            return Err(if *kind == "time" {
+            return Err(if kind.as_str() == "time" {
                 OcelProfileErrorV1::InvalidTimestamp
             } else {
                 OcelProfileErrorV1::AttributeTypeMismatch
