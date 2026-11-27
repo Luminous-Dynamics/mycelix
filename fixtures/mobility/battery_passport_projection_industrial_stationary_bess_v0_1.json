@@ -1,0 +1,88 @@
+{
+  "projection_version": "battery-passport-projection/0.1",
+  "registry": {
+    "registry_id": "eu-battery-passport-data-point-guidance",
+    "registry_version": "0.1.0",
+    "source_registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+    "guidance_version": "3.2"
+  },
+  "battery": {
+    "battery_ref": "synthetic:industrial-bess-003",
+    "category": "INDUSTRIAL",
+    "configuration_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "lifecycle_status": "original",
+    "passport_ref": "synthetic:passport-bess-003",
+    "predecessor_passport_ref": null,
+    "first_use_date": "2025-01-01",
+    "stationary_bess": true,
+    "has_bms": true
+  },
+  "target": {
+    "jurisdiction": "EU",
+    "effective_date": "2027-02-18",
+    "audience": "LEGITIMATE_INTEREST"
+  },
+  "operator": {
+    "responsible_operator_ref": "synthetic:operator-003",
+    "acting_operator_ref": "synthetic:operator-003",
+    "authorization_state": "RESPONSIBLE_OPERATOR_DIRECT",
+    "written_delegation_sha256": null,
+    "scope": [],
+    "valid_until": null
+  },
+  "data_points": [
+    {
+      "number": 61,
+      "applicability_status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "NOT_REQUIRED_AT_EFFECTIVE_DATE",
+      "reason": "SOCE is not filled/displayed for industrial batteries in the guidance mapping."
+    },
+    {
+      "number": 62,
+      "applicability_status": "CONDITIONAL",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "BLOCKED_UNQUALIFIED_SOURCE",
+      "reason": "Conditions apply (stationary BESS with BMS), but the proposed capacity value is synthetic and not admissible."
+    },
+    {
+      "number": 63,
+      "applicability_status": "CONDITIONAL",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "BLOCKED_UNQUALIFIED_SOURCE",
+      "reason": "Conditions apply (stationary BESS with BMS), but remaining-power estimate lacks a qualified model/measurement source."
+    },
+    {
+      "number": 64,
+      "applicability_status": "CONDITIONAL",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "CONDITIONAL_REVIEW_REQUIRED",
+      "reason": "Applicability holds, but no admitted round-trip efficiency method/result is supplied."
+    },
+    {
+      "number": 67,
+      "applicability_status": "MANDATORY",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "BLOCKED_UNQUALIFIED_SOURCE",
+      "reason": "Synthetic lifecycle status cannot establish a physical battery passport status."
+    },
+    {
+      "number": 68,
+      "applicability_status": "APPLICABLE_FROM_FIRST_USE",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "MISSING_REQUIRED_EVIDENCE",
+      "reason": "Battery has entered use but no admitted cycle history is supplied."
+    }
+  ],
+  "summary": {
+    "ready_to_publish": 0,
+    "missing_required_evidence": 1,
+    "blocked_unqualified_source": 3,
+    "withheld_by_access_policy": 0,
+    "not_required_at_effective_date": 1,
+    "not_applicable": 0,
+    "conditional_review_required": 1,
+    "operator_authorization_required": 0
+  },
+  "generated_at": "2026-11-11T03:00:00Z"
+}
