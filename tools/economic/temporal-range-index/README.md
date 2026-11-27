@@ -120,3 +120,18 @@ For each it reports build, linear-scan baseline, proof generation, proof node/pr
 Each projected knowledge receipt now carries the exact assertion payload bytes referenced by its canonical `assertion_digest`. The replay recomputes SHA-256 over those bytes, requires it to match the digest inside the canonical receipt, applies 1 MiB per-payload and 64 MiB aggregate limits, and commits the payload bytes into the inventory digest.
 
 This proves byte-to-digest consistency and binds the payload bytes used by later semantic mapping. It does **not** parse the temporal assertion schema or independently derive the supplied validity endpoints; `ProjectionMappingAuthentication=NotEvaluated` remains the only honest outcome until #6786 is implemented and qualified.
+
+
+### Assertion payload bytes
+
+Every knowledge-receipt projection now carries the exact assertion payload bytes named by the receipt's `assertion_digest`. The replay checks SHA-256(payload bytes) against that digest, limits each payload to 1 MiB and all payloads to 64 MiB per owner replay, and includes the payload bytes in the inventory digest. The canonical receipt bytes independently bind the same assertion digest.
+
+This closes byte substitution and digest-only inventory gaps. It still does not parse the payload schema or derive the supplied validity endpoints. The status remains `ProjectionMappingAuthentication=NotEvaluated` until the separate mapper in #6786 is implemented and independently qualified.
+
+### Owner-count and projection scaling smoke
+
+The harness now includes:
+- `BenchmarkFrontierForestV1`: 1 / 10 / 100 / 1,000 owners, separately measuring forest build and verification, with summed per-owner wire proof bytes;
+- `BenchmarkOwnerProjectionReplayV1`: 100 / 1k / 10k / 100k owner-log receipts, measuring full-log RFC 9162 root reconstruction, payload digest checks and interval-index rebuild.
+
+Both are one-iteration hosted CI smoke tests only. They do not produce stable p50/p95/p99 measurements or claim production performance.
