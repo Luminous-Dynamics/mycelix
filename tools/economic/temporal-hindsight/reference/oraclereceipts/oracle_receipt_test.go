@@ -9,6 +9,7 @@ const (
 	testDigestA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	testDigestB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	testDigestC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	testDigestD = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
 
 func testScope() OracleScopeV1 {
@@ -124,7 +125,7 @@ func TestQueryInputAndFrontierSubstitutionFailClosed(t *testing.T) {
 	mutations := []func(*OracleReceiptV1){
 		func(r *OracleReceiptV1) { r.QueryDigest = testDigestC },
 		func(r *OracleReceiptV1) { r.InputCommitmentDigest = testDigestC },
-		func(r *OracleReceiptV1) { r.EvidenceFrontierDigest = testDigestC },
+		func(r *OracleReceiptV1) { r.EvidenceFrontierDigest = testDigestD },
 	}
 	for i, mutate := range mutations {
 		candidate := receipt
