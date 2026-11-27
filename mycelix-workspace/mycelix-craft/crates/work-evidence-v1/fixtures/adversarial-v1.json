@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic negative controls for the Craft Work Evidence V1 reference verifier. No case is a real worker, employer, assessor, or work event.",
+  "cases": [
+    { "case_id": "CWE-001", "name": "valid scoped independent attestation", "mutation": "valid", "expected_accept": true },
+    { "case_id": "CWE-002", "name": "claim digest substitution", "mutation": "claim_digest_mismatch", "expected_accept": false },
+    { "case_id": "CWE-003", "name": "subject self-attests", "mutation": "self_attestation", "expected_accept": false },
+    { "case_id": "CWE-004", "name": "assessor authority expired", "mutation": "expired_authority", "expected_accept": false },
+    { "case_id": "CWE-005", "name": "authority not in trust policy", "mutation": "untrusted_authority", "expected_accept": false },
+    { "case_id": "CWE-006", "name": "authority revoked", "mutation": "revoked_authority", "expected_accept": false },
+    { "case_id": "CWE-007", "name": "assessor authority lacks required scope", "mutation": "authority_scope_mismatch", "expected_accept": false },
+    { "case_id": "CWE-008", "name": "attestation scope substitution", "mutation": "attestation_scope_mismatch", "expected_accept": false },
+    { "case_id": "CWE-009", "name": "conflict disclosure incomplete", "mutation": "incomplete_conflict_disclosure", "expected_accept": false },
+    { "case_id": "CWE-010", "name": "prohibited financial conflict disclosed", "mutation": "prohibited_conflict", "expected_accept": false },
+    { "case_id": "CWE-011", "name": "attestation signature tampered", "mutation": "tampered_attestation_signature", "expected_accept": false },
+    { "case_id": "CWE-012", "name": "nonce replay", "mutation": "replayed_nonce", "expected_accept": false },
+    { "case_id": "CWE-013", "name": "attestor does not match authority", "mutation": "wrong_assessor", "expected_accept": false },
+    { "case_id": "CWE-014", "name": "authority payload tampered after signing", "mutation": "tampered_authority", "expected_accept": false },
+    { "case_id": "CWE-015", "name": "future observation timestamp", "mutation": "future_observation", "expected_accept": false },
+    { "case_id": "CWE-016", "name": "unsupported schema version", "mutation": "unsupported_schema", "expected_accept": false },
+    { "case_id": "CWE-017", "name": "disputed work claim", "mutation": "disputed_outcome", "expected_accept": false },
+    { "case_id": "CWE-018", "name": "assessor key revoked", "mutation": "revoked_assessor_key", "expected_accept": false },
+    { "case_id": "CWE-019", "name": "assessor key expired", "mutation": "expired_assessor_key", "expected_accept": false },
+    { "case_id": "CWE-020", "name": "attestation identifier replay", "mutation": "replayed_attestation_id", "expected_accept": false },
+    { "case_id": "CWE-021", "name": "claim creation timestamp in the future", "mutation": "future_claim_creation", "expected_accept": false },
+    { "case_id": "CWE-022", "name": "evidence captured after claim creation", "mutation": "future_artifact_capture", "expected_accept": false },
+    { "case_id": "CWE-023", "name": "attestation predates the work claim", "mutation": "attestation_precedes_claim", "expected_accept": false }
+  ]
+}

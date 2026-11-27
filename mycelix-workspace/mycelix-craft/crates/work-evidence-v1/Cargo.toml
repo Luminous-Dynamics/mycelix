@@ -1,0 +1,17 @@
+[package]
+name = "craft-work-evidence-v1"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Versioned evidence and independent-attestation reference protocol for Mycelix Craft"
+
+[lib]
+name = "craft_work_evidence_v1"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+ed25519-dalek = "2"
+sha2 = "0.10"
