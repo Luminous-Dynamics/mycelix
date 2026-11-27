@@ -301,12 +301,18 @@ fn consumes_shared_go_rust_interoperability_vectors() {
         let fields: Vec<&str> = line.split('|').collect();
         match fields.first().copied() {
             Some("leaf") if fields.len() == 4 => {
-                let payload = hex::decode(fields[2]).expect("valid shared vector payload hex");
+                let payload =
+                    hex::decode(fields[2]).expect("valid shared vector payload hex");
                 let expected: Hash = hex::decode(fields[3])
                     .expect("valid shared leaf hash hex")
                     .try_into()
                     .expect("32-byte shared leaf hash");
-                assert_eq!(leaf_hash(&payload), expected, "shared leaf vector at line {}", line_number + 1);
+                assert_eq!(
+                    leaf_hash(&payload),
+                    expected,
+                    "shared leaf vector at line {}",
+                    line_number + 1
+                );
                 leaves.insert(fields[1].to_owned(), expected);
             }
             Some("mth") if fields.len() == 3 => {
@@ -339,7 +345,11 @@ fn consumes_shared_go_rust_interoperability_vectors() {
                 };
                 inclusions.push((fields[1].to_owned(), index, size, root, path));
             }
-            other => panic!("invalid shared vector at line {}: {:?}", line_number + 1, other),
+            other => panic!(
+                "invalid shared vector at line {}: {:?}",
+                line_number + 1,
+                other
+            ),
         }
     }
 
