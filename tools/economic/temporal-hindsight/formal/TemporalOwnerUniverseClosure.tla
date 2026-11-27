@@ -9,12 +9,14 @@ ASSUME Epoch0 # Epoch1
 VARIABLES registryEpoch, liveUniverse, manifestEpoch,
           rosterCandidates, requiredOwners, excludedOwners,
           unknownOwners, exclusionProofs, frontierOwners,
-          rosterClosed, frontierCovered, frontierEpoch, historicalCertEpoch
+          rosterClosed, frontierCovered, frontierEpoch,
+          historicalCertEpoch
 
 vars == <<registryEpoch, liveUniverse, manifestEpoch,
           rosterCandidates, requiredOwners, excludedOwners,
           unknownOwners, exclusionProofs, frontierOwners,
-          rosterClosed, frontierCovered, frontierEpoch, historicalCertEpoch>>
+          rosterClosed, frontierCovered, frontierEpoch,
+          historicalCertEpoch>>
 
 Init ==
     /\ registryEpoch = Epoch0
@@ -51,7 +53,7 @@ AddRosterCandidate(owner) ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, excludedOwners,
                    unknownOwners, exclusionProofs, frontierOwners,
-                   historicalCertEpoch>>
+                   frontierEpoch, historicalCertEpoch>>
 
 MarkOwnerUnknown(owner) ==
     /\ owner \in rosterCandidates
@@ -60,7 +62,8 @@ MarkOwnerUnknown(owner) ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, requiredOwners, excludedOwners,
-                   exclusionProofs, frontierOwners, frontierEpoch, historicalCertEpoch>>
+                   exclusionProofs, frontierOwners, frontierEpoch,
+                   historicalCertEpoch>>
 
 ResolveUnknownAsRequired(owner) ==
     /\ owner \in unknownOwners
@@ -71,7 +74,7 @@ ResolveUnknownAsRequired(owner) ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, exclusionProofs, frontierOwners,
-                   historicalCertEpoch>>
+                   frontierEpoch, historicalCertEpoch>>
 
 ExcludeOwnerWithProfileProof(owner) ==
     /\ owner \in requiredOwners
@@ -82,7 +85,7 @@ ExcludeOwnerWithProfileProof(owner) ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, unknownOwners, frontierOwners,
-                   historicalCertEpoch>>
+                   frontierEpoch, historicalCertEpoch>>
 
 AddFrontierOwner(owner) ==
     /\ owner \in requiredOwners
@@ -92,7 +95,7 @@ AddFrontierOwner(owner) ==
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, requiredOwners, excludedOwners,
                    unknownOwners, exclusionProofs, rosterClosed,
-                   historicalCertEpoch>>
+                   frontierEpoch, historicalCertEpoch>>
 
 CloseRoster ==
     /\ manifestEpoch = registryEpoch
@@ -107,7 +110,7 @@ CloseRoster ==
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, requiredOwners, excludedOwners,
                    unknownOwners, exclusionProofs, frontierOwners,
-                   historicalCertEpoch>>
+                   frontierEpoch, historicalCertEpoch>>
 
 AcceptFrontier ==
     /\ rosterClosed
@@ -130,8 +133,8 @@ Next ==
     \/ CloseRoster
     \/ AcceptFrontier
 
-(* Faulty resolver: closes over its self-declared candidate roster without
-   checking that it equals the independently enumerated live universe. *)
+(* Faulty resolver: labels its incomplete old candidate roster with the new
+   registry epoch without re-enumerating the live universe. *)
 CloseRosterMutant ==
     /\ registryEpoch = Epoch1
     /\ rosterClosed = FALSE
@@ -140,7 +143,8 @@ CloseRosterMutant ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, rosterCandidates,
                    requiredOwners, excludedOwners, unknownOwners,
-                   exclusionProofs, frontierOwners, frontierEpoch, historicalCertEpoch>>
+                   exclusionProofs, frontierOwners, frontierEpoch,
+                   historicalCertEpoch>>
 
 NextMutant == Next \/ CloseRosterMutant
 
@@ -184,8 +188,9 @@ FrontierExactCoverage ==
     frontierCovered => frontierOwners = requiredOwners
 
 FrontierRosterEpochBinding ==
-    frontierCovered => /\ frontierEpoch = manifestEpoch
-                      /\ frontierEpoch = registryEpoch
+    frontierCovered =>
+      /\ frontierEpoch = manifestEpoch
+      /\ frontierEpoch = registryEpoch
 
 NoExcludedOwnerInFrontier ==
     frontierCovered => frontierOwners \cap excludedOwners = {}
