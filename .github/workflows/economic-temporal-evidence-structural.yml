@@ -59,7 +59,7 @@ jobs:
                 end
               );
             (.profile == "MYCELIX-TEMPORAL-EVIDENCE-V1") and
-            (.version == "1.0") and
+            (.version == "1.1") and
             (.assertions | type == "array" and length >= 10) and
             (([.assertions[].assertion_id] | length) == ([.assertions[].assertion_id] | unique | length)) and
             all(.assertions[];
@@ -71,7 +71,12 @@ jobs:
               ($assertion.source_authority_ref | type == "string" and length > 0) and
               ($assertion.evidence_ref | type == "string" and length > 0) and
               ($assertion.content_digest | test("^sha256:[0-9a-f]{64}$")) and
-              (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index($assertion.dimension) != null)
+              (if ($assertion.dimension == "VALID_FROM" or $assertion.dimension == "VALID_TO") then
+                ($assertion.validity_interval_ref | type == "string" and length > 0)
+               else
+                ($assertion | has("validity_interval_ref") | not)
+               end) and
+                (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index($assertion.dimension) != null)
             ) and
             (all(.assertions[]; has("owner_sequence") | not)) and
             (.assertions as $assertions |
@@ -101,7 +106,10 @@ jobs:
                   .assertion_id == $new.supersedes_assertion_id and
                   .claim_id == $new.claim_id and
                   .subject_ref == $new.subject_ref and
-                  .dimension == $new.dimension
+                  .dimension == $new.dimension and
+                  (if ($new.dimension == "VALID_FROM" or $new.dimension == "VALID_TO") then
+                    .validity_interval_ref == $new.validity_interval_ref
+                   else true end)
                 )
               )
             ) and
