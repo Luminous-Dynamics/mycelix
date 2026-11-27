@@ -171,7 +171,7 @@
       },
       "preconditions": [
         "exactly_one_current_evidence_item",
-        "replacement_revision_strictly_greater_than_target"
+        "supersession_template_target_revision_is_lower_than_replacement_revision"
       ],
       "operation": {
         "kind": "set_selected_field_and_append_lineage_event",
@@ -183,8 +183,8 @@
             "host_sequence": "next_monotonic_sequence"
           },
           "append_event_to": "evidence_lineage.events",
-          "old_revision": "selected.source_revision_or_1",
-          "replacement_revision": "old_revision_plus_one"
+          "old_revision": "supersession_template.target_revision",
+          "replacement_revision": "supersession_template.replacement_revision"
         }
       },
       "preserve_policy": {
@@ -846,6 +846,7 @@
       "postconditions": [
         "event_identity_changes",
         "prior_not_affected_determination_does_not_transfer",
+        "previous_not_affected_determination_is_out_of_scope_for_new_event",
         "previous_not_affected_determination_is_out_of_scope_for_new_event"
       ],
       "owner_evaluator": "ImpactQualification",
@@ -1192,8 +1193,13 @@
       "owner_view": "metric_semantics",
       "target_path": "timestamps",
       "selector": {
-        "mode": "array",
-        "minimum_matches": 2,
+        "mode": "field_set",
+        "fields": [
+          "first_response",
+          "repair_complete",
+          "restoration_observed"
+        ],
+        "expected_matches": 3,
         "ambiguity_policy": "invalid_mutation"
       },
       "preconditions": [
@@ -2048,7 +2054,7 @@
       ],
       "registry_target_path": "measurements.timestamps",
       "owner_view": "metric_semantics",
-      "target_path": "timestamps",
+      "target_path": "observed_timestamps",
       "selector": {
         "mode": "array",
         "minimum_matches": 2,
