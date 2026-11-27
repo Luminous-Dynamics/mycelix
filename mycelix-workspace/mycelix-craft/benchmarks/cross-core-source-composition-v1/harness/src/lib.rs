@@ -44,7 +44,7 @@ pub struct CrossCoreReceipt {
     pub receipt_body: String,
 }
 
-fn independent_oracle(episode: WaterEpisode) -> ExpectedDisposition {
+pub fn independent_oracle(episode: WaterEpisode) -> ExpectedDisposition {
     // Deliberately independent of every owner evaluator: provider completion
     // alone is insufficient; both independent restoration and quality states
     // must be current before the outcome is eligible for local review.
@@ -58,7 +58,7 @@ fn independent_oracle(episode: WaterEpisode) -> ExpectedDisposition {
     }
 }
 
-fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
+pub fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
     let mut packet = claim_support_helpers::packet();
     packet.claim.claim_id = claim_id.to_owned();
     for assessment in &mut packet.assessments {
@@ -67,7 +67,7 @@ fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
     packet
 }
 
-fn claim_result(claim_id: &str, supported: bool, now: u64) -> claim_support::ClaimSupportResultV1 {
+pub fn claim_result(claim_id: &str, supported: bool, now: u64) -> claim_support::ClaimSupportResultV1 {
     let mut packet = claim_packet(claim_id);
     if supported {
         packet.reviews.push(claim_support_helpers::review(
@@ -85,7 +85,7 @@ fn claim_result(claim_id: &str, supported: bool, now: u64) -> claim_support::Cla
     .expect("synthetic claim support packet is structurally valid")
 }
 
-fn closure_support_ref(
+pub fn closure_support_ref(
     result: &claim_support::ClaimSupportResultV1,
 ) -> decision_closure::ClaimSupportResultRefV1 {
     let disposition = match result.disposition {
@@ -121,7 +121,7 @@ fn closure_support_ref(
     }
 }
 
-fn source_lineage(expired: bool) -> evidence_lineage::LineageEvaluationV1 {
+pub fn source_lineage(expired: bool) -> evidence_lineage::LineageEvaluationV1 {
     use evidence_lineage::{ArtifactKindV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1};
     let source = lineage_helpers::reference("wsr:pressure-source", 1, 1);
     let claim = lineage_helpers::reference("wsr:pressure-claim", 1, 2);
@@ -166,7 +166,7 @@ fn source_lineage(expired: bool) -> evidence_lineage::LineageEvaluationV1 {
         .expect("synthetic evidence lineage is acyclic and correctly scoped")
 }
 
-fn evaluate_episode(
+pub fn evaluate_episode(
     case_id: &str,
     episode: WaterEpisode,
     local_mapping_reviews: usize,
@@ -329,7 +329,7 @@ fn evaluate_episode(
 
 pub mod need_helpers {
     use super::need_intake::*;
-    fn authority(id: &str) -> LocalAuthorityRefV1 {
+    pub fn authority(id: &str) -> LocalAuthorityRefV1 {
         LocalAuthorityRefV1 {
             policy_id: format!("policy-{id}"),
             revision: 1,
@@ -509,7 +509,7 @@ pub mod project_helpers {
 
     pub const NOW: u64 = 10;
 
-    fn profile() -> CapabilityProfileRefV1 {
+    pub fn profile() -> CapabilityProfileRefV1 {
         CapabilityProfileRefV1 {
             vocabulary_id: "local:community-capabilities".to_owned(),
             concept_id: "capability:electrical-inspection".to_owned(),
@@ -518,7 +518,7 @@ pub mod project_helpers {
         }
     }
 
-    fn policy() -> PolicyRefV1 {
+    pub fn policy() -> PolicyRefV1 {
         PolicyRefV1 {
             policy_id: "assessment:electrical-v1".to_owned(),
             revision: 1,
@@ -569,7 +569,7 @@ pub mod project_helpers {
         }
     }
 
-    fn evidence(subject: &str, disposition: EvidenceDispositionV1) -> CapabilityEvidenceRefV1 {
+    pub fn evidence(subject: &str, disposition: EvidenceDispositionV1) -> CapabilityEvidenceRefV1 {
         CapabilityEvidenceRefV1 {
             evidence_id: format!("evidence-{subject}"),
             evidence_digest: [7; 32],
@@ -586,7 +586,7 @@ pub mod project_helpers {
         }
     }
 
-    fn assignment(
+    pub fn assignment(
         contributor: &str,
         evidence: Vec<CapabilityEvidenceRefV1>,
     ) -> RequirementAssignmentV1 {
@@ -611,16 +611,16 @@ pub mod project_helpers {
         }
     }
 
-    fn result(project: &NeedToProjectV1, proposal: &TeamProposalV1) -> RequirementCoverageV1 {
+    pub fn result(project: &NeedToProjectV1, proposal: &TeamProposalV1) -> RequirementCoverageV1 {
         evaluate_team(project, proposal, NOW).unwrap().requirements[0].clone()
     }
 }
 
 pub mod claim_support_helpers {
     use super::claim_support::*;
-    const NOW: u64 = 100;
+    pub const NOW: u64 = 100;
 
-    fn authority() -> LocalAuthorityRefV1 {
+    pub fn authority() -> LocalAuthorityRefV1 {
         LocalAuthorityRefV1 {
             policy_id: "domain-review-policy".to_owned(),
             revision: 1,
@@ -731,9 +731,9 @@ pub mod claim_support_helpers {
 
 pub mod closure_helpers {
     use super::decision_closure::*;
-    const NOW: u64 = 100;
+    pub const NOW: u64 = 100;
 
-    fn authority(id: &str) -> LocalAuthorityRefV1 {
+    pub fn authority(id: &str) -> LocalAuthorityRefV1 {
         LocalAuthorityRefV1 {
             policy_id: format!("policy-{id}"),
             revision: 1,
@@ -743,7 +743,7 @@ pub mod closure_helpers {
         }
     }
 
-    fn authority_for(
+    pub fn authority_for(
         id: &str,
         decision_id: &str,
         decision_digest: [u8; 32],
@@ -754,7 +754,7 @@ pub mod closure_helpers {
         reference
     }
 
-    fn decision() -> DecisionContextV1 {
+    pub fn decision() -> DecisionContextV1 {
         DecisionContextV1 {
             decision_id: "water-service-compliance".to_owned(),
             conclusion_digest: [3; 32],
@@ -773,7 +773,7 @@ pub mod closure_helpers {
         }
     }
 
-    fn support(id: &str, disposition: SupportDispositionV1) -> ClaimSupportResultRefV1 {
+    pub fn support(id: &str, disposition: SupportDispositionV1) -> ClaimSupportResultRefV1 {
         ClaimSupportResultRefV1 {
             result_id: id.to_owned(),
             result_digest: [6; 32],
@@ -809,7 +809,7 @@ pub mod closure_helpers {
         }
     }
 
-    fn review(mapping_id: &str, digest: [u8; 32]) -> MappingReviewV1 {
+    pub fn review(mapping_id: &str, digest: [u8; 32]) -> MappingReviewV1 {
         MappingReviewV1 {
             review_id: format!("review-{mapping_id}"),
             mapping_id: mapping_id.to_owned(),
@@ -884,7 +884,7 @@ pub mod lineage_helpers {
         }
     }
 
-    fn node(reference: ArtifactRefV1, dependencies: Vec<ArtifactDependencyV1>) -> ArtifactNodeV1 {
+    pub fn node(reference: ArtifactRefV1, dependencies: Vec<ArtifactDependencyV1>) -> ArtifactNodeV1 {
         ArtifactNodeV1 {
             reference,
             kind: ArtifactKindV1::Other,
@@ -909,7 +909,7 @@ pub mod lineage_helpers {
         }
     }
 
-    fn state(evaluation: &LineageEvaluationV1, reference: &ArtifactRefV1) -> ArtifactStateV1 {
+    pub fn state(evaluation: &LineageEvaluationV1, reference: &ArtifactRefV1) -> ArtifactStateV1 {
         evaluation
             .state_for(reference)
             .expect("artifact state exists")
@@ -918,12 +918,12 @@ pub mod lineage_helpers {
 
 pub mod impact_helpers {
     use super::impact::*;
-    const NOW: u64 = 100;
-    fn digest(byte: u8) -> DigestV1 {
+    pub const NOW: u64 = 100;
+    pub fn digest(byte: u8) -> DigestV1 {
         [byte; 32]
     }
 
-    fn artifact(id: &str, revision: u64, byte: u8) -> ArtifactVersionRefV1 {
+    pub fn artifact(id: &str, revision: u64, byte: u8) -> ArtifactVersionRefV1 {
         ArtifactVersionRefV1 {
             artifact_id: id.to_owned(),
             revision,
@@ -931,7 +931,7 @@ pub mod impact_helpers {
         }
     }
 
-    fn lease(id: &str) -> OwnerQualifiedLeaseRefV1 {
+    pub fn lease(id: &str) -> OwnerQualifiedLeaseRefV1 {
         OwnerQualifiedLeaseRefV1 {
             lease_id: id.to_owned(),
             digest: digest(90),
@@ -940,7 +940,7 @@ pub mod impact_helpers {
         }
     }
 
-    fn expected_scope() -> ExpectedImpactScopeV1 {
+    pub fn expected_scope() -> ExpectedImpactScopeV1 {
         let source = artifact("source", 3, 3);
         let downstream = artifact("decision", 4, 4);
         ExpectedImpactScopeV1 {
@@ -968,7 +968,7 @@ pub mod impact_helpers {
         }
     }
 
-    fn determination(status: ImpactStatusV1) -> ImpactDeterminationV1 {
+    pub fn determination(status: ImpactStatusV1) -> ImpactDeterminationV1 {
         let expected = expected_scope();
         let justification = match status {
             ImpactStatusV1::Affected => ImpactJustificationV1::DirectlyAffected,
