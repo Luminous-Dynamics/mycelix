@@ -987,8 +987,15 @@ pub fn evaluate_ratification(
         .collect::<Vec<_>>();
 
     if current_reviews.is_empty() {
+        // A never-reviewed proposal is a Draft. A revision whose prior reviews
+        // no longer bind to its digest must visibly re-enter community review.
+        let state = if proposal.reviews.is_empty() {
+            RatificationStateV1::Draft
+        } else {
+            RatificationStateV1::NeedsCommunityClarification
+        };
         return Ok(RatificationEvaluationV1 {
-            state: RatificationStateV1::Draft,
+            state,
             proposal_digest: proposal.proposal_digest,
             missing_roles: required_roles,
             blocking_questions,
@@ -1320,7 +1327,7 @@ mod tests {
         ReviewRefV1 {
             reviewer_id: format!("reviewer-{role:?}"),
             role,
-            authority: authority("reviewer"),
+            authority: authority(&format!("reviewer-{role:?}")),
             proposal_digest: digest,
             decision,
             reviewed_at: 10,
@@ -1888,11 +1895,12 @@ mod tests {
     fn rejection_is_not_overridden_by_other_approvals() {
         let mut proposal = valid_proposal();
         prerequisite_reviews(&mut proposal);
-        proposal.reviews.push(review(
-            ReviewRoleV1::DomainExpert,
-            ReviewDecisionV1::Reject,
-            proposal.proposal_digest,
-        ));
+        let domain_review = proposal
+            .reviews
+            .iter_mut()
+            .find(|item| item.role == ReviewRoleV1::DomainExpert)
+            .expect("domain review exists");
+        domain_review.decision = ReviewDecisionV1::Reject;
         assert_eq!(
             evaluate_ratification(&proposal, NOW).unwrap().state,
             RatificationStateV1::Rejected
