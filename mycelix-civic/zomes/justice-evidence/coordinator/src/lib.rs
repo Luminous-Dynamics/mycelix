@@ -28,6 +28,172 @@ fn my_did() -> ExternResult<String> {
 
 /// Helper to get records from links
 
+
+/// Create an author-bound pairwise constraint for MACE evidence governance.
+///
+/// The issuer is always derived from the committing Holochain agent. The
+/// caller cannot self-assert another DID. Constraint policy and authority
+/// receipt hashes commit to upstream governance material; the integrity
+/// zome author-binds this entry and validates its bitemporal window.
+#[hdk_extern]
+pub fn create_evidence_constraint(input: CreateEvidenceConstraintInput) -> ExternResult<Record> {
+    let _eligibility = mycelix_zome_helpers::require_civic(
+        "civic_bridge",
+        &civic_requirement_proposal(),
+        "create_evidence_constraint",
+    )?;
+
+    let issuer = my_did()?;
+    if input.id.trim().is_empty() || input.id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constraint ID must be 1-256 characters".into()
+        )));
+    }
+    if input.left_evidence_id.trim().is_empty()
+        || input.left_evidence_id.len() > 256
+        || input.right_evidence_id.trim().is_empty()
+        || input.right_evidence_id.len() > 256
+        || input.left_evidence_id == input.right_evidence_id
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constraint endpoints must be distinct evidence IDs (1-256 characters)".into()
+        )));
+    }
+    if input.valid_until.as_ref().is_some_and(|until| {
+        until.as_micros() <= input.valid_from.as_micros()
+    }) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constraint valid_until must be later than valid_from".into()
+        )));
+    }
+
+    let id_anchor = anchor_hash(&format!("constraint:{}", input.id))?;
+    let existing = get_links(
+        LinkQuery::try_new(id_anchor.clone(), LinkTypes::ConstraintIdToConstraint)?,
+        GetStrategy::default(),
+    )?;
+    if !existing.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constraint ID already exists".into()
+        )));
+    }
+
+    let constraint = EvidenceConstraint {
+        schema_version: 1,
+        id: input.id.clone(),
+        left_evidence_id: input.left_evidence_id.clone(),
+        right_evidence_id: input.right_evidence_id.clone(),
+        relation: input.relation,
+        reason: input.reason,
+        issuer: issuer.clone(),
+        authority_receipt_sha256: input.authority_receipt_sha256,
+        constraint_policy_sha256: input.constraint_policy_sha256,
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+        created_at: sys_time()?,
+    };
+    let action_hash = create_entry(&EntryTypes::EvidenceConstraint(constraint))?;
+    create_link(
+        anchor_hash(&format!("evidence:{}", input.left_evidence_id))?,
+        action_hash.clone(),
+        LinkTypes::EvidenceToConstraintLeft,
+        (),
+    )?;
+    create_link(
+        anchor_hash(&format!("evidence:{}", input.right_evidence_id))?,
+        action_hash.clone(),
+        LinkTypes::EvidenceToConstraintRight,
+        (),
+    )?;
+    create_link(
+        id_anchor,
+        action_hash.clone(),
+        LinkTypes::ConstraintIdToConstraint,
+        (),
+    )?;
+    create_link(
+        anchor_hash(&format!("issuer:{}", issuer))?,
+        action_hash.clone(),
+        LinkTypes::IssuerToConstraint,
+        (),
+    )?;
+    get(action_hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Constraint not found after creation".into())))
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CreateEvidenceConstraintInput {
+    pub id: String,
+    pub left_evidence_id: String,
+    pub right_evidence_id: String,
+    pub relation: EvidenceConstraintRelation,
+    pub reason: EvidenceConstraintReason,
+    pub authority_receipt_sha256: String,
+    pub constraint_policy_sha256: String,
+    pub valid_from: Timestamp,
+    pub valid_until: Option<Timestamp>,
+}
+
+/// Read all pairwise constraints indexed against either endpoint.
+#[hdk_extern]
+pub fn get_evidence_constraints(evidence_id: String) -> ExternResult<Vec<Record>> {
+    if evidence_id.trim().is_empty() || evidence_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Evidence ID must be 1-256 characters".into()
+        )));
+    }
+    let evidence_anchor = anchor_hash(&format!("evidence:{evidence_id}"))?;
+    let left_links = get_links(
+        LinkQuery::try_new(evidence_anchor.clone(), LinkTypes::EvidenceToConstraintLeft)?,
+        GetStrategy::default(),
+    )?;
+    let right_links = get_links(
+        LinkQuery::try_new(evidence_anchor, LinkTypes::EvidenceToConstraintRight)?,
+        GetStrategy::default(),
+    )?;
+    let mut records = records_from_links(left_links)?;
+    records.extend(records_from_links(right_links)?);
+    Ok(records)
+}
+
+/// Read a constraint by its stable public identifier.
+#[hdk_extern]
+pub fn get_evidence_constraint(id: String) -> ExternResult<Option<Record>> {
+    if id.trim().is_empty() || id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constraint ID must be 1-256 characters".into()
+        )));
+    }
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("constraint:{id}"))?,
+            LinkTypes::ConstraintIdToConstraint,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let mut records = records_from_links(links)?;
+    records.sort_by_key(|record| format!("{:?}", record.action_address()));
+    Ok(records.into_iter().next())
+}
+
+/// Read constraints issued by an authenticated Civic DID.
+#[hdk_extern]
+pub fn get_evidence_constraints_by_issuer(issuer: String) -> ExternResult<Vec<Record>> {
+    if issuer.trim().is_empty() || issuer.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID must be 1-256 characters".into()
+        )));
+    }
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("issuer:{issuer}"))?,
+            LinkTypes::IssuerToConstraint,
+        )?,
+        GetStrategy::default(),
+    )?;
+    records_from_links(links)
+}
+
 #[hdk_extern]
 pub fn submit_evidence(mut evidence: Evidence) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
@@ -683,4 +849,23 @@ mod tests {
         let decoded: Evidence = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.submitted, Timestamp::from_micros(i64::MAX));
     }
+
+    #[test]
+    fn evidence_constraint_input_round_trips_with_typed_relations() {
+        let input = CreateEvidenceConstraintInput {
+            id: "constraint-1".into(),
+            left_evidence_id: "ev-a".into(),
+            right_evidence_id: "ev-b".into(),
+            relation: EvidenceConstraintRelation::CannotLink,
+            reason: EvidenceConstraintReason::PrivacyConflict,
+            authority_receipt_sha256: "a".repeat(64),
+            constraint_policy_sha256: "b".repeat(64),
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Some(Timestamp::from_micros(300)),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let decoded: CreateEvidenceConstraintInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, input);
+    }
+
 }
