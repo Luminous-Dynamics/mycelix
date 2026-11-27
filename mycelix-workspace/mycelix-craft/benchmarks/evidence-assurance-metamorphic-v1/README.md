@@ -46,7 +46,7 @@ Digest semantics are explicit: WSR evidence digest strings are shape-only synthe
 - Report equivalent mutants separately; do not count them as survived or detected without adjudication.
 - Report false holds, false rejections, time-to-review, reviewer minutes, appeal overturns and justified recovery separately. A system that blocks everything does not pass.
 
-Thresholds are proposed qualification gates, not measured Mycelix performance. Freeze corpus and thresholds before evaluating candidate systems. The scorecard deliberately separates hard safety gates from usability and field-outcome measures; there is no weighted aggregate score. It additionally gates blocker-plan omission and fabricated consensus.
+Thresholds are proposed qualification gates, not measured Mycelix performance. Freeze corpus and thresholds before evaluating candidate systems. The scorecard deliberately separates hard safety gates from usability and field-outcome measures; there is no weighted aggregate score. It additionally gates blocker-plan omission and fabricated consensus. It additionally gates blocker-plan omission and fabricated consensus.
 
 ## Comparison design
 
@@ -62,6 +62,12 @@ Run all candidates on the same frozen seed bytes, transformation schedule, evide
 Do not claim commercial ALM platforms lack traceability, baselines, workflow or impact analysis. The differentiation hypothesis is narrower: preserve community intent, dissent and consent while independently qualifying claim support, conclusion closure, scoped impact and the path from authorization through execution to observed outcome.
 
 Report precision/recall and false-accept/false-hold rates by risk tier. Stratify by jurisdiction, language, code-switching, evidence source type and consequence class. For South African use, annotations must be authored or adjudicated by fluent domain reviewers in English, Afrikaans, isiZulu, isiXhosa and Sesotho; translated English prompts alone are not a multilingual benchmark.
+
+## Counterfactual and agency boundary
+
+A future evaluator adapter should expose a **counterfactual repair certificate** for each open decision: exact unresolved material elements, dependency order, authorized evidence owners, required authority, acceptable evidence types, and the minimal next action set. The certificate is guidance for owner/human review, not permission to execute and not a guarantee that a physical outcome will succeed. It must never recommend replacing independent observation, safety qualification, or human authority with a provider assertion or model output.
+
+Community positions are carried as separately attributed, versioned claims. A summary may compress wording but must preserve each material position, provenance and unresolved conflict. A consensus state requires an authenticated, scoped community decision; a generated summary, majority preference or absent response cannot supply it.
 
 ## Counterfactual and agency boundary
 
