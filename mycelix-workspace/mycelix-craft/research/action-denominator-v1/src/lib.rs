@@ -1069,7 +1069,8 @@ mod tests {
         let prior_observation =
             observation(&previous, "obs:1", "action:1", "independent:1", 100, 900);
         let prior_report =
-            evaluate_action_coverage_v1(&previous, std::slice::from_ref(&prior_observation), 200).unwrap();
+            evaluate_action_coverage_v1(&previous, std::slice::from_ref(&prior_observation), 200)
+                .unwrap();
         assert_eq!(prior_report.denominator_count, 2);
         assert_eq!(prior_report.covered_count, 1);
 
@@ -1085,7 +1086,8 @@ mod tests {
             Err(PlanErrorV1::AmendmentNeedsNewAuthorityDecision)
         );
         let replay =
-            evaluate_action_coverage_v1(&previous, std::slice::from_ref(&prior_observation), 200).unwrap();
+            evaluate_action_coverage_v1(&previous, std::slice::from_ref(&prior_observation), 200)
+                .unwrap();
         assert_eq!(replay, prior_report);
 
         // An observation admitted under P1 cannot be carried forward to P2,
