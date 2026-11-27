@@ -1,6 +1,6 @@
 {
   "profile": "MYCELIX-TEMPORAL-EVIDENCE-V1",
-  "version": "1.0",
+  "version": "1.1",
   "status": "synthetic_development_fixture_not_authenticated_source_evidence",
   "assertions": [
     {
@@ -73,7 +73,8 @@
       "source_authority_ref": "supplier:sup-001:inspection-authority",
       "evidence_ref": "synthetic:lot-001:inspection-valid-from",
       "content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
-      "claim_id": "lot-quality-state-1"
+      "claim_id": "lot-quality-state-1",
+      "validity_interval_ref": "validity-episode:lot-quality-state-1"
     },
     {
       "assertion_id": "TEMP-006",
@@ -86,7 +87,8 @@
       "source_authority_ref": "supplier:sup-001:inspection-authority",
       "evidence_ref": "synthetic:lot-001:inspection-valid-to",
       "content_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-      "claim_id": "lot-quality-state-1"
+      "claim_id": "lot-quality-state-1",
+      "validity_interval_ref": "validity-episode:lot-quality-state-1"
     },
     {
       "assertion_id": "TEMP-007",
@@ -130,7 +132,8 @@
       "source_authority_ref": "governance:grant-issuer-1",
       "evidence_ref": "synthetic:grant-1:revocation-effective-time",
       "content_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
-      "claim_id": "grant-revocation-claim-1"
+      "claim_id": "grant-revocation-claim-1",
+      "validity_interval_ref": "validity-episode:grant-revocation-claim-1"
     },
     {
       "assertion_id": "TEMP-010",
