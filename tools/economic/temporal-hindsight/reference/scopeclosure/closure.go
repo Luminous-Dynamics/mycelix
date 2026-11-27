@@ -153,18 +153,26 @@ func Reconcile(scope QueryScope, manifest ScopeClosureManifest, universe Univers
 	if !sameCandidates(universe.Candidates,manifest.Candidates) { return finalize(base,"manifest candidates differ from independently supplied universe inventory") }
 
 	candidateByOwner:=make(map[string]OwnerCandidate,len(universe.Candidates))
-	for _,c:=range universe.Candidates {
-		candidateByOwner[c.OwnerRef]=c
-		switch c.Disposition {
-		case CandidateUnknown: return finalize(base,"owner universe contains Unknown owner: "+c.OwnerRef)
-		case CandidateWithheld: return finalize(base,"owner universe contains Withheld owner: "+c.OwnerRef)
-		case CandidateOffline: return finalize(base,"owner universe contains Unavailable owner: "+c.OwnerRef)
+	for _,candidate:=range universe.Candidates {
+		candidateByOwner[candidate.OwnerRef]=candidate
+	}
+	candidateRefs:=make([]string,0,len(candidateByOwner))
+	for ref:=range candidateByOwner { candidateRefs=append(candidateRefs,ref) }
+	sort.Strings(candidateRefs)
+	for _,ref:=range candidateRefs {
+		candidate:=candidateByOwner[ref]
+		switch candidate.Disposition {
+		case CandidateUnknown: return finalize(base,"owner universe contains Unknown owner: "+ref)
+		case CandidateWithheld: return finalize(base,"owner universe contains Withheld owner: "+ref)
+		case CandidateOffline: return finalize(base,"owner universe contains Unavailable owner: "+ref)
 		case CandidateRequired: base.RequiredOwnerCount++
 		case CandidateExcluded: base.ExcludedOwnerCount++
 		}
 	}
 	frontierByOwner:=make(map[string]OwnerFrontierBinding,len(frontier.Owners))
-	for _,o:=range frontier.Owners {
+	orderedFrontier:=append([]OwnerFrontierBinding(nil),frontier.Owners...)
+	sort.Slice(orderedFrontier,func(i,j int)bool{return orderedFrontier[i].OwnerRef<orderedFrontier[j].OwnerRef})
+	for _,o:=range orderedFrontier {
 		if strings.TrimSpace(o.OwnerRef)=="" || o.HistoryRef=="" || !validDigest(o.LogRootDigest) { return finalize(base,"malformed frontier owner binding") }
 		if _,ok:=frontierByOwner[o.OwnerRef]; ok { return finalize(base,"duplicate owner in frontier: "+o.OwnerRef) }
 		if len(o.Gaps)!=0 { return finalize(base,"unresolved owner-history gaps: "+o.OwnerRef) }
