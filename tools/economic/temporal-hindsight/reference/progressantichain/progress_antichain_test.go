@@ -276,3 +276,18 @@ func TestMalformedAdvanceSubmissionsAreBoundIntoCertificate(t *testing.T) {
 		t.Fatal("distinct malformed previous antichains collapsed to one receipt")
 	}
 }
+
+func TestMalformedScopeSubmissionsAreBoundIntoCertificate(t *testing.T) {
+	firstScope := testScope("owner:A")
+	secondScope := testScope("owner:B")
+	firstScope.RegistryRef = ""
+	secondScope.RegistryRef = ""
+	first := EvaluateProgressAtV1(testAntichain(firstScope, map[string]uint64{"owner:A": 1}), testCut(map[string]uint64{"owner:A": 2}))
+	second := EvaluateProgressAtV1(testAntichain(secondScope, map[string]uint64{"owner:B": 1}), testCut(map[string]uint64{"owner:B": 2}))
+	if first.Disposition != ProgressIndeterminate || second.Disposition != ProgressIndeterminate {
+		t.Fatalf("malformed scope unexpectedly evaluated: first=%+v second=%+v", first, second)
+	}
+	if first.CertificateDigest == second.CertificateDigest || first.ScopeDigest == second.ScopeDigest {
+		t.Fatal("distinct malformed scopes collapsed to one receipt")
+	}
+}
