@@ -1391,7 +1391,11 @@ mod tests {
         assert_eq!(result, SupportSufficiencyV1::InsufficientEvidence);
     }
 
-    fn authorized_action_set(revision: u64, digest: [u8; 32], action_ids: Vec<&str>) -> AuthorizedActionSetV1 {
+    fn authorized_action_set(
+        revision: u64,
+        digest: [u8; 32],
+        action_ids: Vec<&str>,
+    ) -> AuthorizedActionSetV1 {
         AuthorizedActionSetV1 {
             episode_id: "wsr-010-episode".to_owned(),
             scope_id: "zone-synthetic-a".to_owned(),
@@ -1402,7 +1406,11 @@ mod tests {
         }
     }
 
-    fn observed_action(action_id: &str, revision: u64, digest: [u8; 32]) -> ObservedAuthorizedActionV1 {
+    fn observed_action(
+        action_id: &str,
+        revision: u64,
+        digest: [u8; 32],
+    ) -> ObservedAuthorizedActionV1 {
         ObservedAuthorizedActionV1 {
             episode_id: "wsr-010-episode".to_owned(),
             scope_id: "zone-synthetic-a".to_owned(),
@@ -1460,13 +1468,18 @@ mod tests {
             observed_action("isolate", 1, [81; 32]),
             observed_action("repair", 1, [81; 32]),
         ];
-        let original_receipt =
-            evaluate_action_coverage(&original, &original_observations).unwrap();
+        let original_receipt = evaluate_action_coverage(&original, &original_observations).unwrap();
 
         let revised = authorized_action_set(
             2,
             [82; 32],
-            vec!["isolate", "repair", "pressure-check", "quality-sample", "monitoring-handover"],
+            vec![
+                "isolate",
+                "repair",
+                "pressure-check",
+                "quality-sample",
+                "monitoring-handover",
+            ],
         );
         assert_eq!(
             evaluate_action_coverage(&revised, &original_observations),
@@ -1478,13 +1491,14 @@ mod tests {
             observed_action("isolate", 2, [82; 32]),
             observed_action("repair", 2, [82; 32]),
         ];
-        let revised_receipt =
-            evaluate_action_coverage(&revised, &revised_observations).unwrap();
+        let revised_receipt = evaluate_action_coverage(&revised, &revised_observations).unwrap();
         assert_eq!(original_receipt.numerator, revised_receipt.numerator);
         assert_eq!(original_receipt.denominator, 4);
         assert_eq!(revised_receipt.denominator, 5);
-        assert!(revised_receipt.numerator * original_receipt.denominator
-            <= original_receipt.numerator * revised_receipt.denominator);
+        assert!(
+            revised_receipt.numerator * original_receipt.denominator
+                <= original_receipt.numerator * revised_receipt.denominator
+        );
     }
 
     #[test]
@@ -1573,11 +1587,6 @@ mod tests {
             receipt.owner_dispositions.decision_closure,
             decision_closure::DecisionClosureDispositionV1::OpenMissingElements
         );
-        assert_eq!(
-            receipt.oracle_disposition,
-            ExpectedDisposition::NotEligible
-        );
+        assert_eq!(receipt.oracle_disposition, ExpectedDisposition::NotEligible);
     }
-
-
 }
