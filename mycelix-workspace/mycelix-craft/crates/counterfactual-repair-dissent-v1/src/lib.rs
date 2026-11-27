@@ -592,12 +592,15 @@ pub struct StakeholderPositionV1 {
     /// Exact outcome, requirement, or material-element identifiers affected.
     pub material_scope_ids: Vec<String>,
     pub state: PositionStateV1,
+    /// Exact authenticated resolution record when the position is resolved or withdrawn.
+    pub resolution: Option<PositionResolutionV1>,
     pub position_digest: DigestV1,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PositionResolutionV1 {
     pub resolution_id: String,
+    pub resolution_artifact: ArtifactVersionRefV1,
     pub proposal: ArtifactVersionRefV1,
     pub position_ids: Vec<String>,
     /// Decision and authority artifacts are exact references; host authenticates.
@@ -618,6 +621,7 @@ pub struct SummaryPositionRefV1 {
     pub position_digest: DigestV1,
     pub disposition: SummaryPositionDispositionV1,
     pub resolution_id: Option<String>,
+    pub resolution_ref: Option<ArtifactVersionRefV1>,
     pub resolution_decision: Option<ArtifactVersionRefV1>,
 }
 
@@ -644,6 +648,32 @@ fn validate_position(position: &StakeholderPositionV1) -> Result<(), GuidanceErr
         }
     }
     validate_unique_strings(&position.material_scope_ids)?;
+    match position.state {
+        PositionStateV1::Active | PositionStateV1::Disputed => {
+            if position.resolution.is_some() {
+                return Err(GuidanceErrorV1::InvalidPositionState);
+            }
+        }
+        PositionStateV1::Resolved | PositionStateV1::Withdrawn => {
+            let resolution = position
+                .resolution
+                .as_ref()
+                .ok_or(GuidanceErrorV1::InvalidPositionState)?;
+            if !non_empty(&resolution.resolution_id)
+                || !valid_artifact(&resolution.resolution_artifact)
+                || resolution.resolution_artifact.artifact_id != resolution.resolution_id
+                || resolution.resolution_artifact.digest != resolution.resolution_digest
+                || resolution.proposal != position.proposal
+                || !resolution.position_ids.contains(&position.position_id)
+                || !valid_artifact(&resolution.decision)
+                || !valid_artifact(&resolution.authority)
+                || !valid_digest(&resolution.resolution_digest)
+            {
+                return Err(GuidanceErrorV1::PositionBindingMismatch);
+            }
+            validate_unique_strings(&resolution.position_ids)?;
+        }
+    }
     Ok(())
 }
 
@@ -656,6 +686,9 @@ pub fn validate_position_resolution(
     positions: &[StakeholderPositionV1],
 ) -> Result<(), GuidanceErrorV1> {
     if !non_empty(&resolution.resolution_id)
+        || !valid_artifact(&resolution.resolution_artifact)
+        || resolution.resolution_artifact.artifact_id != resolution.resolution_id
+        || resolution.resolution_artifact.digest != resolution.resolution_digest
         || !valid_artifact(&resolution.proposal)
         || !valid_artifact(&resolution.decision)
         || !valid_artifact(&resolution.authority)
@@ -731,21 +764,21 @@ pub fn validate_summary_preserves_positions(
             PositionStateV1::Active | PositionStateV1::Disputed => {
                 if item.disposition != SummaryPositionDispositionV1::Preserved
                     || item.resolution_id.is_some()
+                    || item.resolution_ref.is_some()
                     || item.resolution_decision.is_some()
                 {
                     return Err(GuidanceErrorV1::SummaryErasesDissent);
                 }
             }
             PositionStateV1::Resolved | PositionStateV1::Withdrawn => {
+                let resolution = position
+                    .resolution
+                    .as_ref()
+                    .ok_or(GuidanceErrorV1::InvalidPositionState)?;
                 if item.disposition != SummaryPositionDispositionV1::ExplicitlyResolved
-                    || item
-                        .resolution_id
-                        .as_ref()
-                        .is_none_or(|id| !non_empty(id))
-                    || item
-                        .resolution_decision
-                        .as_ref()
-                        .is_none_or(|reference| !valid_artifact(reference))
+                    || item.resolution_id.as_deref() != Some(resolution.resolution_id.as_str())
+                    || item.resolution_ref.as_ref() != Some(&resolution.resolution_artifact)
+                    || item.resolution_decision.as_ref() != Some(&resolution.decision)
                 {
                     return Err(GuidanceErrorV1::SummaryResolutionMismatch);
                 }
@@ -1044,8 +1077,23 @@ mod tests {
             provenance: vec![artifact(&format!("source-{id}"), 1, 23)],
             material_scope_ids: vec![material_scope.to_owned()],
             state,
+            resolution: None,
             position_digest: [24; 32],
         }
+    }
+
+    fn resolved_position(id: &str, material_scope: &str) -> StakeholderPositionV1 {
+        let mut position = position(id, PositionStateV1::Resolved, material_scope);
+        position.resolution = Some(PositionResolutionV1 {
+            resolution_id: "community-resolution-1".to_owned(),
+            resolution_artifact: artifact("community-resolution-1", 1, 29),
+            proposal: position.proposal.clone(),
+            position_ids: vec![position.position_id.clone()],
+            decision: artifact("community-decision", 1, 27),
+            authority: artifact("community-authority", 1, 28),
+            resolution_digest: [29; 32],
+        });
+        position
     }
 
     fn summary_item(
@@ -1057,6 +1105,7 @@ mod tests {
             position_digest: [24; 32],
             disposition,
             resolution_id: None,
+            resolution_ref: None,
             resolution_decision: None,
         }
     }
@@ -1132,11 +1181,7 @@ mod tests {
 
     #[test]
     fn resolved_position_requires_explicit_resolution_reference_in_summary() {
-        let positions = vec![position(
-            "affordability",
-            PositionStateV1::Resolved,
-            "cost-outcome",
-        )];
+        let positions = vec![resolved_position("affordability", "cost-outcome")];
         let item = summary_item(
             "affordability",
             SummaryPositionDispositionV1::ExplicitlyResolved,
@@ -1156,6 +1201,7 @@ mod tests {
         )];
         let resolution = PositionResolutionV1 {
             resolution_id: "community-resolution-1".to_owned(),
+            resolution_artifact: artifact("community-resolution-1", 1, 29),
             proposal: artifact("water-need-proposal", 3, 20),
             position_ids: vec!["affordability".to_owned()],
             decision: artifact("community-decision", 1, 27),
@@ -1174,6 +1220,7 @@ mod tests {
         )];
         let resolution = PositionResolutionV1 {
             resolution_id: "community-resolution-1".to_owned(),
+            resolution_artifact: artifact("community-resolution-1", 1, 29),
             proposal: artifact("water-need-proposal", 2, 30),
             position_ids: vec!["affordability".to_owned()],
             decision: artifact("community-decision", 1, 27),
@@ -1195,6 +1242,7 @@ mod tests {
         )];
         let resolution = PositionResolutionV1 {
             resolution_id: "community-resolution-1".to_owned(),
+            resolution_artifact: artifact("community-resolution-1", 1, 29),
             proposal: artifact("water-need-proposal", 3, 20),
             position_ids: vec!["invented-position".to_owned()],
             decision: artifact("community-decision", 1, 27),
@@ -1209,13 +1257,10 @@ mod tests {
 
     #[test]
     fn resolved_position_cannot_be_resolved_again() {
-        let positions = vec![position(
-            "affordability",
-            PositionStateV1::Resolved,
-            "cost-outcome",
-        )];
+        let positions = vec![resolved_position("affordability", "cost-outcome")];
         let resolution = PositionResolutionV1 {
             resolution_id: "community-resolution-2".to_owned(),
+            resolution_artifact: artifact("community-resolution-2", 1, 32),
             proposal: artifact("water-need-proposal", 3, 20),
             position_ids: vec!["affordability".to_owned()],
             decision: artifact("community-decision-2", 1, 31),
@@ -1233,6 +1278,7 @@ mod tests {
         let position = position("affordability", PositionStateV1::Active, "cost-outcome");
         let resolution = PositionResolutionV1 {
             resolution_id: "community-resolution-1".to_owned(),
+            resolution_artifact: artifact("community-resolution-1", 1, 29),
             proposal: artifact("water-need-proposal", 3, 20),
             position_ids: vec!["affordability".to_owned()],
             decision: artifact("community-decision", 1, 27),
@@ -1254,6 +1300,7 @@ mod tests {
         )];
         let resolution = PositionResolutionV1 {
             resolution_id: "community-resolution-1".to_owned(),
+            resolution_artifact: artifact("community-resolution-1", 1, 29),
             proposal: artifact("water-need-proposal", 3, 20),
             position_ids: vec!["affordability".to_owned(), "affordability".to_owned()],
             decision: artifact("community-decision", 1, 27),
@@ -1268,12 +1315,13 @@ mod tests {
 
     #[test]
     fn valid_resolved_position_must_reference_its_explicit_decision() {
-        let position = position("affordability", PositionStateV1::Resolved, "cost-outcome");
+        let position = resolved_position("affordability", "cost-outcome");
         let mut item = summary_item(
             "affordability",
             SummaryPositionDispositionV1::ExplicitlyResolved,
         );
         item.resolution_id = Some("community-resolution-1".to_owned());
+        item.resolution_ref = Some(artifact("community-resolution-1", 1, 29));
         item.resolution_decision = Some(artifact("community-decision", 1, 27));
         assert!(validate_summary_preserves_positions(&[position.clone()], &[item.clone()]).is_ok());
         let mut changed = position;
