@@ -216,9 +216,7 @@ fn valid_digest(digest: &DigestV1) -> bool {
     *digest != [0; 32]
 }
 fn valid_artifact(reference: &ArtifactVersionRefV1) -> bool {
-    non_empty(&reference.artifact_id)
-        && reference.revision > 0
-        && valid_digest(&reference.digest)
+    non_empty(&reference.artifact_id) && reference.revision > 0 && valid_digest(&reference.digest)
 }
 fn valid_decision(decision: &DecisionRefV1) -> bool {
     non_empty(&decision.decision_id)
@@ -386,10 +384,7 @@ pub fn build_repair_certificate(
         for requirement in &blocker.required_evidence {
             validate_evidence_requirement(requirement, &packet.decision.context_digest)?;
         }
-        let requirement_keys = blocker
-            .required_evidence
-            .iter()
-            .collect::<BTreeSet<_>>();
+        let requirement_keys = blocker.required_evidence.iter().collect::<BTreeSet<_>>();
         if requirement_keys.len() != blocker.required_evidence.len() {
             return Err(GuidanceErrorV1::DuplicateRequirement);
         }
@@ -508,10 +503,7 @@ pub fn build_repair_certificate(
         if step_index.insert(step.step_id.as_str(), step).is_some() {
             return Err(GuidanceErrorV1::DuplicateGuidanceStep);
         }
-        step_graph.insert(
-            step.step_id.clone(),
-            step.prerequisite_step_ids.clone(),
-        );
+        step_graph.insert(step.step_id.clone(), step.prerequisite_step_ids.clone());
     }
 
     for step in &packet.guidance_steps {
@@ -533,17 +525,19 @@ pub fn build_repair_certificate(
         }
         if blocker.required_evidence.iter().any(|requirement| {
             !covered_evidence.contains(&(blocker.blocker_id.clone(), requirement.clone()))
-        }) || blocker.required_authority.as_ref().is_some_and(|authority| {
-            !covered_authority.contains(&(blocker.blocker_id.clone(), authority.clone()))
-        }) {
+        }) || blocker
+            .required_authority
+            .as_ref()
+            .is_some_and(|authority| {
+                !covered_authority.contains(&(blocker.blocker_id.clone(), authority.clone()))
+            })
+        {
             return Err(GuidanceErrorV1::IncompleteBlockerRequirements);
         }
     }
 
     let mut owner_evaluations = packet.owner_evaluations.clone();
-    owner_evaluations.sort_by(|left, right| {
-        left.evaluation_id.cmp(&right.evaluation_id)
-    });
+    owner_evaluations.sort_by(|left, right| left.evaluation_id.cmp(&right.evaluation_id));
     let mut blockers = packet.blockers.clone();
     blockers.sort_by(|left, right| left.blocker_id.cmp(&right.blocker_id));
     for blocker in &mut blockers {
@@ -725,7 +719,10 @@ pub fn validate_position_resolution(
         if position.proposal != resolution.proposal {
             return Err(GuidanceErrorV1::ResolutionScopeMismatch);
         }
-        if matches!(position.state, PositionStateV1::Resolved | PositionStateV1::Withdrawn) {
+        if matches!(
+            position.state,
+            PositionStateV1::Resolved | PositionStateV1::Withdrawn
+        ) {
             return Err(GuidanceErrorV1::AlreadyResolvedPosition);
         }
     }
@@ -757,7 +754,10 @@ pub fn validate_summary_preserves_positions(
         if !non_empty(&item.position_id) || !valid_digest(&item.position_digest) {
             return Err(GuidanceErrorV1::PositionBindingMismatch);
         }
-        if summary_by_id.insert(item.position_id.as_str(), item).is_some() {
+        if summary_by_id
+            .insert(item.position_id.as_str(), item)
+            .is_some()
+        {
             return Err(GuidanceErrorV1::DuplicateSummaryPosition);
         }
         if !positions_by_id.contains_key(item.position_id.as_str()) {
@@ -765,7 +765,10 @@ pub fn validate_summary_preserves_positions(
         }
     }
 
-    for position in positions.iter().filter(|position| !position.material_scope_ids.is_empty()) {
+    for position in positions
+        .iter()
+        .filter(|position| !position.material_scope_ids.is_empty())
+    {
         let item = summary_by_id
             .get(position.position_id.as_str())
             .ok_or(GuidanceErrorV1::MissingMaterialPosition)?;
@@ -889,12 +892,13 @@ mod tests {
             decision: decision(),
             disposition_code: "open_missing_elements".to_owned(),
             disposition_digest: [9; 32],
-            owner_evaluations: vec![owner(
-                "closure-eval",
-                OwnerKindV1::DecisionClosure,
-            )],
+            owner_evaluations: vec![owner("closure-eval", OwnerKindV1::DecisionClosure)],
             blockers: vec![blocker("pressure-restoration", requirement.clone())],
-            guidance_steps: vec![step("collect-pressure", "pressure-restoration", requirement)],
+            guidance_steps: vec![step(
+                "collect-pressure",
+                "pressure-restoration",
+                requirement,
+            )],
         }
     }
 
@@ -1024,7 +1028,9 @@ mod tests {
     fn one_owner_step_may_address_multiple_exact_blockers() {
         let mut packet = valid_packet();
         let second_requirement = evidence_requirement("independent-pressure-observation");
-        packet.blockers.push(blocker("pressure-duration", second_requirement));
+        packet
+            .blockers
+            .push(blocker("pressure-duration", second_requirement));
         packet.guidance_steps[0]
             .satisfies_blocker_ids
             .push("pressure-duration".to_owned());
@@ -1081,11 +1087,7 @@ mod tests {
         );
     }
 
-    fn position(
-        id: &str,
-        state: PositionStateV1,
-        material_scope: &str,
-    ) -> StakeholderPositionV1 {
+    fn position(id: &str, state: PositionStateV1, material_scope: &str) -> StakeholderPositionV1 {
         StakeholderPositionV1 {
             position_id: id.to_owned(),
             revision: 1,
@@ -1134,7 +1136,11 @@ mod tests {
     fn summary_must_preserve_every_material_active_position() {
         let positions = vec![
             position("affordability", PositionStateV1::Active, "cost-outcome"),
-            position("reliability", PositionStateV1::Active, "reliability-outcome"),
+            position(
+                "reliability",
+                PositionStateV1::Active,
+                "reliability-outcome",
+            ),
         ];
         let summary = vec![summary_item(
             "affordability",
@@ -1150,7 +1156,11 @@ mod tests {
     fn summary_cannot_merge_two_positions_into_one_identity() {
         let positions = vec![
             position("affordability", PositionStateV1::Active, "cost-outcome"),
-            position("reliability", PositionStateV1::Disputed, "reliability-outcome"),
+            position(
+                "reliability",
+                PositionStateV1::Disputed,
+                "reliability-outcome",
+            ),
         ];
         let summary = vec![summary_item(
             "affordability",
@@ -1169,10 +1179,7 @@ mod tests {
             PositionStateV1::Active,
             "cost-outcome",
         )];
-        let mut item = summary_item(
-            "affordability",
-            SummaryPositionDispositionV1::Preserved,
-        );
+        let mut item = summary_item("affordability", SummaryPositionDispositionV1::Preserved);
         item.position_digest = [25; 32];
         assert_eq!(
             validate_summary_preserves_positions(&positions, &[item]),
@@ -1214,11 +1221,7 @@ mod tests {
 
     #[test]
     fn a_resolution_kind_cannot_be_relabelled_as_another_state() {
-        let mut withdrawn = position(
-            "affordability",
-            PositionStateV1::Withdrawn,
-            "cost-outcome",
-        );
+        let mut withdrawn = position("affordability", PositionStateV1::Withdrawn, "cost-outcome");
         let mut resolution = resolved_position("affordability", "cost-outcome")
             .resolution
             .expect("resolution fixture exists");
@@ -1228,7 +1231,10 @@ mod tests {
         assert_eq!(
             validate_summary_preserves_positions(
                 &[withdrawn],
-                &[summary_item("affordability", SummaryPositionDispositionV1::ExplicitlyWithdrawn)]
+                &[summary_item(
+                    "affordability",
+                    SummaryPositionDispositionV1::ExplicitlyWithdrawn
+                )]
             ),
             Err(GuidanceErrorV1::PositionBindingMismatch)
         );
@@ -1363,11 +1369,7 @@ mod tests {
 
     #[test]
     fn withdrawal_is_not_misreported_as_a_consensus_resolution() {
-        let mut withdrawn = position(
-            "affordability",
-            PositionStateV1::Withdrawn,
-            "cost-outcome",
-        );
+        let mut withdrawn = position("affordability", PositionStateV1::Withdrawn, "cost-outcome");
         withdrawn.resolution = Some(PositionResolutionV1 {
             resolution_id: "group-withdrawal-1".to_owned(),
             kind: PositionResolutionKindV1::Withdraw,
