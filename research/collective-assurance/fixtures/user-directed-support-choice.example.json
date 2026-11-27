@@ -1,0 +1,16 @@
+{
+  "request":{
+    "request_id":"support-request-synthetic-001",
+    "user_intent":"learn",
+    "requested_mode":"explanation",
+    "essential_accommodation_required":false
+  },
+  "decision":{
+    "request_id":"support-request-synthetic-001",
+    "selected_mode":"explanation",
+    "user_override_confirmed":false,
+    "essential_accommodation_preserved":true
+  },
+  "fixture_only":true,
+  "note":"Synthetic known-answer case. The validator checks declared intent and mode, not whether a user actually expressed them."
+}

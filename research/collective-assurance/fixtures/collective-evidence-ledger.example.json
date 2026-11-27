@@ -1,0 +1,26 @@
+{
+  "schema_version":"collective-evidence-ledger-v0.1",
+  "fixture_only":true,
+  "genesis_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "root_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "events":[
+    {
+      "sequence":1,
+      "event_id":"assignment-1",
+      "timestamp_ms":1,
+      "actor_id":"holder-pseudonym-1",
+      "recipient_id":null,
+      "parent_event_id":null,
+      "previous_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "kind":{
+        "type":"information_assigned",
+        "information_id":"fact-1",
+        "source_origin_id":"source-record-1",
+        "permission":"scoped",
+        "permitted_recipients":["requester-pseudonym-1"]
+      }
+    }
+  ],
+  "note":"Synthetic schema fixture only. Digests are placeholders; this fixture is not a valid cryptographic ledger."
+}

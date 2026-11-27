@@ -1,0 +1,41 @@
+{
+  "request_id":"group-assistance-request-001",
+  "response_id":"assistant-response-001",
+  "auditor_id":"independent-auditor-pseudonym-01",
+  "audit_protocol_digest":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "coverage_complete":true,
+  "response_text":"The revised departure date is 12 June. Thanks for asking.",
+  "available_evidence":[
+    {
+      "evidence_id":"departure-date-revision",
+      "source_origin_id":"source-record-revision-02",
+      "source_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status":"current",
+      "verified":true
+    }
+  ],
+  "claims":[
+    {
+      "annotation_id":"claim-span-01",
+      "start_byte":0,
+      "end_byte":38,
+      "claim_span_digest":"fd04ef3dc8156cf3be9f2b55c72ad689ef98f3fbe5f7e9b7f2096acf79ad9849",
+      "disposition":"supported",
+      "supporting_evidence_ids":["departure-date-revision"],
+      "contradicting_evidence_ids":[],
+      "rationale":null
+    },
+    {
+      "annotation_id":"claim-span-02",
+      "start_byte":39,
+      "end_byte":57,
+      "claim_span_digest":"35884cc6dac05ee774df6d1aa8fc75869e8061f271a69797b42c5ce16696209a",
+      "disposition":"non_material",
+      "supporting_evidence_ids":[],
+      "contradicting_evidence_ids":[],
+      "rationale":null
+    }
+  ],
+  "fixture_only":true,
+  "note":"Illustrative only. Auditor identity and coverage attestation are not authenticated by this schema; use signed receipts and independent evaluator custody in production."
+}

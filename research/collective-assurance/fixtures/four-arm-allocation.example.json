@@ -1,0 +1,18 @@
+{
+  "schema_version":"team-allocation-manifest-v0.1","run_id":"synthetic-order-study-001",
+  "allocation_unit":"team","algorithm_id":"complete-block-fisher-yates-chacha20-v0.1",
+  "design_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "roster_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "strata":["baseline-mid"],"arms":["ai-first","independent-first","evidence-first","human-only"],
+  "seed_commitment":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "assignments":[
+    {"opaque_team_id":"team-01","stratum":"baseline-mid","arm":"ai-first"},
+    {"opaque_team_id":"team-02","stratum":"baseline-mid","arm":"independent-first"},
+    {"opaque_team_id":"team-03","stratum":"baseline-mid","arm":"evidence-first"},
+    {"opaque_team_id":"team-04","stratum":"baseline-mid","arm":"human-only"},
+    {"opaque_team_id":"team-05","stratum":"baseline-mid","arm":"human-only"},
+    {"opaque_team_id":"team-06","stratum":"baseline-mid","arm":"evidence-first"},
+    {"opaque_team_id":"team-07","stratum":"baseline-mid","arm":"independent-first"},
+    {"opaque_team_id":"team-08","stratum":"baseline-mid","arm":"ai-first"}
+  ]
+}

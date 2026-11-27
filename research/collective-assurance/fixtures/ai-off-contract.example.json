@@ -1,0 +1,13 @@
+{
+  "schema_version":"ai-off-attestation-v0.1","fixture_only":true,"expected_profile":"microvm-v1",
+  "required_negative_controls":["inference_endpoint","agent_control_plane","external_network_egress","model_credential_vault","cache_replay_canary"],
+  "known_answer_contract":{
+    "complete_inventory_all_controls_blocked_zero_connections":"PASS",
+    "candidate_reachable_ai_answer_or_cache":"FAIL",
+    "candidate_agent_or_model_runtime_present":"FAIL",
+    "incomplete_or_unknown_inventory":"INDETERMINATE",
+    "allowed_or_duplicate_probe":"FAIL","missing_or_not_run_probe":"INDETERMINATE",
+    "replayed_challenge_nonce":"FAIL","invalid_signature_or_claim_mismatch":"FAIL"
+  },
+  "signature_note":"No signature supplied. Unit tests use a deliberately non-cryptographic test verifier."
+}

@@ -1,0 +1,45 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://luminousdynamics.io/schemas/response-constraint-binding-v0.1.json",
+  "title":"Response evidence constraint binding v0.1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["request_id","response_id","responder_id","available_evidence","constraints"],
+  "properties":{
+    "request_id":{"type":"string","minLength":1},
+    "response_id":{"type":"string","minLength":1},
+    "responder_id":{"type":"string","minLength":1},
+    "available_evidence":{
+      "type":"array","items":{"type":"object","additionalProperties":false,
+        "required":["request_id","evidence_id","source_digest","subject_id","scope_id","authorized_responder_id","status","applicability","verified","required"],
+        "properties":{
+          "request_id":{"type":"string","minLength":1},
+          "evidence_id":{"type":"string","minLength":1},
+          "source_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+          "subject_id":{"type":"string","minLength":1},
+          "scope_id":{"type":"string","minLength":1},
+          "authorized_responder_id":{"type":"string","minLength":1},
+          "status":{"enum":["current","superseded","disputed","expired","unknown"]},
+          "applicability":{"enum":["applicable","not_applicable","conditional","unknown"]},
+          "verified":{"type":"boolean"},
+          "required":{"type":"boolean"}
+        }
+      }
+    },
+    "constraints":{
+      "type":"array","items":{"type":"object","additionalProperties":false,
+        "required":["evidence_id","source_digest","subject_id","scope_id","status","applicability","handling","rationale"],
+        "properties":{
+          "evidence_id":{"type":"string","minLength":1},
+          "source_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+          "subject_id":{"type":"string","minLength":1},
+          "scope_id":{"type":"string","minLength":1},
+          "status":{"enum":["current","superseded","disputed","expired","unknown"]},
+          "applicability":{"enum":["applicable","not_applicable","conditional","unknown"]},
+          "handling":{"enum":["applied","excluded","applied_with_condition","preserved_conflict","unresolved"]},
+          "rationale":{"type":["string","null"]}
+        }
+      }
+    }
+  }
+}

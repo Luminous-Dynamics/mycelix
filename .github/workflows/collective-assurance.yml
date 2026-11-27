@@ -1,0 +1,56 @@
+name: Collective Assurance Core
+
+on:
+  push:
+    paths:
+      - "research/collective-assurance/**"
+      - ".github/workflows/collective-assurance.yml"
+  pull_request:
+    paths:
+      - "research/collective-assurance/**"
+      - ".github/workflows/collective-assurance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification-core:
+    name: Rust format, Clippy, tests and locked dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: clippy, rustfmt
+      - name: Verify lockfile is honored
+        run: cargo metadata --locked --manifest-path research/collective-assurance/Cargo.toml --format-version 1 > /dev/null
+      - name: Validate contract schemas and fixtures as JSON
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = sorted(Path("research/collective-assurance/schema").glob("*.json"))
+          paths += sorted(Path("research/collective-assurance/fixtures").glob("*.json"))
+          if not paths:
+              raise SystemExit("no schemas or fixtures found")
+          for path in paths:
+              json.loads(path.read_text(encoding="utf-8"))
+              print(f"valid JSON: {path}")
+          PY
+      - name: Normalize Rust sources in isolated checkout
+        run: cargo fmt --manifest-path research/collective-assurance/Cargo.toml
+      - name: Run strict Clippy with committed lockfile
+        run: cargo clippy --locked --manifest-path research/collective-assurance/Cargo.toml --all-targets -- -D warnings
+      - name: Run unit tests with committed lockfile
+        run: cargo test --locked --manifest-path research/collective-assurance/Cargo.toml
+      - name: Export normalized Rust sources for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collective-assurance-formatted-rust
+          path: research/collective-assurance/src/*.rs
+          if-no-files-found: error

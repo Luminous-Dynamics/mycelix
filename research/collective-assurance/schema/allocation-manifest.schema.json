@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://luminousdynamics.io/schemas/team-allocation-manifest-v0.1.json",
+  "title":"Team-level complete-block allocation manifest v0.1",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","run_id","allocation_unit","algorithm_id","design_digest","roster_digest","strata","arms","seed_commitment","assignments"],
+  "properties":{
+    "schema_version":{"const":"team-allocation-manifest-v0.1"},
+    "run_id":{"type":"string","minLength":1},"allocation_unit":{"const":"team"},
+    "algorithm_id":{"const":"complete-block-fisher-yates-chacha20-v0.1"},
+    "design_digest":{"$ref":"#/$defs/digest"},"roster_digest":{"$ref":"#/$defs/digest"},
+    "strata":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+    "arms":{"type":"array","minItems":2,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+    "seed_commitment":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "assignments":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["opaque_team_id","stratum","arm"],"properties":{
+      "opaque_team_id":{"type":"string","minLength":1},"stratum":{"type":"string","minLength":1},"arm":{"type":"string","minLength":1}
+    }}},
+    "seed_reveal_b64":{"type":"string","contentEncoding":"base64","description":"Absent until enrollment and analysis are frozen; publish with commitment salt and declared encoding."}
+  },
+  "$defs":{"digest":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}
