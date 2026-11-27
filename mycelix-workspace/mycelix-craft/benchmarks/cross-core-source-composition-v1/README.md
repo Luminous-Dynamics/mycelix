@@ -52,17 +52,17 @@ PM4Py 2.7.23.15's `stable` extra pins the project's tested baseline dependency v
 
 ### Rust OCEL scale probe
 
-The harness now includes `src/bin/ocel_scale_bench.rs`, a measurement-only executable that generates a deterministic synthetic OCEL log and measures the current whole-document Rust validator plus canonicalizer. It performs two warm-up passes, then reports input/canonical byte counts, input/canonical/replay SHA-256 values, p50/p95 validation-plus-canonicalization and replay latency, throughput, replay frontier/counts and Linux `VmHWM` peak RSS when available. The default is 20 measured repeats; pass 5–100 explicitly.
+The harness now includes `src/bin/ocel_scale_bench.rs`, a measurement-only executable that generates a deterministic synthetic OCEL log with one unique Complaint object per event and configurable complaints-per-Callout group size. It therefore scales event, object, E2O and O2O cardinalities rather than repeating links to only two fixture objects. The distribution is intentionally a controllable fan-out workload, not a claim to model every production log. It measures the current whole-document Rust validator/canonicalizer and dual-frontier replay separately. It performs two warm-up passes, then reports event/object/relation counts, input/canonical bytes and digests, replay digest/frontiers, p50/p95 validation/canonicalization and replay latency, throughput, OS/architecture and Linux `VmHWM` peak RSS when available. The default is 20 measured repeats; pass 5–100 explicitly.
 
 Run from the repository root after materialization:
 
 ```sh
 cargo +1.96.0 run --release --manifest-path "$OUT_DIR/Cargo.toml" \
   -p craft-water-cross-core-harness --bin ocel-scale-bench -- \
-  100000 "$OUT_DIR/ocel-100k.json" 20
+  100000 "$OUT_DIR/ocel-100k.json" 20 100
 ```
 
-Benchmark separately at 1,000, 100,000 and 1,000,000 events; reserve 10,000,000 events for a suitably provisioned isolated host, not ordinary CI. This probes the current whole-document memory behaviour; it is not a streaming result. No performance result is claimed until the exact command, source SHA, generator, CPU/RAM/OS, Rust toolchain and raw JSON output are recorded.
+Benchmark separately at 1,000, 100,000 and 1,000,000 events; reserve 10,000,000 events for a suitably provisioned isolated host, not ordinary CI. Repeat with complaints-per-callout values such as 1, 10, 100 and 1,000 to vary object count and relation fan-out while holding event count fixed. This probes the current whole-document memory behaviour; it is not a streaming result. No performance result is claimed until the exact command, source SHA, generator, CPU/RAM/OS, Rust toolchain and raw JSON output are recorded.
 
 ## Claim boundary
 
