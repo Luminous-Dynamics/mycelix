@@ -373,9 +373,7 @@ pub fn evaluate_action_coverage_v1(
 
         if let Some(reason) = reason {
             match reason {
-                RejectionReasonV1::ExplicitRevocation
-                | RejectionReasonV1::ExplicitExpiry
-                | RejectionReasonV1::ExpiredObservation => {
+                RejectionReasonV1::ExplicitRevocation | RejectionReasonV1::ExplicitExpiry => {
                     unavailable_groups
                         .entry(observation.action_id.as_str())
                         .or_default()
@@ -963,6 +961,20 @@ mod tests {
             .rejected_observations
             .iter()
             .any(|r| r.reason == RejectionReasonV1::ExplicitRevocation));
+    }
+
+    #[test]
+    fn explicit_expiry_invalidates_prior_positive_in_same_group() {
+        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let positive = observation(&plan, "obs:positive", "action:1", "group:meter-1", 100, 900);
+        let mut expired = observation(&plan, "obs:expired-marker", "action:1", "group:meter-1", 150, 900);
+        expired.status = ObservationStatusV1::Expired;
+        let report = evaluate_action_coverage_v1(&plan, &[positive, expired], 200).unwrap();
+        assert_eq!(report.covered_count, 0);
+        assert!(report
+            .rejected_observations
+            .iter()
+            .any(|r| r.reason == RejectionReasonV1::ExplicitExpiry));
     }
 
     #[test]
