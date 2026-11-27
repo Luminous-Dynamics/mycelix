@@ -217,10 +217,9 @@ impl TemporalEvidenceSetV1 {
             validate_identifier(&assertion.subject_ref)?;
             if let Some(previous_subject) =
                 claim_subjects.insert(assertion.claim_id.as_str(), assertion.subject_ref.as_str())
+                && previous_subject != assertion.subject_ref
             {
-                if previous_subject != assertion.subject_ref {
-                    return Err(TemporalKernelErrorV1::ClaimSubjectMismatch);
-                }
+                return Err(TemporalKernelErrorV1::ClaimSubjectMismatch);
             }
             validate_identifier(&assertion.clock_profile)
                 .map_err(|_| TemporalKernelErrorV1::MissingClockProfile)?;
@@ -750,16 +749,15 @@ impl TemporalEvidenceIndexV1 {
                     .entry((assertion.claim_id.clone(), assertion.dimension))
                     .or_default()
                     .push(position);
-            } else if assertion.dimension == TemporalDimensionV1::VerifierKnowledgeAt {
-                if let (Some(assertion_ref), Some(verifier_ref)) =
+            } else if assertion.dimension == TemporalDimensionV1::VerifierKnowledgeAt
+                && let (Some(assertion_ref), Some(verifier_ref)) =
                     (&assertion.assertion_ref, &assertion.verifier_ref)
-                {
-                    index
-                        .knowledge_by_fact_verifier
-                        .entry((assertion_ref.clone(), verifier_ref.clone()))
-                        .or_default()
-                        .push(position);
-                }
+            {
+                index
+                    .knowledge_by_fact_verifier
+                    .entry((assertion_ref.clone(), verifier_ref.clone()))
+                    .or_default()
+                    .push(position);
             }
         }
         Ok(index)
