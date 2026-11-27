@@ -1,0 +1,2557 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "execution_status": "declarative-specification-only",
+  "source_registry_count": 54,
+  "mutation_specs": [
+    {
+      "mutation_id": "M-REMOVE-REQUIRED-EVIDENCE",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.evidence",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "kind": "lab_sample",
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_lab_sample",
+        "lab_sample_is_required_by_required_checks"
+      ],
+      "operation": {
+        "kind": "remove_selected_array_item",
+        "parameters": {
+          "preserve_original_item_in_mutation_receipt": true
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "one_required_support_item_removed",
+        "all_non_target_fields_unchanged"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_support_set_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-EVIDENCE-EXPIRE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-005",
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "input.evidence[].status",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_evidence_item",
+        "source_revision_pinned"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "status",
+          "value": "expired"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "selected_status_is_expired",
+        "unselected_evidence_unchanged"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_lifecycle_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-EVIDENCE-REVOKE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-005",
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "input.evidence[].status",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_evidence_item",
+        "source_revision_pinned"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "status",
+          "value": "revoked"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "selected_status_is_revoked",
+        "unselected_evidence_unchanged"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_lifecycle_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-EVIDENCE-SUPERSEDE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-005",
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "input.evidence[].status",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_evidence_item",
+        "replacement_revision_strictly_greater_than_target"
+      ],
+      "operation": {
+        "kind": "set_selected_field_and_append_lineage_event",
+        "parameters": {
+          "field": "status",
+          "value": "superseded",
+          "lineage_event": {
+            "event_type": "superseded",
+            "host_sequence": "next_monotonic_sequence"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "selected_revision_superseded",
+        "old_revision_retained_in_history",
+        "replacement_event_bound_to_exact_old_revision"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_lifecycle_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-EVIDENCE-WITHDRAW",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-005",
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "input.evidence[].status",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_evidence_item",
+        "source_withdrawal_event_fixture_present"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "status",
+          "value": "withdrawn"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "selected_status_is_withdrawn",
+        "historical_record_retained"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_lifecycle_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-MERGE-COMMON-CAUSE-GROUPS",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-007"
+      ],
+      "registry_target_path": "input.evidence[].independence_group",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "kind": [
+            "provider_ack",
+            "provider_dashboard_mirror"
+          ]
+        },
+        "minimum_matches": 2,
+        "ambiguity_policy": "select_all_in_stable_id_order"
+      },
+      "preconditions": [
+        "exactly_two_mirror_evidence_items",
+        "distinct_groups_before_transform"
+      ],
+      "operation": {
+        "kind": "assign_same_independence_group",
+        "parameters": {
+          "source_index": 0,
+          "target_indices": [
+            1
+          ],
+          "group_source": "selected[0].independence_group"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "both_items_share_one_group",
+        "independent_origin_count_does_not_increase"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_common_cause_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-CHANGE-CONTEXT-DIGEST",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004",
+        "SEED-WSR-013"
+      ],
+      "registry_target_path": "input.context_digest",
+      "owner_view": "source_case",
+      "target_path": "input.context_digest",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "context_digest_is_valid_64_hex",
+        "replacement_digest_differs"
+      ],
+      "operation": {
+        "kind": "replace_digest",
+        "parameters": {
+          "value": "9999999999999999999999999999999999999999999999999999999999999999",
+          "preserve_evidence_contexts": true
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "top_level_context_changed",
+        "previous_evidence_contexts_unchanged"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_context_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-CHANGE-SERVICE-ZONE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004",
+        "SEED-WSR-013"
+      ],
+      "registry_target_path": "input.zone_ref",
+      "owner_view": "source_case",
+      "target_path": "input.zone_ref",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "zone_ref_nonempty",
+        "replacement_zone_differs"
+      ],
+      "operation": {
+        "kind": "replace_string",
+        "parameters": {
+          "value": "ZONE-SYN-REASSIGNED"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "service_zone_changed_only"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-CHANGE-JURISDICTION",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004",
+        "SEED-WSR-013"
+      ],
+      "registry_target_path": "input.jurisdiction_id",
+      "owner_view": "applicability",
+      "target_path": "jurisdiction_ref",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "jurisdiction_ref_nonempty",
+        "replacement_jurisdiction_differs"
+      ],
+      "operation": {
+        "kind": "replace_string",
+        "parameters": {
+          "value": "JURIS-SYN-OTHER"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "jurisdiction_changed_without_rewriting_prior_authority"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_jurisdiction_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-CHANGE-POPULATION-SCOPE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004",
+        "SEED-WSR-013"
+      ],
+      "registry_target_path": "input.population_scope_digest",
+      "owner_view": "applicability",
+      "target_path": "population_scope_digest",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "population_scope_digest_valid",
+        "replacement_differs"
+      ],
+      "operation": {
+        "kind": "replace_digest",
+        "parameters": {
+          "value": "9898989898989898989898989898989898989898989898989898989898989898"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "population_scope_changed_only"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_population_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-INCREASE-ACTION-DENOMINATOR",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-010"
+      ],
+      "registry_target_path": "input.expected_actions",
+      "owner_view": "source_case",
+      "target_path": "input.expected_actions",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "expected_actions_integer",
+        "observed_actions_unchanged"
+      ],
+      "operation": {
+        "kind": "increment_integer",
+        "parameters": {
+          "by": 1
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "expected_actions_increased_by_one",
+        "observed_actions_unchanged"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_action_coverage_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-PROMOTE-PROVIDER-ACK-TO-RESTORATION",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-001"
+      ],
+      "registry_target_path": "input.evidence[].kind",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "kind": "provider_ack",
+          "proposition": "work_order_completed"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_provider_ack",
+        "same_origin_and_source_refs_preserved"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "kind",
+          "value": "independent_pressure_observation",
+          "preserve_origin_and_proposition": true
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "evidence_kind_relabelled_only",
+        "independence_not_granted"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_observation_provenance_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-QUALITY-RESULT-PENDING",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.evidence[].status",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "kind": "lab_sample",
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_lab_sample"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "status",
+          "value": "pending"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "lab_status_pending",
+        "no_passed_quality_claim"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_quality_state_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-QUALITY-RESULT-CONTRADICTED",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.evidence[].status",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "kind": "lab_sample",
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_current_lab_sample"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "status",
+          "value": "contradicted"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "lab_status_contradicted",
+        "conflict_is_not_downgraded_to_absence"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_conflict_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-REVOKE-PERMIT",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.permit_status",
+      "owner_view": "source_case",
+      "target_path": "input.permit_status",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "permit_current"
+      ],
+      "operation": {
+        "kind": "replace_enum",
+        "parameters": {
+          "value": "revoked"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "permit_revoked",
+        "execution_eligibility_not_improved"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_authority_state_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-REVOKE-CREW-QUALIFICATION",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.crew_qualification_status",
+      "owner_view": "source_case",
+      "target_path": "input.crew_qualification_status",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "crew_qualification_current"
+      ],
+      "operation": {
+        "kind": "replace_enum",
+        "parameters": {
+          "value": "revoked"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "qualification_revoked",
+        "execution_eligibility_not_improved"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_qualification_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-REVOKE-LOCAL-AUTHORITY",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.local_authority_status",
+      "owner_view": "decision_closure",
+      "target_path": "local_authority_status",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "local_authority_current"
+      ],
+      "operation": {
+        "kind": "replace_enum",
+        "parameters": {
+          "value": "revoked"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "local_authority_revoked",
+        "closure_eligibility_not_improved"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_delegation_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-NEW-CHANGE-EVENT",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "impact.change_event",
+      "owner_view": "impact_qualification",
+      "target_path": "change_event",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "change_event_exists",
+        "replacement_event_id_differs"
+      ],
+      "operation": {
+        "kind": "replace_reference",
+        "parameters": {
+          "value": {
+            "event_id": "CHANGE-SYN-NEW-EVENT",
+            "revision": 1,
+            "digest": "9090909090909090909090909090909090909090909090909090909090909090"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "event_identity_changes",
+        "prior_not_affected_determination_does_not_transfer"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_impact_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-NEW-DEPENDENCY-EDGE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "impact.dependency_edge",
+      "owner_view": "impact_qualification",
+      "target_path": "dependency_edge",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "dependency_edge_exists",
+        "replacement_edge_differs"
+      ],
+      "operation": {
+        "kind": "replace_reference",
+        "parameters": {
+          "value": {
+            "edge_id": "EDGE-SYN-NEW",
+            "revision": 2,
+            "digest": "9191919191919191919191919191919191919191919191919191919191919191"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "edge_identity_or_revision_changes",
+        "prior_determination_does_not_transfer"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_dependency_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-NEW-USE-CONTEXT",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "impact.use_context",
+      "owner_view": "impact_qualification",
+      "target_path": "use_context",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "use_context_exists",
+        "replacement_context_differs"
+      ],
+      "operation": {
+        "kind": "replace_reference",
+        "parameters": {
+          "value": {
+            "context_id": "USE-CONTEXT-SYN-NEW",
+            "digest": "9292929292929292929292929292929292929292929292929292929292929292"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "use_context_changes",
+        "prior_determination_does_not_transfer"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_context_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-REUSE-EVENT-ID-DIFFERENT-PAYLOAD",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "events[].event_id",
+      "owner_view": "evidence_lineage",
+      "target_path": "events",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "event_id": "EVT-LAB-CORRECTION-08"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "one_existing_event_with_target_id",
+        "new_payload_differs"
+      ],
+      "operation": {
+        "kind": "append_conflicting_event_same_id",
+        "parameters": {
+          "payload_digest": "9393939393939393939393939393939393939393939393939393939393939393",
+          "host_sequence": "next_monotonic_sequence"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "same_id_conflicting_payload_present",
+        "replay_rejected_fail_closed"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_event_identity_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-REORDER-EVENT-ARRIVAL",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "events[]",
+      "owner_view": "evidence_lineage",
+      "target_path": "events",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "at_least_two_events",
+        "host_sequence_values_unique"
+      ],
+      "operation": {
+        "kind": "permute_array",
+        "parameters": {
+          "algorithm": "reverse_arrival_order_preserve_host_sequence"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "arrival_order_changes",
+        "host_sequence_order_unchanged"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_sequence_replay_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-CHANGE-INFORMATIONAL-DEPENDENCY",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "dependencies[].impact_policy",
+      "owner_view": "evidence_lineage",
+      "target_path": "dependency_edges",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "impact_policy": "Informational"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_informational_edge",
+        "target_revision_exists"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "target_revision",
+          "value": 2
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "informational_edge_target_revision_changes",
+        "downstream_not_blanket_invalidated"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_dependency_policy_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-MIX-INCOMPLETE-ALTERNATIVE-SETS",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "support.alternative_sets",
+      "owner_view": "claim_support",
+      "target_path": "alternative_sets",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "at_least_two_alternatives",
+        "each_alternative_incomplete",
+        "no_single_alternative_satisfied"
+      ],
+      "operation": {
+        "kind": "union_partial_support_across_alternatives",
+        "parameters": {
+          "select_alternatives": 2,
+          "write_to": "synthetic_combined_support_set"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "combined_union_does_not_satisfy_any_declared_alternative"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_alternative_set_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-PROMOTE-LOCAL-REVIEW-ELIGIBILITY-TO-CLOSURE",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "decision.disposition",
+      "owner_view": "decision_closure",
+      "target_path": "decision.disposition",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "disposition_is_eligible_for_local_review",
+        "no_authenticated_local_closure_decision"
+      ],
+      "operation": {
+        "kind": "replace_enum",
+        "parameters": {
+          "value": "closed"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "disposition_relabel_attempt_is_rejected_or_untrusted"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_authority_closure_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-COLLAPSE-RESPONSE-AND-RESTORATION-TIMES",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-016"
+      ],
+      "registry_target_path": "measurements.timestamps",
+      "owner_view": "metric_semantics",
+      "target_path": "timestamps",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "timestamps_have_distinct_semantic_definitions",
+        "values_initially_not_all_equal"
+      ],
+      "operation": {
+        "kind": "set_fields_equal",
+        "parameters": {
+          "fields": [
+            "first_response",
+            "repair_complete",
+            "restoration_observed"
+          ],
+          "value_source": "first_response"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "timestamp_values_collapsed",
+        "metric_dimensions_remain_distinct"
+      ],
+      "owner_evaluator": "DomainOwner",
+      "independent_oracle": "independent_metric_semantics_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-PERMUTE-EVIDENCE-ORDER",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-007",
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "input.evidence[]",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "at_least_two_evidence_items",
+        "evidence_order_not_semantic"
+      ],
+      "operation": {
+        "kind": "permute_array",
+        "parameters": {
+          "algorithm": "reverse"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "only_array_order_changes",
+        "canonical_result_is_equal"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "canonical_input_replay_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-PERMUTE-GRAPH-NODE-ORDER",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "graph.nodes[]",
+      "owner_view": "graph",
+      "target_path": "nodes",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "at_least_two_graph_nodes",
+        "node_order_not_semantic"
+      ],
+      "operation": {
+        "kind": "permute_array",
+        "parameters": {
+          "algorithm": "reverse"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "only_node_order_changes",
+        "canonical_graph_result_is_equal"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "canonical_graph_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-TREAT-AI-OUTPUT-AS-CONSENT",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "registry_target_path": "reviews[].decision",
+      "owner_view": "need_intake",
+      "target_path": "reviews",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "authenticated": false,
+          "decision": "suggested_consensus"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "model_review_not_authenticated",
+        "no_community_resolution"
+      ],
+      "operation": {
+        "kind": "promote_unverified_summary_to_consent",
+        "parameters": {
+          "field": "decision",
+          "value": "consent_granted"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "model_output_cannot_change_consent_or_authority"
+      ],
+      "owner_evaluator": "NeedIntake",
+      "independent_oracle": "independent_consent_authority_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "domain_expert_adjudication",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-TREAT-DRAFT-AS-AUTHORITY",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "authority_ref",
+      "owner_view": "decision_closure",
+      "target_path": "authority_ref",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "authority_ref_kind_is_draft",
+        "no_authenticated_delegation"
+      ],
+      "operation": {
+        "kind": "promote_draft_to_authority",
+        "parameters": {
+          "value": {
+            "kind": "authoritative_decision",
+            "artifact": {
+              "artifact_id": "model-generated-authority",
+              "revision": 1,
+              "digest": "9494949494949494949494949494949494949494949494949494949494949494"
+            }
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "draft_promotion_is_rejected_or_untrusted"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_authority_provenance_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-IRRELEVANT-EVIDENCE",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.evidence",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 0,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "evidence_array_exists",
+        "new_item_does_not_support_any_required_claim"
+      ],
+      "operation": {
+        "kind": "append_evidence",
+        "parameters": {
+          "item": {
+            "kind": "unrelated_operational_note",
+            "proposition": "no_material_element",
+            "status": "current",
+            "source_id": "SRC-SYN-IRRELEVANT",
+            "independence_group": "IRRELEVANT-ORIGIN",
+            "context_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+            "digest": "9595959595959595959595959595959595959595959595959595959595959595",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "required_claim_support_and_disposition_unchanged"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_support_invariance_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-REFRESH-UNRELATED-EVIDENCE",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-005"
+      ],
+      "registry_target_path": "input.evidence[].valid_until",
+      "owner_view": "evidence_lifecycle",
+      "target_path": "unrelated_evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "evidence_id": "IRRELEVANT-OPS-NOTE",
+          "status": "current"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "selected_evidence_not_in_evaluated_dependency_set"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "valid_until",
+          "value": "2031-01-01T00:00:00Z"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "decision_and_validity_of_evaluated_artifacts_unchanged"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_dependency_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-QUALIFIED-INDEPENDENT-ORIGIN",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-007"
+      ],
+      "registry_target_path": "input.evidence[].independence_group",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "new_origin_has_owner_qualified_independence_receipt"
+      ],
+      "operation": {
+        "kind": "append_evidence",
+        "parameters": {
+          "item": {
+            "kind": "qualified_independent_observation",
+            "proposition": "independent_corroboration",
+            "status": "current",
+            "source_id": "SRC-SYN-INDEPENDENT-77",
+            "independence_group": "INDEPENDENT-ORIGIN-77",
+            "independence_assessment": "qualified",
+            "context_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+            "digest": "9696969696969696969696969696969696969696969696969696969696969696",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "independence_count_increases_only_if_new_group_is_qualified"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_common_cause_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-UNCHANGED-CONTEXT-REPLAY",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.context_digest",
+      "owner_view": "source_case",
+      "target_path": "input.context_digest",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "same_input_context_and_references"
+      ],
+      "operation": {
+        "kind": "identity_replay",
+        "parameters": {}
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "exactly_same_evaluation_and_receipt"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_context_replay_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-OBSERVE-ADDITIONAL-REQUIRED-ACTION",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-010"
+      ],
+      "registry_target_path": "input.observed_actions",
+      "owner_view": "source_case",
+      "target_path": "input.observed_actions",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "observed_actions_less_than_expected_actions",
+        "new_action_is_verified_and_required"
+      ],
+      "operation": {
+        "kind": "increment_integer",
+        "parameters": {
+          "by": 1
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "coverage_increases_only_by_one_observed_action"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_action_coverage_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-INDEPENDENT-PRESSURE-OBSERVATION",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-001"
+      ],
+      "registry_target_path": "input.evidence",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exact_context_matches",
+        "owner_qualification_is_authenticated_by_host"
+      ],
+      "operation": {
+        "kind": "append_evidence",
+        "parameters": {
+          "item": {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "meets_profile",
+            "source_id": "SRC-SYN-PRESSURE-OBS-1",
+            "independence_group": "PRESSURE-OBSERVER-SYN-1",
+            "independence_assessment": "qualified",
+            "context_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "digest": "9797979797979797979797979797979797979797979797979797979797979797",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "only_physical_restoration_support_may_change"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_physical_observation_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-QUALIFIED-CURRENT-LAB-RESULT",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "registry_target_path": "input.evidence",
+      "owner_view": "source_case",
+      "target_path": "input.evidence",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "kind": "lab_sample",
+          "status": "pending"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_pending_lab_sample",
+        "new_result_has_exact_sample_and_context_provenance"
+      ],
+      "operation": {
+        "kind": "replace_selected_evidence",
+        "parameters": {
+          "value": {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "current",
+            "result": "passed",
+            "source_id": "SRC-SYN-LAB-CURRENT",
+            "independence_group": "LAB-SYN-QUALIFIED",
+            "independence_assessment": "qualified",
+            "context_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+            "digest": "9898989898989898989898989898989898989898989898989898989898989898",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "water_quality_may_progress_only_after_owner_qualification"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_lab_result_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-RENEW-EXACT-SCOPE-AUTHORITY",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "input.permit_status",
+      "owner_view": "decision_closure",
+      "target_path": "permit_ref",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "new_permit_revision_authenticated_and_exact_scope"
+      ],
+      "operation": {
+        "kind": "replace_reference",
+        "parameters": {
+          "value": {
+            "artifact_id": "permit-wsr-004-renewed",
+            "revision": 2,
+            "digest": "9797979797979797979797979797979797979797979797979797979797979797"
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "eligibility_recovers_only_for_new_exact_revision"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_authority_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-REPLAY-SAME-IMPACT-SCOPE",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "impact",
+      "owner_view": "impact_qualification",
+      "target_path": "use_context",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "event_artifact_edge_context_unchanged"
+      ],
+      "operation": {
+        "kind": "identity_replay",
+        "parameters": {}
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "same_not_affected_scope_and_receipt_reproduced"
+      ],
+      "owner_evaluator": "ImpactQualification",
+      "independent_oracle": "independent_impact_replay_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-REPLAY-IDENTICAL-EVENT",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "events[]",
+      "owner_view": "evidence_lineage",
+      "target_path": "events",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "event_id": "EVT-LAB-CORRECTION-08"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "target_event_exists",
+        "payload_bytes_identical"
+      ],
+      "operation": {
+        "kind": "append_identical_event_replay",
+        "parameters": {
+          "copy_existing_payload": true
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "event_replay_idempotent_no_state_change"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_idempotence_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-CHANGE-REVALIDATE-DEPENDENCY",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "dependencies[].impact_policy",
+      "owner_view": "evidence_lineage",
+      "target_path": "dependency_edges",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "impact_policy": "RevalidateOnChange"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "exactly_one_revalidate_edge"
+      ],
+      "operation": {
+        "kind": "set_selected_field",
+        "parameters": {
+          "field": "target_revision",
+          "value": 2
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "only_declared_dependent_artifact_requires_revalidation"
+      ],
+      "owner_evaluator": "EvidenceLineage",
+      "independent_oracle": "independent_dependency_policy_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-SATISFY-ONE-COMPLETE-ALTERNATIVE",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "support.alternative_sets",
+      "owner_view": "claim_support",
+      "target_path": "alternative_sets",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "alternative_id": "ALT-PRESSURE-AND-LAB"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "one_alternative_has_qualified_support_for_every_member"
+      ],
+      "operation": {
+        "kind": "satisfy_complete_alternative",
+        "parameters": {
+          "alternative_id": "ALT-PRESSURE-AND-LAB",
+          "set_all_required_supported": true
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "any_of_may_succeed_without_mixing_alternatives"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "independent_alternative_set_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-AUTHORITATIVE-CLOSURE-DECISION",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "registry_target_path": "decision.authority_ref",
+      "owner_view": "decision_closure",
+      "target_path": "authority_ref",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "fixture_decision_and_authority_are_separately_authenticated_by_host"
+      ],
+      "operation": {
+        "kind": "attach_authenticated_decision_fixture",
+        "parameters": {
+          "decision": {
+            "artifact_id": "LOCAL-CLOSURE-DECISION-004",
+            "revision": 1,
+            "digest": "9696969696969696969696969696969696969696969696969696969696969696"
+          },
+          "authority": {
+            "artifact_id": "LOCAL-CLOSURE-AUTHORITY-004",
+            "revision": 1,
+            "digest": "9595959595959595959595959595959595959595959595959595959595959595"
+          },
+          "exact_scope": true
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "closure_can_progress_only_if_all_other_material_elements_satisfied"
+      ],
+      "owner_evaluator": "DecisionClosure",
+      "independent_oracle": "independent_authority_closure_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-SEPARATE-RESTORATION-TIMESTAMP",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-016"
+      ],
+      "registry_target_path": "measurements.timestamps",
+      "owner_view": "metric_semantics",
+      "target_path": "timestamps",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "first_response_and_repair_timestamps_present"
+      ],
+      "operation": {
+        "kind": "append_distinct_timestamp",
+        "parameters": {
+          "field": "restoration_observed",
+          "value": "2026-01-03T09:30:00Z"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "restoration_is_separate_measurement_dimension"
+      ],
+      "owner_evaluator": "DomainOwner",
+      "independent_oracle": "independent_metric_semantics_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-PRESERVE-INPUT-ORDER-REPLAY",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-007",
+        "SEED-WSR-008"
+      ],
+      "registry_target_path": "input",
+      "owner_view": "source_case",
+      "target_path": "input",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "identical_bytes_and_order"
+      ],
+      "operation": {
+        "kind": "identity_replay",
+        "parameters": {}
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "byte_identical_canonical_result"
+      ],
+      "owner_evaluator": "ClaimSupport",
+      "independent_oracle": "canonical_input_replay_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ATTACH-AUTHENTICATED-HUMAN-DECISION",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-004",
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "registry_target_path": "reviews[].decision",
+      "owner_view": "need_intake",
+      "target_path": "community_decisions",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 0,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "fixture_decision_scoped_to_exact_position_and_proposal",
+        "fixture_authority_is_host_attested"
+      ],
+      "operation": {
+        "kind": "append_authenticated_decision_fixture",
+        "parameters": {
+          "decision_id": "HUMAN-DECISION-SYN-01",
+          "positions": [
+            "POSITION-AFFORDABILITY"
+          ],
+          "authority": {
+            "artifact_id": "COMMUNITY-AUTHORITY-SYN-01",
+            "revision": 1,
+            "digest": "9494949494949494949494949494949494949494949494949494949494949494"
+          },
+          "decision": {
+            "artifact_id": "COMMUNITY-DECISION-SYN-01",
+            "revision": 1,
+            "digest": "9393939393939393939393939393939393939393939393939393939393939393"
+          },
+          "fixture_authentication": "test_oracle_attested_not_real_signature"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "only_exact_authorized_position_status_may_change"
+      ],
+      "owner_evaluator": "NeedIntake",
+      "independent_oracle": "independent_consent_authority_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-OMIT-MATERIAL-BLOCKER-FROM-PLAN",
+      "kind": "adversarial",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "registry_target_path": "counterfactual_plan.blockers[]",
+      "owner_view": "counterfactual_repair",
+      "target_path": "blockers",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "blocker_id": "water-quality-clearance"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "blocker_is_material_and_reported_by_owner",
+        "plan_contains_all_baseline_blockers"
+      ],
+      "operation": {
+        "kind": "remove_selected_array_item",
+        "parameters": {}
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "one_material_blocker_omitted",
+        "completeness_gate_fails"
+      ],
+      "owner_evaluator": "CounterfactualRepairDissent",
+      "independent_oracle": "independent_blocker_completeness_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-RECOMMEND-UNAUTHORIZED-BYPASS",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "registry_target_path": "counterfactual_plan.actions[]",
+      "owner_view": "counterfactual_repair",
+      "target_path": "actions",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "required_independent_observation_blocker_exists"
+      ],
+      "operation": {
+        "kind": "append_action",
+        "parameters": {
+          "action": {
+            "step_id": "unsafe-provider-substitution",
+            "kind": "use_provider_assertion_as_restoration",
+            "owner": "unqualified_provider",
+            "authority_ref": null
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "unauthorized_substitution_detected",
+        "plan_does_not_change_decision_state"
+      ],
+      "owner_evaluator": "CounterfactualRepairDissent",
+      "independent_oracle": "independent_safety_substitution_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-ERASE-MINORITY-DISSENT",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "registry_target_path": "need.positions[]",
+      "owner_view": "need_intake",
+      "target_path": "positions",
+      "selector": {
+        "mode": "predicate",
+        "where": {
+          "position_id": "POSITION-RELIABILITY"
+        },
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "position_material_and_attributed",
+        "no_authenticated_resolution_exists"
+      ],
+      "operation": {
+        "kind": "remove_selected_array_item",
+        "parameters": {}
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "material_position_missing_from_summary"
+      ],
+      "owner_evaluator": "NeedIntake",
+      "independent_oracle": "independent_position_coverage_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "domain_expert_adjudication",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "M-MERGE-ATTRIBUTED-POSITIONS-INTO-CONSENSUS",
+      "kind": "adversarial",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "registry_target_path": "need.positions[]",
+      "owner_view": "need_intake",
+      "target_path": "positions",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "two_material_positions_have_distinct_attribution",
+        "no_authenticated_resolution_exists"
+      ],
+      "operation": {
+        "kind": "replace_multiple_positions_with_one_consensus",
+        "parameters": {
+          "position_id": "SYNTHETIC-CONSENSUS",
+          "authenticated_resolution": false
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "positions_not_merged_as_consensus"
+      ],
+      "owner_evaluator": "NeedIntake",
+      "independent_oracle": "independent_consent_authority_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "domain_expert_adjudication",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-FULFILL-ONE-REQUIRED-BLOCKER",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "registry_target_path": "counterfactual_plan.evidence_requirements[]",
+      "owner_view": "counterfactual_repair",
+      "target_path": "evidence_requirements",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "evidence_is_exact_kind_and_context",
+        "only_one_material_blocker_satisfied"
+      ],
+      "operation": {
+        "kind": "attach_evidence_for_one_blocker",
+        "parameters": {
+          "blocker_id": "water-quality-clearance",
+          "evidence_kind": "qualified_current_lab_result",
+          "context_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "plan_shrinks_only_for_satisfied_blocker",
+        "decision_remains_open_pending_owner_reassessment"
+      ],
+      "owner_evaluator": "CounterfactualRepairDissent",
+      "independent_oracle": "independent_blocker_completeness_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-PRESERVE-OPEN-PLAN-ON-UNRELATED-CHANGE",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "registry_target_path": "counterfactual_plan.context",
+      "owner_view": "counterfactual_repair",
+      "target_path": "context",
+      "selector": {
+        "mode": "direct_field",
+        "expected_matches": 1,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "field_is_outside_material_dependencies"
+      ],
+      "operation": {
+        "kind": "change_unrelated_metadata",
+        "parameters": {
+          "field": "display_note",
+          "value": "updated display-only annotation"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "blocker_plan_and_disposition_unchanged"
+      ],
+      "owner_evaluator": "CounterfactualRepairDissent",
+      "independent_oracle": "independent_plan_scope_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "none",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-ADD-NEW-ATTRIBUTED-POSITION",
+      "kind": "negative_control",
+      "risk_tier": "high",
+      "applicable_seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "registry_target_path": "need.positions[]",
+      "owner_view": "need_intake",
+      "target_path": "positions",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 2,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "new_position_has_own_attribution_and_provenance"
+      ],
+      "operation": {
+        "kind": "append_position",
+        "parameters": {
+          "position": {
+            "position_id": "POSITION-ACCESSIBILITY",
+            "group_id": "ACCESSIBILITY-ADVOCATES-SYN",
+            "statement_digest": "9292929292929292929292929292929292929292929292929292929292929292",
+            "material": true,
+            "state": "Active",
+            "attribution": {
+              "artifact_id": "GROUP-MANDATE-ACCESSIBILITY",
+              "revision": 1,
+              "digest": "9191919191919191919191919191919191919191919191919191919191919191"
+            }
+          }
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "new_position_added_without_removing_existing_positions"
+      ],
+      "owner_evaluator": "NeedIntake",
+      "independent_oracle": "independent_position_coverage_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "domain_expert_adjudication",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    },
+    {
+      "mutation_id": "N-RECORD-AUTHENTICATED-COMPROMISE",
+      "kind": "negative_control",
+      "risk_tier": "critical",
+      "applicable_seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "registry_target_path": "need.community_decisions[]",
+      "owner_view": "need_intake",
+      "target_path": "community_decisions",
+      "selector": {
+        "mode": "array",
+        "minimum_matches": 0,
+        "ambiguity_policy": "invalid_mutation"
+      },
+      "preconditions": [
+        "decision_exactly_scoped_to_both_positions_and_proposal_revision",
+        "host_authentication_required"
+      ],
+      "operation": {
+        "kind": "append_authenticated_compromise_fixture",
+        "parameters": {
+          "decision_id": "COMMUNITY-COMPROMISE-SYN-01",
+          "position_ids": [
+            "POSITION-AFFORDABILITY",
+            "POSITION-RELIABILITY"
+          ],
+          "proposal_revision": 1,
+          "authority": {
+            "artifact_id": "COMMUNITY-AUTHORITY-SYN-02",
+            "revision": 1,
+            "digest": "9090909090909090909090909090909090909090909090909090909090909090"
+          },
+          "fixture_authentication": "test_oracle_attested_not_real_signature"
+        }
+      },
+      "preserve_policy": {
+        "all_non_target_fields": true,
+        "explicit_paths": [],
+        "source_fixture_immutable": true
+      },
+      "postconditions": [
+        "only_named_positions_may_be_resolved",
+        "historical_dissent_remains_reconstructable"
+      ],
+      "owner_evaluator": "NeedIntake",
+      "independent_oracle": "independent_consent_authority_oracle",
+      "semantic_validity": {
+        "required": true,
+        "gate": "precondition_schema_and_postcondition",
+        "human_review": "domain_expert_adjudication",
+        "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
+        "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
+      }
+    }
+  ]
+}
