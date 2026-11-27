@@ -17,6 +17,7 @@ The goal is not to maximize refusal. It is to preserve safety invariants while k
 - `relations.json`: 16 cross-input invariants with seed, mutation and control references.
 - `mutations.json`: 30 adversarial operators and 16 negative controls.
 - `scorecard.json`: 15 metric definitions with explicit numerators, denominators, targets, gate flags and field-data requirements.
+- `comparators.json`: 9 baseline profiles and a matched-comparison protocol, including manual, checklist, single/RAG/multi-agent LLM, Craft, IBM DOORS Next, Jama Connect and Siemens Polarion.
 - `validate.sh`: structural and referential-integrity checks only.
 
 Digest semantics are explicit: WSR evidence digest strings are shape-only synthetic placeholders, not cryptographic commitments. An evaluator adapter must recompute commitments from exact fixture bytes and verify the schema before using them.
