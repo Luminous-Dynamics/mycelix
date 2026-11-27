@@ -123,8 +123,12 @@ pub struct ExpectedImpactScopeV1 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImpactDecisionV1 {
     Affected,
-    NotAffected { justification: ImpactJustificationV1 },
-    UnderInvestigation { high_consequence_block: bool },
+    NotAffected {
+        justification: ImpactJustificationV1,
+    },
+    UnderInvestigation {
+        high_consequence_block: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -165,9 +169,7 @@ fn valid_digest(digest: &DigestV1) -> bool {
 }
 
 fn valid_artifact(reference: &ArtifactVersionRefV1) -> bool {
-    non_empty(&reference.artifact_id)
-        && reference.revision > 0
-        && valid_digest(&reference.digest)
+    non_empty(&reference.artifact_id) && reference.revision > 0 && valid_digest(&reference.digest)
 }
 
 fn valid_lease(lease: &OwnerQualifiedLeaseRefV1) -> bool {
@@ -219,9 +221,7 @@ fn validate_scope(
     {
         return Err(ImpactQualificationErrorV1::InvalidArtifactReference);
     }
-    if !valid_edge(&determination.dependency_edge)
-        || !valid_edge(&expected.dependency_edge)
-    {
+    if !valid_edge(&determination.dependency_edge) || !valid_edge(&expected.dependency_edge) {
         return Err(ImpactQualificationErrorV1::DependencyEdgeMismatch);
     }
     if !valid_context(&determination.context) || !valid_context(&expected.context) {
@@ -397,8 +397,12 @@ pub struct SupportEvidenceV1 {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SupportRuleV1 {
-    AllOf { required_evidence_ids: Vec<String> },
-    AnyOf { alternative_support_sets: Vec<Vec<String>> },
+    AllOf {
+        required_evidence_ids: Vec<String>,
+    },
+    AnyOf {
+        alternative_support_sets: Vec<Vec<String>>,
+    },
     AtLeastIndependent {
         candidate_evidence_ids: Vec<String>,
         minimum: usize,
@@ -470,7 +474,11 @@ pub fn evaluate_support_sufficiency(
         if !non_empty(&item.evidence_id) || !valid_digest(&item.digest) {
             return Err(SupportSufficiencyErrorV1::InvalidEvidenceReference);
         }
-        if item.independence_group_id.as_ref().map_or(false, |group| !non_empty(group)) {
+        if item
+            .independence_group_id
+            .as_ref()
+            .map_or(false, |group| !non_empty(group))
+        {
             return Err(SupportSufficiencyErrorV1::InvalidEvidenceReference);
         }
         if evidence.insert(item.evidence_id.clone(), item).is_some() {
@@ -479,8 +487,12 @@ pub fn evaluate_support_sufficiency(
     }
 
     let candidate_ids = match rule {
-        SupportRuleV1::AllOf { required_evidence_ids } => required_evidence_ids,
-        SupportRuleV1::AnyOf { alternative_support_sets } => {
+        SupportRuleV1::AllOf {
+            required_evidence_ids,
+        } => required_evidence_ids,
+        SupportRuleV1::AnyOf {
+            alternative_support_sets,
+        } => {
             if alternative_support_sets.is_empty() {
                 return Err(SupportSufficiencyErrorV1::InvalidRule);
             }
@@ -489,11 +501,7 @@ pub fn evaluate_support_sufficiency(
                 validate_members(alternative, &evidence)?;
                 union.extend(alternative.iter().cloned());
             }
-            return evaluate_candidates(
-                &evidence,
-                &union.into_iter().collect::<Vec<_>>(),
-                rule,
-            );
+            return evaluate_candidates(&evidence, &union.into_iter().collect::<Vec<_>>(), rule);
         }
         SupportRuleV1::AtLeastIndependent {
             candidate_evidence_ids,
@@ -516,19 +524,21 @@ fn evaluate_candidates(
     rule: &SupportRuleV1,
 ) -> Result<SupportSufficiencyV1, SupportSufficiencyErrorV1> {
     if candidates.iter().any(|id| {
-        evidence
-            .get(id)
-            .map_or(false, |item| item.state == SupportEvidenceStateV1::Contradicted)
+        evidence.get(id).map_or(false, |item| {
+            item.state == SupportEvidenceStateV1::Contradicted
+        })
     }) {
         return Ok(SupportSufficiencyV1::ConflictReviewRequired);
     }
 
     match rule {
-        SupportRuleV1::AllOf { required_evidence_ids } => {
+        SupportRuleV1::AllOf {
+            required_evidence_ids,
+        } => {
             let all_supported = required_evidence_ids.iter().all(|id| {
-                evidence
-                    .get(id)
-                    .map_or(false, |item| item.state == SupportEvidenceStateV1::DirectSupport)
+                evidence.get(id).map_or(false, |item| {
+                    item.state == SupportEvidenceStateV1::DirectSupport
+                })
             });
             Ok(if all_supported {
                 SupportSufficiencyV1::Supported
@@ -536,12 +546,14 @@ fn evaluate_candidates(
                 SupportSufficiencyV1::InsufficientEvidence
             })
         }
-        SupportRuleV1::AnyOf { alternative_support_sets } => {
+        SupportRuleV1::AnyOf {
+            alternative_support_sets,
+        } => {
             let supported_alternative = alternative_support_sets.iter().any(|set| {
                 set.iter().all(|id| {
-                    evidence
-                        .get(id)
-                        .map_or(false, |item| item.state == SupportEvidenceStateV1::DirectSupport)
+                    evidence.get(id).map_or(false, |item| {
+                        item.state == SupportEvidenceStateV1::DirectSupport
+                    })
                 })
             });
             Ok(if supported_alternative {
@@ -635,9 +647,7 @@ mod tests {
         let justification = match status {
             ImpactStatusV1::Affected => ImpactJustificationV1::DirectlyAffected,
             ImpactStatusV1::NotAffected => ImpactJustificationV1::NotInExecutionPath,
-            ImpactStatusV1::UnderInvestigation => {
-                ImpactJustificationV1::InsufficientInformation
-            }
+            ImpactStatusV1::UnderInvestigation => ImpactJustificationV1::InsufficientInformation,
         };
         ImpactDeterminationV1 {
             determination_id: "impact-1".to_owned(),
@@ -670,7 +680,10 @@ mod tests {
                     reviewer_id: "safety-reviewer".to_owned(),
                     role: ImpactReviewerRoleV1::SafetyAuthority,
                     approved_determination_digest: digest(10),
-                    authority_ref: expected.safety_authority.clone().expect("safety authority ref"),
+                    authority_ref: expected
+                        .safety_authority
+                        .clone()
+                        .expect("safety authority ref"),
                     reviewed_at: NOW - 9,
                     lease: lease("safety-review-lease"),
                 },
@@ -811,8 +824,18 @@ mod tests {
     fn any_of_accepts_a_surviving_complete_alternative_set() {
         let evidence = vec![
             item("a", SupportEvidenceStateV1::Stale, Some("origin-a"), 1),
-            item("b", SupportEvidenceStateV1::DirectSupport, Some("origin-b"), 2),
-            item("c", SupportEvidenceStateV1::PartialSupport, Some("origin-c"), 3),
+            item(
+                "b",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("origin-b"),
+                2,
+            ),
+            item(
+                "c",
+                SupportEvidenceStateV1::PartialSupport,
+                Some("origin-c"),
+                3,
+            ),
         ];
         let rule = SupportRuleV1::AnyOf {
             alternative_support_sets: vec![vec!["a".to_owned()], vec!["b".to_owned()]],
@@ -826,7 +849,12 @@ mod tests {
     #[test]
     fn all_of_requires_every_required_evidence_item() {
         let evidence = vec![
-            item("a", SupportEvidenceStateV1::DirectSupport, Some("origin-a"), 1),
+            item(
+                "a",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("origin-a"),
+                1,
+            ),
             item("b", SupportEvidenceStateV1::Stale, Some("origin-b"), 2),
         ];
         let rule = SupportRuleV1::AllOf {
@@ -841,9 +869,24 @@ mod tests {
     #[test]
     fn common_cause_groups_prevent_k_of_n_inflation() {
         let evidence = vec![
-            item("a", SupportEvidenceStateV1::DirectSupport, Some("shared-origin"), 1),
-            item("b", SupportEvidenceStateV1::DirectSupport, Some("shared-origin"), 2),
-            item("c", SupportEvidenceStateV1::DirectSupport, Some("distinct-origin"), 3),
+            item(
+                "a",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("shared-origin"),
+                1,
+            ),
+            item(
+                "b",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("shared-origin"),
+                2,
+            ),
+            item(
+                "c",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("distinct-origin"),
+                3,
+            ),
         ];
         let rule = SupportRuleV1::AtLeastIndependent {
             candidate_evidence_ids: vec!["a".to_owned(), "b".to_owned(), "c".to_owned()],
@@ -868,7 +911,12 @@ mod tests {
     fn missing_common_cause_group_is_not_counted_as_independent() {
         let evidence = vec![
             item("a", SupportEvidenceStateV1::DirectSupport, None, 1),
-            item("b", SupportEvidenceStateV1::DirectSupport, Some("origin-b"), 2),
+            item(
+                "b",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("origin-b"),
+                2,
+            ),
         ];
         let rule = SupportRuleV1::AtLeastIndependent {
             candidate_evidence_ids: vec!["a".to_owned(), "b".to_owned()],
@@ -883,8 +931,18 @@ mod tests {
     #[test]
     fn contradictory_candidate_requires_review_even_if_another_supports() {
         let evidence = vec![
-            item("a", SupportEvidenceStateV1::DirectSupport, Some("origin-a"), 1),
-            item("b", SupportEvidenceStateV1::Contradicted, Some("origin-b"), 2),
+            item(
+                "a",
+                SupportEvidenceStateV1::DirectSupport,
+                Some("origin-a"),
+                1,
+            ),
+            item(
+                "b",
+                SupportEvidenceStateV1::Contradicted,
+                Some("origin-b"),
+                2,
+            ),
         ];
         let rule = SupportRuleV1::AnyOf {
             alternative_support_sets: vec![vec!["a".to_owned()], vec!["b".to_owned()]],
@@ -952,10 +1010,7 @@ mod tests {
             required_evidence_ids: ids.clone(),
         };
         let any_of_singletons = SupportRuleV1::AnyOf {
-            alternative_support_sets: ids
-                .iter()
-                .map(|id| vec![id.clone()])
-                .collect(),
+            alternative_support_sets: ids.iter().map(|id| vec![id.clone()]).collect(),
         };
         let any_of_pairs = SupportRuleV1::AnyOf {
             alternative_support_sets: vec![
@@ -1037,5 +1092,4 @@ mod tests {
             );
         }
     }
-
 }
