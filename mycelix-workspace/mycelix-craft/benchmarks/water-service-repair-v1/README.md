@@ -3,7 +3,7 @@
 This folder contains a frozen, synthetic-only adversarial corpus for the prospective CRAFT water-reliability pilot (#6771).
 
 - `manifest.json` records public baseline sources, their periods and claim limitations.
-- `integration-map.json` maps each case to existing Mycelix semantic owners; it deliberately avoids a duplicate generic evidence/currentness service.
+- `integration-map.json` maps each case to existing Mycelix semantic owners; WSR-016 reuses NRVCA-014/#5437 and the reusable dual-axis comparator #5442 for measurement-versus-target comparability and explicit clock-stop semantics. It deliberately avoids a duplicate generic evidence/currentness or KPI-comparability service.
 - `metamorphic-cases.json` defines twenty proposed counterfactual mutations, including context, freshness, independence, denominator, regulatory-boundary and KPI-definition tests.
 - `../../docs/WATER-SERVICE-LIFECYCLE-QUALIFICATION-V1.md` defines the customer-outcome measurement model, event chronology, cross-core handoff contract and prospective pilot protocol.
 - `cases.json` contains sixteen synthetic known-answer cases.
@@ -30,3 +30,6 @@ bash mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/validate
 
 
 WSR-016 is a metrology negative control: Johannesburg Water's FY2024/25 annual report describes 70.35% of bursts restored within 48 hours, while its 2025/26 business plan gives a 67.46% baseline labelled 2023/24 and operationally defines the 48-hour milestone as on-site response initiated, not necessarily resolved. These measures must not be compared without reconciling period, numerator and event semantics.
+
+
+WSR-016's measurement-definition decision is owner-native: the benchmark carries the published KPI source context, but the NRVCA comparator owns declared measurement/target comparability. Its `clock_stop` field distinguishes first response from repair completion and independently observed pressure restoration. This is a declared-contract comparison, not proof that the utility's operational process matched its published definition.
