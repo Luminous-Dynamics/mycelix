@@ -106,3 +106,16 @@ func TestManifestCannotSelfDeclareAnIncompleteRoster(t *testing.T) {
 	s,m,u,f:=fixture();m.Candidates=m.Candidates[:1];m.CandidateRoot,_=CandidateRoot(m.Candidates)
 	if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate { t.Fatalf("manifest-substituted roster accepted: %+v",got) }
 }
+
+
+func TestMultipleOmissionsProduceDeterministicFailureCertificate(t *testing.T) {
+	s, m, u, f := fixture()
+	f.Owners = nil
+	first := Reconcile(s, m, u, f)
+	for i := 0; i < 100; i++ {
+		got := Reconcile(s, m, u, f)
+		if got.CertificateDigest != first.CertificateDigest || got.Reason != first.Reason {
+			t.Fatalf("non-deterministic omission result: first=%+v got=%+v", first, got)
+		}
+	}
+}
