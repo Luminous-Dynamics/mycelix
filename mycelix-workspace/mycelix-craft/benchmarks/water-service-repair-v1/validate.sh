@@ -59,6 +59,13 @@ if ! jq -e '
       and ((.independence_group | type) == "string")
       and ((.independence_group | length) > 0)
     )
+    and (if .case_id == "WSR-010" then
+      (.input.authorized_work_scope.scope_id == "WORK-SCOPE-SYN-010")
+      and (.input.authorized_work_scope.authorization_state == "approved")
+      and (.input.authorized_work_scope.expected_action_count == .input.expected_actions)
+      and (.input.authorized_work_scope.scope_digest_kind == "synthetic_test_placeholder")
+      and (.input.authorized_work_scope.scope_digest | type == "string" and test("^[0-9a-f]{64}$"))
+    else true end)
   )
 ' "$CASES" >/dev/null; then
   echo "Case validation failed: one or more of the 16 frozen WSR scenarios violate the schema." >&2
