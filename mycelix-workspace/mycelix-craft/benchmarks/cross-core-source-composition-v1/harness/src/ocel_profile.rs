@@ -253,7 +253,7 @@ fn validate_attributes(
     Ok(())
 }
 
-fn relationships(value: &Value, key: &str) -> Result<&[Value], OcelProfileErrorV1> {
+fn relationships<'a>(value: &'a Value, key: &str) -> Result<&'a [Value], OcelProfileErrorV1> {
     match value.get(key) {
         None => Ok(&[]),
         Some(value) => value
