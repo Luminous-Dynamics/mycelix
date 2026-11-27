@@ -67,7 +67,11 @@ pub fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
     packet
 }
 
-pub fn claim_result(claim_id: &str, supported: bool, now: u64) -> claim_support::ClaimSupportResultV1 {
+pub fn claim_result(
+    claim_id: &str,
+    supported: bool,
+    now: u64,
+) -> claim_support::ClaimSupportResultV1 {
     let mut packet = claim_packet(claim_id);
     if supported {
         packet.reviews.push(claim_support_helpers::review(
@@ -884,7 +888,10 @@ pub mod lineage_helpers {
         }
     }
 
-    pub fn node(reference: ArtifactRefV1, dependencies: Vec<ArtifactDependencyV1>) -> ArtifactNodeV1 {
+    pub fn node(
+        reference: ArtifactRefV1,
+        dependencies: Vec<ArtifactDependencyV1>,
+    ) -> ArtifactNodeV1 {
         ArtifactNodeV1 {
             reference,
             kind: ArtifactKindV1::Other,
