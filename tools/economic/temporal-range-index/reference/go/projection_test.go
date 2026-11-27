@@ -426,3 +426,24 @@ func TestProjectionReplayRecomputesReceiptDigestsAndFullRFC9162OwnerLogRoot(t *t
 		t.Fatalf("mutated non-receipt log leaf escaped full root check: %v", err)
 	}
 }
+
+
+func TestProjectionReplayRejectsMissingOrTamperedAssertionPayloadBytes(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	binding, inventory := projectionInventoryFixtureV1(scope)
+
+	missing := inventory
+	missing.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	missing.Receipts[0].AssertionPayloadBytes = nil
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, missing); err != ErrProjectionReceiptClass {
+		t.Fatalf("missing assertion payload was accepted: %v", err)
+	}
+
+	tampered := inventory
+	tampered.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	tampered.Receipts[0].AssertionPayloadBytes = append([]byte(nil), inventory.Receipts[0].AssertionPayloadBytes...)
+	tampered.Receipts[0].AssertionPayloadBytes[len(tampered.Receipts[0].AssertionPayloadBytes)-1] ^= 0x01
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, tampered); err != ErrProjectionReceiptClass {
+		t.Fatalf("assertion payload bytes with stale assertion digest passed: %v", err)
+	}
+}
