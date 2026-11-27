@@ -13,7 +13,7 @@ The goal is not to maximize refusal. It is to preserve safety invariants while k
 ## Files
 
 - `manifest.json`: scope, provenance, claim boundaries and counts.
-- `seeds.json`: 9 synthetic WSR/Need Intake seed references; no operational data is copied.
+- `seeds.json`: 10 synthetic WSR/Need Intake seed references; no operational data is copied.
 - `relations.json`: 18 cross-input invariants with seed, mutation and control references.
 - `mutations.json`: 34 adversarial operators and 20 negative controls.
 - `scorecard.json`: 17 metric definitions with explicit numerators, denominators, targets, gate flags and field-data requirements.
@@ -40,6 +40,8 @@ Digest semantics are explicit: WSR evidence digest strings are shape-only synthe
 - **0** false NotAffected transfers across event/artifact/edge/context.
 - **0** stale, revoked or cross-context evidence acceptances.
 - **0** false independence credit from shared common-cause groups.
+- **0** omitted material blockers in lawful counterfactual repair plans.
+- **0** fabricated consensus or erased material dissent.
 - **100%** deterministic replay for identical canonical inputs and host-sequence event streams.
 - **100%** detection of the hard-safety / authorization mutation family.
 - **At least 95%** detection of non-equivalent high-risk mutants overall.
