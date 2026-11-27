@@ -266,6 +266,7 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 			return ErrForestMalformed
 		}
 		var previousLast uint64
+		var missingSequences uint64
 		for gapIndex, gap := range owner.Gaps {
 			if gap.First == 0 || gap.Last < gap.First || gap.Last > owner.OwnerSequence {
 				return ErrForestMalformed
@@ -274,7 +275,16 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 				(gap.First <= previousLast || (previousLast != ^uint64(0) && gap.First == previousLast+1)) {
 				return ErrForestMalformed
 			}
+			width := gap.Last - gap.First + 1
+			if ^uint64(0)-missingSequences < width {
+				return ErrForestMalformed
+			}
+			missingSequences += width
 			previousLast = gap.Last
+		}
+		if ^uint64(0)-missingSequences < owner.TreeSize ||
+			owner.TreeSize+missingSequences != owner.OwnerSequence {
+			return ErrForestMalformed
 		}
 	}
 	return nil
