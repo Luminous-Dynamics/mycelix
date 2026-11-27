@@ -94,6 +94,38 @@ It preserves unrecognized JSON extension values through canonicalization. The ca
 
 The profile is deliberately restricted. External validation against the official OCEL 2.0 JSON schema and interoperability round-trips through an independent importer such as Ocelot/PM4Py remain required before claiming general OCEL compatibility. OCEL 2.1.0pre5 serialization is not implemented and remains a separate experimental target.
 
+### Differential interoperability benchmark (next gate)
+
+The independent oracle must not share the Rust profile validator's parser or canonicalizer. The official OCEL tool-support matrix lists PM4Py, FLOWVAULT and Ocelot.pm as OCEL 2.0 JSON-capable implementations. PM4Py documents explicit OCEL 2.0 JSON read/write operations; Rust4PM documents JSON import/export through Polars. Ocelot is useful for human inspection, but a browser inspection alone is not a reproducible CI oracle.
+
+Reference implementations:
+- https://www.ocel-standard.org/tool-support/overview/
+- https://www.ocel-standard.org/tool-support/libraries/pm4py/
+- https://github.com/process-intelligence-solutions/pm4py/blob/release/docs/source/api.rst
+- https://rust4pm.aarkue.eu/docs/python-api/
+
+Keep the application and production adapters Rust-first. A pinned external importer/exporter may be used strictly as an independent test oracle in CI. It must emit a normalized inventory (object IDs/types, event IDs/types/timestamps, typed attributes, E2O/O2O relationships and qualifiers, object-attribute changes) for comparison with the Rust profile receipt. Do not compare only counts or byte hashes.
+
+Required differential cases:
+1. Rust export -> independent import -> normalized inventory comparison.
+2. Independent export -> Rust import -> normalized inventory comparison.
+3. Reordered arrays and object keys -> semantic equality.
+4. Unknown extension fields -> preserved or explicit lossy-export receipt.
+5. Invalid references, duplicate identities and malformed timestamps -> deterministic rejection or documented importer-specific refusal.
+6. Same-fault complaint grouping and distinct repeat episodes -> identity and relationship preservation.
+7. Late arrival, correction, revocation and as-known-at cutoff -> no history rewrite.
+
+Scale ladder (report each result separately, do not average correctness with speed):
+- 10^3 events: developer feedback and mutation-test corpus.
+- 10^5 events: practical integration scale.
+- 10^7 events: stress/streaming scale, if memory budget and runner permit.
+
+Metrics: parse/export throughput; peak RSS; serialized bytes; normalized preservation by field/relation category; event/object identity precision and recall; qualifier preservation; temporal-frontier reconstruction; correction-history preservation; deterministic digest across input permutations; and owner-disposition agreement before/after interchange. Publish p50/p95 runtime and peak memory, exact tool versions, hardware/runner class, corpus digest and command line.
+
+A conventional case-centric XES flattening baseline is useful only as a measured loss comparator. It must not be treated as an equivalent object-centric representation or as a correctness oracle. Public BPI/OCEL process-mining logs can benchmark generic discovery/conformance throughput, but they do not validate municipal water-service semantics; the WSR synthetic adversarial corpus remains the semantic benchmark.
+
+Targets (not results): zero silent field/relation loss within the declared profile, 100% normalized round-trip preservation, zero duplicate-callout inflation, zero repeat-episode merges, and unchanged owner-core dispositions after serialization round-trip.
+
 ## 4. Frozen corpus and executable coverage
 
 The source fixture bundle contains 16 known-answer synthetic WSR episodes and 20 proposed metamorphic transformations.
