@@ -682,6 +682,15 @@ pub fn parse_temporal_relationships_ocel20(
             .filter(|value| non_empty(value))
             .ok_or(TemporalRelationshipErrorV1::EmptyIdentity)?
             .to_owned();
+        if ocel_attribute(object, "valid_to")?.is_some() {
+            require_ocel_attribute_declaration(
+                &root,
+                "objectTypes",
+                "temporal_relation_claim",
+                "valid_to",
+                "time",
+            )?;
+        }
         let subject_id = ocel_relation_target(object, "subject")?;
         let object_id = ocel_relation_target(object, "object")?;
         if !object_ids.contains(subject_id.as_str())
@@ -1257,6 +1266,62 @@ mod tests {
         assert_eq!(
             receipt.revoked_relation_ids,
             vec!["rel-asset-zone"]
+        );
+    }
+
+
+    #[test]
+    fn rejects_ocel_relation_attribute_with_wrong_declared_type() {
+        let expected_claim = claim(
+            "rel-asset-zone",
+            "asset-1",
+            "member_of_zone",
+            "zone-1",
+            T08,
+            1,
+        );
+        let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
+        let source_digest = digest_hex(&expected_claim.source_digest);
+        let mut fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
+        let declarations = fixture["objectTypes"][2]["attributes"]
+            .as_array_mut()
+            .unwrap();
+        let cardinality = declarations
+            .iter_mut()
+            .find(|attribute| attribute["name"] == "cardinality")
+            .unwrap();
+        cardinality["type"] = serde_json::Value::String("integer".to_owned());
+        let input = serde_json::to_string(&fixture).unwrap();
+
+        assert_eq!(
+            parse_temporal_relationships_ocel20(&input),
+            Err(TemporalRelationshipErrorV1::InvalidOcel20)
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_consumed_ocel_attribute() {
+        let expected_claim = claim(
+            "rel-asset-zone",
+            "asset-1",
+            "member_of_zone",
+            "zone-1",
+            T08,
+            1,
+        );
+        let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
+        let source_digest = digest_hex(&expected_claim.source_digest);
+        let mut fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
+        let duplicate = fixture["objects"][2]["attributes"][0].clone();
+        fixture["objects"][2]["attributes"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        let input = serde_json::to_string(&fixture).unwrap();
+
+        assert_eq!(
+            parse_temporal_relationships_ocel20(&input),
+            Err(TemporalRelationshipErrorV1::DuplicateOcelAttribute)
         );
     }
 
