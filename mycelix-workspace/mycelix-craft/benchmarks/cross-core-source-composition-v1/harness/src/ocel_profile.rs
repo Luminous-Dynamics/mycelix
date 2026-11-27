@@ -529,9 +529,9 @@ mod tests {
         let receipt = validate_ocel20_water_profile(FIXTURE)
             .expect("restricted OCEL 2.0 water profile is valid");
         assert_eq!(receipt.object_type_count, 13);
-        assert_eq!(receipt.event_type_count, 9);
+        assert_eq!(receipt.event_type_count, 11);
         assert_eq!(receipt.object_count, 17);
-        assert_eq!(receipt.event_count, 10);
+        assert_eq!(receipt.event_count, 12);
         assert!(receipt.event_to_object_relationship_count >= 20);
         assert!(receipt.object_to_object_relationship_count >= 5);
         assert_eq!(receipt.canonical_sha256.len(), 64);
