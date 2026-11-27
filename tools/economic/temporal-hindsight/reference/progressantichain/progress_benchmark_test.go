@@ -42,6 +42,16 @@ func benchmarkProgressCases(b *testing.B, operation string, run func(*testing.B,
 			if width > ownerCount {
 				continue
 			}
+			width64 := uint64(width)
+			ownerCount64 := uint64(ownerCount)
+			pairCount := uint64(0)
+			if width64 > 1 {
+				pairCount = width64 * (width64 - 1) / 2
+			}
+			if exceedsProgressWorkBudget(maxProgressVectorCoordinates, width64, ownerCount64) ||
+				exceedsProgressWorkBudget(maxProgressCoordinateComparisons, pairCount, ownerCount64) {
+				continue
+			}
 			name := fmt.Sprintf("%s/owners=%d/width=%d", operation, ownerCount, width)
 			b.Run(name, func(b *testing.B) {
 				antichain, query := benchmarkProgressFixture(b, ownerCount, width)
