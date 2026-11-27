@@ -215,24 +215,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 &action.author,
             ))
         }
-        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
-            let original_record = must_get_valid_record(action.deletes_address.clone())?;
-            let original_constraint: Option<EvidenceConstraint> = original_record
-                .entry()
-                .to_app_option()
-                .map_err(|error| wasm_error!(error))?;
-            if original_constraint.is_some() {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "EvidenceConstraint entries are append-only and cannot be deleted".into(),
-                ));
-            }
-            let original_action = must_get_action(action.deletes_address.clone())?;
-            Ok(check_author_match(
-                original_action.action().author(),
-                &action.author,
-                "delete",
-            ))
-        }
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
