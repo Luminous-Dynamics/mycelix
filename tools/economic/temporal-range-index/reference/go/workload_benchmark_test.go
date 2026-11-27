@@ -138,6 +138,7 @@ func BenchmarkTemporalQueryWorkloadsV1(b *testing.B) {
 				b.ReportMetric(float64(len(verified.Records)), "matches")
 				b.ReportMetric(float64(nodes), "proof_nodes")
 				b.ReportMetric(float64(pruned), "pruned_nodes")
+				b.ReportMetric(float64(branches), "expanded_branches")
 				b.ReportMetric(float64(leaves), "returned_leaves")
 				b.ReportMetric(float64(len(encoded)), "proof_B")
 				b.ResetTimer()
