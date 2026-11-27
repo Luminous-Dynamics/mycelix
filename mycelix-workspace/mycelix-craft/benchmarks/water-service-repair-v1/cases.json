@@ -1,0 +1,722 @@
+{
+  "benchmark_id": "CRAFT-WATER-SERVICE-REPAIR-V1",
+  "schema_version": "1.0.0",
+  "synthetic_only": true,
+  "no_real_personal_data": true,
+  "cases": [
+    {
+      "case_id": "WSR-001",
+      "title": "Provider completion acknowledgement without restoration observation",
+      "input": {
+        "zone_ref": "ZONE-SYN-A",
+        "context_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_work_status": "completed",
+        "expected_actions": 4,
+        "observed_actions": 4,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "provider_ack",
+            "proposition": "work_order_completed",
+            "status": "current",
+            "source_id": "SRC-PROVIDER-01",
+            "independence_group": "PROVIDER-OPS-01",
+            "context_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "unknown",
+        "water_quality": "pending",
+        "action_coverage": "complete",
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "NO_INDEPENDENT_RESTORATION_OBSERVATION",
+          "QUALITY_CHECK_PENDING"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-002",
+      "title": "Repair reported complete but pressure remains below the preregistered profile",
+      "input": {
+        "zone_ref": "ZONE-SYN-B",
+        "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "provider_work_status": "completed",
+        "expected_actions": 5,
+        "observed_actions": 5,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "provider_ack",
+            "proposition": "work_order_completed",
+            "status": "current",
+            "source_id": "SRC-PROVIDER-02",
+            "independence_group": "PROVIDER-OPS-02",
+            "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "digest": "2121212121212121212121212121212121212121212121212121212121212121",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "below_profile",
+            "source_id": "SRC-PRESSURE-02",
+            "independence_group": "PRESSURE-OBSERVER-02",
+            "independence_assessment": "qualified",
+            "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "not_restored",
+        "water_quality": "pending",
+        "action_coverage": "complete",
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "RESTORATION_NOT_OBSERVED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-003",
+      "title": "Pressure restored but required water-quality result is pending",
+      "input": {
+        "zone_ref": "ZONE-SYN-C",
+        "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "provider_work_status": "completed",
+        "expected_actions": 3,
+        "observed_actions": 3,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "meets_profile",
+            "source_id": "SRC-PRESSURE-03",
+            "independence_group": "PRESSURE-OBSERVER-03",
+            "independence_assessment": "qualified",
+            "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "digest": "3131313131313131313131313131313131313131313131313131313131313131",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "pending",
+            "source_id": "SRC-LAB-03",
+            "independence_group": "LAB-ORIGIN-03",
+            "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "digest": "3232323232323232323232323232323232323232323232323232323232323232",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "restored",
+        "water_quality": "pending",
+        "action_coverage": "complete",
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "QUALITY_CHECK_PENDING"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-004",
+      "title": "All required checks complete and current; local closure review is eligible",
+      "input": {
+        "zone_ref": "ZONE-SYN-D",
+        "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "provider_work_status": "completed",
+        "expected_actions": 6,
+        "observed_actions": 6,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "provider_ack",
+            "proposition": "work_order_completed",
+            "status": "current",
+            "source_id": "SRC-PROVIDER-04",
+            "independence_group": "PROVIDER-OPS-04",
+            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "digest": "4141414141414141414141414141414141414141414141414141414141414141",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "meets_profile",
+            "source_id": "SRC-PRESSURE-04",
+            "independence_group": "PRESSURE-OBSERVER-04",
+            "independence_assessment": "qualified",
+            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "digest": "4242424242424242424242424242424242424242424242424242424242424242",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "current",
+            "result": "passed",
+            "source_id": "SRC-LAB-04",
+            "independence_group": "ACCREDITED-LAB-04",
+            "independence_assessment": "qualified",
+            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "digest": "4343434343434343434343434343434343434343434343434343434343434343",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "restored",
+        "water_quality": "passed",
+        "action_coverage": "complete",
+        "disposition": "eligible_for_local_review",
+        "reason_codes": [
+          "LOCAL_AUTHORITY_CLOSURE_STILL_REQUIRED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-005",
+      "title": "Restoration observation expired before the closure decision",
+      "input": {
+        "zone_ref": "ZONE-SYN-E",
+        "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "provider_work_status": "completed",
+        "expected_actions": 4,
+        "observed_actions": 4,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "expired",
+            "result": "meets_profile",
+            "source_id": "SRC-PRESSURE-05",
+            "independence_group": "PRESSURE-OBSERVER-05",
+            "independence_assessment": "qualified",
+            "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "digest": "5151515151515151515151515151515151515151515151515151515151515151",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "current",
+            "result": "passed",
+            "source_id": "SRC-LAB-05",
+            "independence_group": "ACCREDITED-LAB-05",
+            "independence_assessment": "qualified",
+            "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "digest": "5252525252525252525252525252525252525252525252525252525252525252",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "requires_revalidation",
+        "water_quality": "passed",
+        "action_coverage": "complete",
+        "disposition": "revalidation_required",
+        "reason_codes": [
+          "RESTORATION_EVIDENCE_EXPIRED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-006",
+      "title": "Pressure evidence belongs to a different service zone",
+      "input": {
+        "zone_ref": "ZONE-SYN-F",
+        "context_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "provider_work_status": "completed",
+        "expected_actions": 4,
+        "observed_actions": 4,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "meets_profile",
+            "source_id": "SRC-PRESSURE-06",
+            "independence_group": "PRESSURE-OBSERVER-06",
+            "independence_assessment": "qualified",
+            "context_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "digest": "6161616161616161616161616161616161616161616161616161616161616161",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "current",
+            "result": "passed",
+            "source_id": "SRC-LAB-06",
+            "independence_group": "ACCREDITED-LAB-06",
+            "independence_assessment": "qualified",
+            "context_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "digest": "6262626262626262626262626262626262626262626262626262626262626262",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "unproven_for_this_zone",
+        "water_quality": "passed",
+        "action_coverage": "complete",
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "WRONG_CONTEXT_EVIDENCE_REJECTED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-007",
+      "title": "Provider portal and acknowledgement are mirrors of one source",
+      "input": {
+        "zone_ref": "ZONE-SYN-G",
+        "context_digest": "abababababababababababababababababababababababababababababababab",
+        "provider_work_status": "completed",
+        "expected_actions": 3,
+        "observed_actions": 3,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "provider_ack",
+            "proposition": "work_order_completed",
+            "status": "current",
+            "source_id": "SRC-PROVIDER-07A",
+            "independence_group": "PROVIDER-OPS-07",
+            "context_digest": "abababababababababababababababababababababababababababababababab",
+            "digest": "7171717171717171717171717171717171717171717171717171717171717171",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "provider_dashboard_mirror",
+            "proposition": "work_order_completed",
+            "status": "current",
+            "source_id": "SRC-PROVIDER-07B",
+            "independence_group": "PROVIDER-OPS-07",
+            "context_digest": "abababababababababababababababababababababababababababababababab",
+            "digest": "7272727272727272727272727272727272727272727272727272727272727272",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "unknown",
+        "water_quality": "pending",
+        "action_coverage": "complete",
+        "independent_corroboration_count": 1,
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "MIRRORED_PROVIDER_EVIDENCE_NOT_INDEPENDENT",
+          "NO_RESTORATION_OBSERVATION"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-008",
+      "title": "Water-quality result corrected after an earlier local closure",
+      "input": {
+        "zone_ref": "ZONE-SYN-H",
+        "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "provider_work_status": "completed",
+        "expected_actions": 5,
+        "observed_actions": 5,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "prior_local_closure": "approved",
+        "change_event": {
+          "event_id": "EVT-LAB-CORRECTION-08",
+          "reason": "source_corrected",
+          "target_revision": 1,
+          "replacement_revision": 2
+        },
+        "evidence": [
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "meets_profile",
+            "source_id": "SRC-PRESSURE-08",
+            "independence_group": "PRESSURE-OBSERVER-08",
+            "independence_assessment": "qualified",
+            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "digest": "8181818181818181818181818181818181818181818181818181818181818181",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "superseded",
+            "result": "passed",
+            "source_id": "SRC-LAB-08",
+            "independence_group": "ACCREDITED-LAB-08",
+            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "digest": "8282828282828282828282828282828282828282828282828282828282828282",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "restored",
+        "water_quality": "requires_revalidation",
+        "action_coverage": "complete",
+        "disposition": "revalidation_required",
+        "prior_closure_history": "preserved",
+        "reason_codes": [
+          "LAB_RESULT_SUPERSEDED",
+          "PRIOR_CLOSURE_NOT_SILENTLY_REWRITTEN"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-009",
+      "title": "Execution permit expired and crew qualification was revoked before work",
+      "input": {
+        "zone_ref": "ZONE-SYN-I",
+        "context_digest": "dededededededededededededededededededededededededededededededede",
+        "provider_work_status": "completed",
+        "expected_actions": 2,
+        "observed_actions": 2,
+        "permit_status": "expired",
+        "crew_qualification_status": "revoked",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": []
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "unknown",
+        "water_quality": "pending",
+        "action_coverage": "incomplete",
+        "disposition": "execution_or_closure_blocked",
+        "reason_codes": [
+          "PERMIT_NOT_CURRENT",
+          "CREW_QUALIFICATION_REVOKED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-010",
+      "title": "Observed work covers only a prefix of the expected repair actions",
+      "input": {
+        "zone_ref": "ZONE-SYN-J",
+        "context_digest": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+        "provider_work_status": "completed",
+        "expected_actions": 5,
+        "observed_actions": 3,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "provider_ack",
+            "proposition": "work_order_completed",
+            "status": "current",
+            "source_id": "SRC-PROVIDER-10",
+            "independence_group": "PROVIDER-OPS-10",
+            "context_digest": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+            "digest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ],
+        "authorized_work_scope": {
+          "scope_id": "WORK-SCOPE-SYN-010",
+          "revision": 1,
+          "scope_digest": "abababababababababababababababababababababababababababababababab",
+          "scope_digest_kind": "synthetic_test_placeholder",
+          "expected_action_count": 5,
+          "authorization_state": "approved"
+        }
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "unknown",
+        "water_quality": "pending",
+        "action_coverage": "incomplete",
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "EXPECTED_ACTION_DENOMINATOR_NOT_COVERED",
+          "UNOBSERVED_WORK_SUFFIX"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-011",
+      "title": "A repeat burst is reported seven days after a prior restoration",
+      "input": {
+        "zone_ref": "ZONE-SYN-K",
+        "context_digest": "ababcdcdababcdcdababcdcdababcdcdababcdcdababcdcdababcdcdababcdcd",
+        "prior_event_id": "WSR-004-PRIOR",
+        "prior_closure": "approved",
+        "new_event_id": "WSR-011-REPEAT",
+        "days_since_prior_restoration": 7,
+        "provider_work_status": "new_reported_event"
+      },
+      "expected": {
+        "prior_closure_history": "preserved",
+        "new_event": "opened",
+        "repeat_burst_metric": "counted",
+        "disposition": "new_workflow_required",
+        "reason_codes": [
+          "REPEAT_EVENT_WITHIN_7_DAYS",
+          "DO_NOT_REWRITE_PRIOR_EVENT"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-012",
+      "title": "Water-quality sample result is under investigation",
+      "input": {
+        "zone_ref": "ZONE-SYN-L",
+        "context_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+        "provider_work_status": "completed",
+        "expected_actions": 4,
+        "observed_actions": 4,
+        "permit_status": "current",
+        "crew_qualification_status": "current",
+        "required_checks": [
+          "pressure_restoration",
+          "water_quality"
+        ],
+        "evidence": [
+          {
+            "kind": "independent_pressure_observation",
+            "proposition": "pressure_restoration",
+            "status": "current",
+            "result": "meets_profile",
+            "source_id": "SRC-PRESSURE-12",
+            "independence_group": "PRESSURE-OBSERVER-12",
+            "independence_assessment": "qualified",
+            "context_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+            "digest": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+            "digest_kind": "synthetic_test_placeholder"
+          },
+          {
+            "kind": "lab_sample",
+            "proposition": "water_quality",
+            "status": "under_investigation",
+            "source_id": "SRC-LAB-12",
+            "independence_group": "ACCREDITED-LAB-12",
+            "context_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+            "digest": "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+            "digest_kind": "synthetic_test_placeholder"
+          }
+        ]
+      },
+      "expected": {
+        "provider_assertion": "reported_complete",
+        "physical_restoration": "restored",
+        "water_quality": "under_investigation",
+        "action_coverage": "complete",
+        "disposition": "not_eligible",
+        "reason_codes": [
+          "HIGH_CONSEQUENCE_QUALITY_STATUS_UNRESOLVED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-013",
+      "title": "Water interruption exceeds 48 hours and alternative supply is below the statutory minimum",
+      "input": {
+        "zone_ref": "ZONE-SYN-M",
+        "context_digest": "1313131313131313131313131313131313131313131313131313131313131313",
+        "service_interruption_hours": 54,
+        "alternative_supply_litres_person_day": 12,
+        "required_alternative_supply_litres_person_day": 15,
+        "alternative_supply_delivery_point": "safe_and_accessible",
+        "alternative_supply_water_quality": "current_and_compliant"
+      },
+      "expected": {
+        "service_continuity": "alternative_supply_inadequate",
+        "alternative_supply_required": true,
+        "required_litres_person_day": 15,
+        "delivered_litres_person_day": 12,
+        "disposition": "alternative_service_inadequate",
+        "reason_codes": [
+          "INTERRUPTION_EXCEEDS_48_HOURS",
+          "ALTERNATIVE_SUPPLY_BELOW_15_LITRES_PER_PERSON_PER_DAY"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-014",
+      "title": "Confirmed drinking-water health risk is not escalated and communicated within the required incident process",
+      "input": {
+        "zone_ref": "ZONE-SYN-N",
+        "context_digest": "1414141414141414141414141414141414141414141414141414141414141414",
+        "water_quality_incident_status": "confirmed_health_risk",
+        "hours_to_notify_dws_regional_office": 13,
+        "hours_to_notify_district_health_office": 13,
+        "community_advisory_notice_issued": false,
+        "community_advisory_accessible": false,
+        "required_notification_hours": 12,
+        "evidence": [
+          {
+            "kind": "lab_sample",
+            "proposition": "drinking_water_quality",
+            "status": "current",
+            "result": "confirmed_health_risk",
+            "source_id": "SRC-LAB-014",
+            "independence_group": "ACCREDITED-LAB-014",
+            "independence_assessment": "qualified",
+            "digest": "1414141414141414141414141414141414141414141414141414141414141415",
+            "context_digest": "1414141414141414141414141414141414141414141414141414141414141414"
+          }
+        ]
+      },
+      "expected": {
+        "water_quality": "confirmed_health_risk",
+        "regulator_notification": "late",
+        "community_advisory": "missing",
+        "disposition": "drinking_water_incident_response_required",
+        "reason_codes": [
+          "DWS_AND_HEALTH_NOTIFICATION_EXCEEDED_12_HOURS",
+          "COMMUNITY_ADVISORY_REQUIRED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-015",
+      "title": "Alternative tanker supply continues beyond one week without the required registered monitoring and origin records",
+      "input": {
+        "zone_ref": "ZONE-SYN-O",
+        "context_digest": "1515151515151515151515151515151515151515151515151515151515151515",
+        "service_interruption_hours": 192,
+        "alternative_supply_duration_days": 8,
+        "alternative_supply_litres_person_day": 18,
+        "alternative_supply_water_quality": "current_and_compliant",
+        "iris_monitoring_program_registered": false,
+        "alternative_source_origin_recorded": false,
+        "required_sans241_parameters": [
+          "disinfectant_residuals",
+          "turbidity",
+          "e_coli",
+          "heterotrophic_plate_count",
+          "conductivity",
+          "ph"
+        ],
+        "registered_parameters": [],
+        "tanker_records_complete": false
+      },
+      "expected": {
+        "alternative_supply": "meets_daily_quantity",
+        "extended_monitoring_required": true,
+        "monitoring_program": "not_registered",
+        "alternative_source_origin": "not_recorded",
+        "tanker_records": "incomplete",
+        "disposition": "extended_alternative_supply_monitoring_required",
+        "reason_codes": [
+          "ALTERNATIVE_SUPPLY_EXCEEDS_ONE_WEEK",
+          "IRIS_MONITORING_PROGRAM_MISSING",
+          "ALTERNATIVE_SOURCE_ORIGIN_MISSING",
+          "TANKER_DELIVERY_RECORDS_INCOMPLETE"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-016",
+      "title": "Published 48-hour burst KPI label and operational definition are not directly comparable",
+      "input": {
+        "zone_ref": "AGGREGATE-PUBLIC-METRIC-NO-GEOGRAPHIC-IDENTIFIERS",
+        "context_digest": "1616161616161616161616161616161616161616161616161616161616161616",
+        "metric_reconciliation": true,
+        "published_metrics": [
+          {
+            "source_id": "PUB-JW-IAR-2024-25-P64",
+            "reporting_period": "2024-07-01/2025-06-30",
+            "label": "water bursts restored within 48 hours",
+            "value_percent": 70.35,
+            "target_percent": 85,
+            "metric_definition": "annual report achievement statement"
+          },
+          {
+            "source_id": "PUB-JW-BP-2025-26-P83-P95",
+            "reporting_period": "baseline labelled 2023/24; target for FY2025/26",
+            "label": "percentage water bursts restored within 48 hours of notification",
+            "value_percent": 67.46,
+            "target_percent": 90,
+            "operational_definition": "someone is on site and has initiated a process of resolving the matter within 48 hours; this does not mean the callout was resolved"
+          }
+        ],
+        "required_separate_measures": [
+          "first_response_within_48_hours",
+          "repair_work_completed_within_48_hours",
+          "independent_pressure_restoration_time",
+          "water_quality_clearance_time",
+          "local_authority_closure_time"
+        ]
+      },
+      "expected": {
+        "metric_comparability": "not_established",
+        "first_response_and_repair_completion": "distinct_measures",
+        "annual_result_and_business_plan_baseline": "different_periods_and_definition_sources",
+        "disposition": "measurement_reconciliation_required",
+        "reason_codes": [
+          "KPI_LABEL_AND_OPERATIONAL_DEFINITION_CONFLICT",
+          "REPORTING_PERIODS_DIFFER",
+          "RESPONSE_IS_NOT_RESOLUTION"
+        ]
+      }
+    }
+  ]
+}

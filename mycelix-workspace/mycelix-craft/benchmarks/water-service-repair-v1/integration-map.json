@@ -1,0 +1,247 @@
+{
+  "benchmark_id": "CRAFT-WATER-SERVICE-REPAIR-V1-INTEGRATION-MAP",
+  "schema_version": "1.0.0",
+  "status": "proposed_semantic_owner_map",
+  "mappings": [
+    {
+      "case_id": "WSR-001",
+      "owner_issues": [
+        "#6140",
+        "#4835",
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "provider_report_is_not_physical_effect",
+        "independent_restoration_observation_missing",
+        "water_quality_missing"
+      ],
+      "owner_boundary": "No pilot-specific observation-independence or claim-support service is created."
+    },
+    {
+      "case_id": "WSR-002",
+      "owner_issues": [
+        "#6140",
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "pressure_observation_below_profile",
+        "provider_completion_not_restoration"
+      ],
+      "owner_boundary": "Pressure acceptance criteria belong to the responsible local authority and qualified engineering procedure."
+    },
+    {
+      "case_id": "WSR-003",
+      "owner_issues": [
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "restoration_supported",
+        "water_quality_pending",
+        "no_local_closure"
+      ],
+      "owner_boundary": "Claim Support assesses the lab claim; Decision Closure determines material-element sufficiency."
+    },
+    {
+      "case_id": "WSR-004",
+      "owner_issues": [
+        "#6750",
+        "#6733",
+        "#6757",
+        "#6769"
+      ],
+      "checks": [
+        "all_required_evidence_current",
+        "closure_still_requires_local_authority"
+      ],
+      "owner_boundary": "Eligibility is only for local review; no crate automatically closes or authorizes the work."
+    },
+    {
+      "case_id": "WSR-005",
+      "owner_issues": [
+        "#181",
+        "#2631",
+        "#1207",
+        "#6762"
+      ],
+      "checks": [
+        "restoration_lease_expired",
+        "targeted_revalidation"
+      ],
+      "owner_boundary": "EvidenceLease and temporal currentness remain owned by the existing temporal/evidence systems."
+    },
+    {
+      "case_id": "WSR-006",
+      "owner_issues": [
+        "#1087",
+        "#6769",
+        "#6757"
+      ],
+      "checks": [
+        "zone_context_mismatch",
+        "evidence_not_applicable_to_target_zone"
+      ],
+      "owner_boundary": "Applicability is dimension- and context-specific; no generic currentness is added."
+    },
+    {
+      "case_id": "WSR-007",
+      "owner_issues": [
+        "#6140",
+        "#4835"
+      ],
+      "checks": [
+        "provider_mirror_detected",
+        "common_cause_group_counted_once",
+        "no_independent_restoration_proof"
+      ],
+      "owner_boundary": "Source independence and coverage are supplied by the observation/provenance owner, not inferred from identifiers."
+    },
+    {
+      "case_id": "WSR-008",
+      "owner_issues": [
+        "#6762",
+        "#6769",
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "lab_result_superseded",
+        "prior_closure_history_preserved",
+        "new_revision_requires_requalification"
+      ],
+      "owner_boundary": "Lineage propagates changed evidence; claim support and decision closure own semantic and conclusion qualification."
+    },
+    {
+      "case_id": "WSR-009",
+      "owner_issues": [
+        "#6733",
+        "#6738",
+        "#181",
+        "#6762"
+      ],
+      "checks": [
+        "permit_expired",
+        "crew_qualification_revoked",
+        "work_or_closure_blocked"
+      ],
+      "owner_boundary": "The pilot fixture does not authenticate credentials, permits or institutional revocation."
+    },
+    {
+      "case_id": "WSR-010",
+      "owner_issues": [
+        "#6750",
+        "#6757",
+        "#6762"
+      ],
+      "checks": [
+        "expected_action_denominator",
+        "unobserved_suffix",
+        "closure_incomplete"
+      ],
+      "owner_boundary": "Coverage denominator is frozen by authorized scope; no provider self-report can rewrite the plan."
+    },
+    {
+      "case_id": "WSR-011",
+      "owner_issues": [
+        "#2631",
+        "#1207",
+        "#6069",
+        "#6762"
+      ],
+      "checks": [
+        "new_repeat_event",
+        "prior_decision_is_historical_record",
+        "repeat_window_metric"
+      ],
+      "owner_boundary": "Temporal and bitemporal reconstruction use existing owner-native event/epoch semantics."
+    },
+    {
+      "case_id": "WSR-012",
+      "owner_issues": [
+        "#6140",
+        "#6754",
+        "#6757",
+        "#6769"
+      ],
+      "checks": [
+        "quality_under_investigation",
+        "high_consequence_hold",
+        "no_false_not_affected"
+      ],
+      "owner_boundary": "Unresolved water-quality evidence cannot be coerced into a safe or closed state."
+    },
+    {
+      "case_id": "WSR-013",
+      "owner_issues": [
+        "#6771",
+        "#6750",
+        "#6757"
+      ],
+      "checks": [
+        "interruption_over_48_hours",
+        "alternative_supply_at_least_15_litres_person_day",
+        "safe_convenient_delivery_point",
+        "alternative_supply_quality"
+      ],
+      "owner_boundary": "The legal minimum is an external authority requirement; Craft only carries evidence and closure checks."
+    },
+    {
+      "case_id": "WSR-014",
+      "owner_issues": [
+        "#6140",
+        "#6754",
+        "#6757",
+        "#6769"
+      ],
+      "checks": [
+        "confirmed_health_risk",
+        "12_hour_dws_and_health_notification",
+        "accessible_community_advisory",
+        "incident_response"
+      ],
+      "owner_boundary": "The responsible Water Services Authority and public-health authorities own incident classification and notifications."
+    },
+    {
+      "case_id": "WSR-015",
+      "owner_issues": [
+        "#181",
+        "#6140",
+        "#6754",
+        "#6757",
+        "#6762"
+      ],
+      "checks": [
+        "alternative_supply_over_one_week",
+        "iris_monitoring_registration",
+        "source_origin",
+        "required_parameters",
+        "tanker_delivery_records"
+      ],
+      "owner_boundary": "IRIS registration, sampling and tanker records remain statutory/source-owner processes; synthetic fields do not prove regulatory compliance."
+    },
+    {
+      "case_id": "WSR-016",
+      "owner_issues": [
+        "#6069",
+        "#6754",
+        "#6757",
+        "#4835",
+        "#5434",
+        "#5437",
+        "#5442"
+      ],
+      "checks": [
+        "metric_label_vs_definition",
+        "valid_time_vs_reporting_period",
+        "response_vs_resolution",
+        "no_unjustified_performance_comparison",
+        "explicit_clock_start_and_stop_semantics",
+        "separate_measurement_vs_target_policy_comparability",
+        "reuse_nrvca_dual_axis_comparator"
+      ],
+      "owner_boundary": "Reuse NRVCA-014/#5437 and NRVCA-015/#5442 for declared KPI measurement/target comparability, including explicit clock_stop. Craft maps each observation to the service episode and preserves owner results; it does not create a second comparator or prove the utility implemented its published definition."
+    }
+  ]
+}

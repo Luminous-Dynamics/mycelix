@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      craft_water_benchmark: ${{ steps.filter.outputs.craft_water_benchmark }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -74,6 +75,8 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            craft_water_benchmark:
+              - 'mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/**'
             cos_conformance:
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
@@ -112,6 +115,23 @@ jobs:
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
 
+  # Frozen synthetic service-repair fixtures; never consumes private operational data.
+  test-craft-water-service-benchmark:
+    name: Craft water service repair benchmark fixtures
+    needs: changes
+    if: needs.changes.outputs.craft_water_benchmark == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Validate frozen JSON fixtures
+        run: bash mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/validate.sh
   # Per-cluster test jobs
   test-cos-conformance:
     needs: changes
