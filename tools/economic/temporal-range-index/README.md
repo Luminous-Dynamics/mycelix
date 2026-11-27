@@ -70,24 +70,21 @@ This is a composition prototype. It does not authenticate the frontier/checkpoin
 
 ## Full owner-log receipt-to-index projection replay
 
-`projection.go` verifies the entire owner-log leaf sequence, not merely the verifier-receipt subset. This distinction is required by #6727's owner log: ordinary owner-history events may occupy log positions, while canonical `MYCELIX-KNOWLEDGE-RECEIPT-V1` entries replace particular positions when verifier-acceptance receipts are present.
+projection.go verifies the entire owner-log leaf sequence, not merely verifier-receipt entries. Ordinary owner-history events may occupy log positions, while canonical MYCELIX-KNOWLEDGE-RECEIPT-V1 leaves replace particular positions when verifier-acceptance receipts are present.
 
-The input inventory contains every log leaf in order:
-- zero-based `LeafIndex`;
-- owner-local `OwnerSequence`;
-- exact `EntryBytes`.
+The inventory carries every ordered log leaf: zero-based leaf index, owner-local sequence and exact entry bytes. The verifier checks the sequence-to-leaf mapping against explicit gaps, recomputes receipt digests, recomputes the RFC 9162 SHA-256 Merkle Tree Hash over all leaves, and requires the result to match the owner log root digest in the forest binding.
 
-The verifier recomputes RFC 9162 SHA-256 leaf/node hashing over the complete ordered leaf sequence and requires the resulting root to match the owner binding. It validates the sequence-to-leaf mapping after explicit gaps. Each canonical knowledge-receipt leaf must have exactly one typed temporal or non-temporal projection. Non-receipt owner leaves remain in the Merkle root and are counted separately; they are not silently dropped from the source history.
+Each canonical knowledge-receipt leaf must have exactly one typed interval or non-temporal projection. Non-receipt leaves stay in the log root and are counted separately. Missing receipt projections, malformed receipt-envelope prefixes, non-canonical leaf positions and mismatched root bytes fail closed.
 
-The positive result is `ProjectionMatchesSuppliedAcceptedInventory`, with `ReceiptInventoryAuthentication=LogRootRecomputedButTrustExternal`. This means the bytes supplied by the caller reconstruct the claimed owner-log root. It does **not** authenticate the signed checkpoint/tree head or prove that the expected root was accepted by the verifier. That requires the upstream frontier/checkpoint verification path.
+The result is deliberately ProjectionMatchesSuppliedAcceptedInventory, with ReceiptInventoryAuthentication=LogRootRecomputedButTrustExternal. It proves that the supplied ordered bytes reconstruct the claimed root; it does not authenticate the checkpoint/tree head that makes that root authoritative. The separately qualified signed-checkpoint/frontier owner must authenticate it.
 
-The mapper from canonical assertion digest/payload into the temporal `valid_from`, `valid_to` and interval/non-temporal classification is also a separate trust boundary. This implementation reports `ProjectionMappingAuthentication=NotEvaluated`; the interval assertion must not be promoted to source-complete solely because the log root was recomputed.
+The result also carries ProjectionMappingAuthentication=NotEvaluated: it does not yet derive valid_from, valid_to or temporal-vs-nontemporal classification from the underlying assertion payload. That semantic mapper must be independently qualified before source-complete reliance.
 
 ## Forest-wide projection replay and formal model
 
 `forest_projection.go` verifies one projection replay result for every owner in the exact manifest owner set supplied by a separately verified frontier. It checks the expected forest root and each owner's committed projection-audit digest, then returns `ProjectionMatchesAllSuppliedOwnerInventories`. The result keeps `ReceiptInventoryAuthenticationNotEvaluated`; it does not establish that any inventory is the complete accepted log prefix. It also preserves unresolved gaps.
 
-The owner cut sequence and receipt-log tree size remain distinct coordinates, but the V1 owner-log contract requires one log leaf for every non-gap sequence: \`TreeSize + total_gap_cardinality = OwnerSequenceCut\`. Sequence-to-leaf mapping subtracts gaps that precede the owner sequence. The quantities are not interchangeable, and their cardinality relation must be checked rather than assuming \`TreeSize == OwnerSequenceCut\`.
+Owner sequence and receipt-log tree size are distinct coordinates. The V1 owner-log contract requires one log leaf for each non-gap owner sequence: TreeSize + total_gap_cardinality = OwnerSequenceCut. Each sequence maps to a zero-based leaf index after subtracting the gap positions that precede it. The quantities are not interchangeable, and the raw values are not assumed equal.
 
 A first bounded TLA+ model is in `formal/TemporalIntervalProof.tla` with `TemporalIntervalProof.cfg`. It models four leaves, exact-start inclusion, exact-end exclusion, an open-ended interval, safe pruning, and complete partitioning of matching versus pruned records. It states invariants for no false pruning, no false result, complete proof partition, and exact result completeness at termination.
 
