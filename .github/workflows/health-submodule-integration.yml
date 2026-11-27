@@ -1,0 +1,55 @@
+name: Health submodule integration source check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".gitmodules"
+      - "mycelix-health"
+      - "mycelix-workspace/happs/health"
+      - "mycelix-workspace/happs/mycelix-unified-happ.yaml"
+      - "mycelix-workspace/scripts/check-health-submodule-integration.sh"
+      - ".github/workflows/health-submodule-integration.yml"
+  push:
+    branches:
+      - "fix/health-submodule-portable-wiring-v1"
+    paths:
+      - ".gitmodules"
+      - "mycelix-health"
+      - "mycelix-workspace/happs/health"
+      - "mycelix-workspace/happs/mycelix-unified-happ.yaml"
+      - "mycelix-workspace/scripts/check-health-submodule-integration.sh"
+      - ".github/workflows/health-submodule-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-submodule-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-contract:
+    name: Health submodule source contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main repository and pinned submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Check whitespace and patch integrity
+        shell: bash
+        run: |
+          base_ref="$(jq -r '.pull_request.base.ref // empty' "$GITHUB_EVENT_PATH")"
+          if [[ -n "$base_ref" ]]; then
+            git diff --check "origin/$base_ref...HEAD"
+          else
+            git diff --check HEAD^ HEAD
+          fi
+
+      - name: Verify Health source, relative link, exact gitlink pin and hApp role
+        run: bash mycelix-workspace/scripts/check-health-submodule-integration.sh

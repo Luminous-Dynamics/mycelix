@@ -297,7 +297,7 @@ build-identity-dna:
         echo "⚠️  mycelix-identity not found"; \
     fi
 
-# Build the unified hApp bundle (all 7 DNAs + pack the hApp manifest)
+# Build the unified hApp bundle (all configured roles + pack the hApp manifest)
 build-unified-happ: build-all-dnas
     #!/usr/bin/env bash
     set -euo pipefail
@@ -306,7 +306,7 @@ build-unified-happ: build-all-dnas
     echo "==================================="
 
     # Verify symlinks exist in happs/
-    HAPPS_DIR="/srv/luminous-dynamics/mycelix-workspace/happs"
+    HAPPS_DIR="$(cd happs && pwd -P)"
     missing=0
     for role in personal identity hearth commons civic attribution finance governance health supplychain manufacturing music energy knowledge climate praxis craft core_fl; do
         if [ ! -L "$HAPPS_DIR/$role" ] && [ ! -d "$HAPPS_DIR/$role" ]; then
@@ -428,16 +428,17 @@ build-manufacturing:
         echo "⚠️  mycelix-manufacturing not found"; \
     fi
 
-# Build Health DNA
-build-health:
+# Verify the canonical Health submodule, pin, and unified-hApp role wiring.
+health-integration-check:
+    @./scripts/check-health-submodule-integration.sh
+
+# Build Health DNA. Missing or mismatched source is a hard failure, never a skip.
+build-health: health-integration-check
     @echo "🏥 Building mycelix-health..."
-    @if [ -d "happs/health" ]; then \
-        cd happs/health && \
+    @cd happs/health && \
         cargo build --release --target wasm32-unknown-unknown && \
-        hc dna pack dna -o dna/health.dna && hc app pack .; \
-    else \
-        echo "⚠️  happs/health not found"; \
-    fi
+        hc dna pack dna -o dna/health.dna && hc app pack .
+
 
 # Build Climate DNA
 build-climate:
