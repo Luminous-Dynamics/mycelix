@@ -1,0 +1,138 @@
+name: Economic OS Temporal Evidence Structural Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/economic/temporal/**'
+      - '.github/workflows/economic-temporal-evidence-structural.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/economic/temporal/**'
+      - '.github/workflows/economic-temporal-evidence-structural.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  temporal-evidence:
+    name: Typed temporal assertions and corpus structural gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: \${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Parse temporal evidence artefacts
+        run: |
+          set -euo pipefail
+          jq -e . docs/economic/temporal/schemas/temporal-evidence-envelope.v1.schema.json >/dev/null
+          jq -e . docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json >/dev/null
+          jq -e . docs/economic/temporal/benchmarks/temporal-evidence-adversarial-corpus.v0.1.json >/dev/null
+
+      - name: Validate temporal assertion envelope and correction lineage
+        run: |
+          set -euo pipefail
+          FILE=docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json
+          jq -e '
+            def key($a): $a.assertion_id;
+            def cycle_from($edges; $origin; $current; $visited):
+              [$edges[] | select(.from == $current) | .to] |
+              any(.[] as $next;
+                if $next == $origin then true
+                elif ($visited | index($next)) != null then false
+                else cycle_from($edges; $origin; $next; ($visited + [$next]))
+                end
+              );
+            (.profile == "MYCELIX-TEMPORAL-EVIDENCE-V1") and
+            (.version == "1.0") and
+            (.assertions | type == "array" and length >= 10) and
+            (([.assertions[].assertion_id] | length) == ([.assertions[].assertion_id] | unique | length)) and
+            all(.assertions[];
+              . as $assertion |
+              ($assertion.subject_ref | type == "string" and length > 0) and
+              ($assertion.claim_id | type == "string" and length > 0) and
+              ($assertion.time_value | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$")) and
+              ($assertion.clock_profile | type == "string" and length > 0) and
+              ($assertion.source_authority_ref | type == "string" and length > 0) and
+              ($assertion.evidence_ref | type == "string" and length > 0) and
+              ($assertion.content_digest | test("^sha256:[0-9a-f]{64}$")) and
+              (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index($assertion.dimension) != null)
+            ) and
+            (all(.assertions[]; has("owner_sequence") | not)) and
+            (.assertions as $assertions |
+              all($assertions[];
+                . as $assertion |
+                if ($assertion.dimension == "SOURCE_RECORDED_AT" or $assertion.dimension == "RECEIVER_OBSERVED_AT" or $assertion.dimension == "VERIFIER_KNOWLEDGE_AT") then
+                  ($assertion.assertion_ref | type == "string" and length > 0) and
+                  any($assertions[];
+                    .assertion_id == $assertion.assertion_ref and
+                    .claim_id == $assertion.claim_id and
+                    .subject_ref == $assertion.subject_ref and
+                    (.dimension == "OCCURRED_AT" or .dimension == "VALID_FROM" or .dimension == "VALID_TO")
+                  )
+                else true end
+              )
+            ) and
+            (.assertions as $assertions |
+              all($assertions[] | select(.dimension == "VERIFIER_KNOWLEDGE_AT");
+                (.verifier_ref | type == "string" and length > 0) and
+                (.knowledge_frontier_ref | type == "string" and length > 0)
+              )
+            ) and
+            (.assertions as $assertions |
+              all($assertions[] | select(has("supersedes_assertion_id")); 
+                . as $new |
+                any($assertions[];
+                  .assertion_id == $new.supersedes_assertion_id and
+                  .claim_id == $new.claim_id and
+                  .subject_ref == $new.subject_ref and
+                  .dimension == $new.dimension
+                )
+              )
+            ) and
+            (.assertions as $assertions |
+              [ $assertions[] | select(has("supersedes_assertion_id")) |
+                {from:.assertion_id,to:.supersedes_assertion_id}
+              ] as $edges |
+              [ $assertions[].assertion_id ] as $ids |
+              all($ids[] as $start; (cycle_from($edges; $start; $start; [$start]) | not))
+            )
+          ' "$FILE" >/dev/null
+
+          jq -r '"Temporal envelope PASS: assertions=\(.assertions|length), dimensions=\(.assertions|map(.dimension)|unique|length)"' "$FILE"
+
+      - name: Validate temporal adversarial corpus
+        run: |
+          set -euo pipefail
+          FILE=docs/economic/temporal/benchmarks/temporal-evidence-adversarial-corpus.v0.1.json
+          jq -e '
+            (.benchmark == "Economic OS Typed Temporal Evidence Adversarial Corpus") and
+            (.case_count == 36) and
+            (.cases | length == .case_count) and
+            (([.cases[].id] | length) == ([.cases[].id] | unique | length)) and
+            (.allowed_dispositions as $allowed |
+              all(.cases[]; .expected_disposition as $d | ($allowed | index($d)) != null)
+            ) and
+            (all(.cases[]; (.dimension | type == "string" and length > 0) and (.safety_assertion | type == "string" and length > 0)))
+          ' "$FILE" >/dev/null
+          jq -r '"Temporal adversarial corpus PASS: cases=\(.cases|length), dimensions=\(.cases|map(.dimension)|unique|length)"' "$FILE"
+
+      - name: Report qualification boundary
+        run: |
+          printf '%s\n' \
+            'PASS = structural integrity of typed temporal assertion fixture, correction links and public adversarial corpus.' \
+            'NOT TESTED = full Draft 2020-12 schema validation, clock authentication/calibration, bitemporal policy execution, Holochain knowledge-frontier persistence, or production replay.' \
+            'No clock correctness, authority or legal effect-time claim is implied.'
