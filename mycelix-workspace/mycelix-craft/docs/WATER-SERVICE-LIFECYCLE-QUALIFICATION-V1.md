@@ -157,7 +157,20 @@ The pilot adapter must:
 
 No downstream adapter may manufacture a missing owner receipt, reuse a digest across distinct contexts, widen a lease or elevate machine output into human authority.
 
-## 8. Fair industry baselines
+## 8. Adjacent research: scarcity and protected service floors
+
+The lifecycle benchmark also exposes a related but separate research problem: simultaneous repairs and alternative-supply obligations compete for crews, tankers, materials, access windows and contingency budgets. This should not become a second allocation algorithm inside Craft.
+
+The dedicated [water scarcity arbitration qualification #6791](https://github.com/Luminous-Dynamics/mycelix/issues/6791) reuses:
+- NRVCA-010 / #5427 for shared-budget arbitration and explicit infeasibility;
+- NRVCA-007 / #5419 for Pareto fronts and non-compensable constraint-violation vectors;
+- NRVCA-005 / #5409 for correlated disruption stress testing.
+
+The water-specific profile must expose protected minimum service floors, water-quality and worker-safety prerequisites, affected-service cohorts, budget/resource feasibility and explicit infeasibility. It must not use a hidden weighted score, silently relax a floor, autonomously dispatch crews, reserve tankers or commit funds. A recommendation remains subject to the competent authority's decision and community contestability.
+
+This is a related research track, not an implemented capability of the current WSR fixtures and not a field deployment.
+
+## 9. Fair industry baselines
 
 Benchmark against configured, documented workflows rather than product names as strawmen:
 
