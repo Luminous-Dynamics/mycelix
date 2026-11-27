@@ -33,25 +33,25 @@ const (
 // receipt leaf. Receipt bytes and the full owner-log RFC 9162 root are recomputed; derivation
 // of interval fields from the underlying assertion payload remains an external obligation.
 type AcceptedReceiptProjectionV1 struct {
-	ReceiptLogLeafIndex       uint64
-	OwnerSequence             uint64
+	ReceiptLogLeafIndex        uint64
+	OwnerSequence              uint64
 	ReceiptDigest              string
 	AssertionDigest            string
 	CanonicalReceiptEntryBytes []byte
 	AssertionID                string
-	Class                     ReceiptProjectionClassV1
-	AssertionRef              string
-	ValidFrom                 IntervalInstantV1
-	ValidTo                   IntervalEndV1
+	Class                      ReceiptProjectionClassV1
+	AssertionRef               string
+	ValidFrom                  IntervalInstantV1
+	ValidTo                    IntervalEndV1
 }
 
 // AcceptedReceiptInventoryV1 carries every leaf in a declared owner-log prefix, including
 // entries not using the V1 knowledge-receipt envelope. This package recomputes the RFC 9162 root against the declared root
 // digest, but does not authenticate the checkpoint that makes that root authoritative.
 type OwnerLogLeafV1 struct {
-	LeafIndex    uint64
+	LeafIndex     uint64
 	OwnerSequence uint64
-	EntryBytes   []byte
+	EntryBytes    []byte
 }
 
 type AcceptedReceiptInventoryV1 struct {
@@ -79,23 +79,23 @@ type ProjectionMappingAuthenticationV1 string
 const ProjectionMappingAuthenticationNotEvaluatedV1 ProjectionMappingAuthenticationV1 = "NotEvaluated"
 
 type OwnerProjectionReplayAuditV1 struct {
-	Disposition                  ProjectionReplayDispositionV1
+	Disposition                    ProjectionReplayDispositionV1
 	ReceiptInventoryAuthentication ReceiptInventoryAuthenticationV1
 	ProjectionMappingAuthentication ProjectionMappingAuthenticationV1
-	OwnerRef                     string
-	OwnerHistoryRef              string
-	OwnerSequenceCut             uint64
-	TreeSize                     uint64
-	ReceiptCount                 uint64
-	NonKnowledgeReceiptLeafCount       uint64
-	IntervalAssertionCount       uint64
-	NonTemporalReceiptCount      uint64
-	InventoryDigest              [32]byte
-	DerivedIntervalIndexRoot     [32]byte
-	AuditDigest                  [32]byte
-	RecomputedOwnerLogRoot       [32]byte
-	OwnerLogRootMatches          bool
-	HasOwnerGaps                 bool
+	OwnerRef                      string
+	OwnerHistoryRef               string
+	OwnerSequenceCut              uint64
+	TreeSize                      uint64
+	ReceiptCount                  uint64
+	NonKnowledgeReceiptLeafCount  uint64
+	IntervalAssertionCount        uint64
+	NonTemporalReceiptCount       uint64
+	InventoryDigest               [32]byte
+	DerivedIntervalIndexRoot      [32]byte
+	AuditDigest                   [32]byte
+	RecomputedOwnerLogRoot        [32]byte
+	OwnerLogRootMatches           bool
+	HasOwnerGaps                  bool
 }
 
 var (
@@ -332,7 +332,7 @@ func hashAcceptedReceiptInventoryV1(
 	_ = binary.Write(&preimage, binary.BigEndian, binding.TreeSize)
 	appendForestStringV1(&preimage, binding.OwnerLogRootDigest)
 
-	// Commit the complete owner-log leaf sequence, including non-receipt entries.
+	// Commit the complete owner-log leaf sequence, including entries that do not use the V1 knowledge-receipt envelope.
 	_ = binary.Write(&preimage, binary.BigEndian, uint64(len(inventory.LogLeaves)))
 	for _, leaf := range inventory.LogLeaves {
 		_ = binary.Write(&preimage, binary.BigEndian, leaf.LeafIndex)
@@ -371,7 +371,7 @@ func hashOwnerProjectionAuditV1(
 	inventoryDigest [32]byte,
 	indexRoot [32]byte,
 	receiptCount uint64,
-	nonReceiptLeafCount uint64,
+	nonKnowledgeReceiptLeafCount uint64,
 	intervalCount uint64,
 	nonTemporalCount uint64,
 ) [32]byte {
@@ -387,7 +387,7 @@ func hashOwnerProjectionAuditV1(
 	preimage.Write(inventoryDigest[:])
 	preimage.Write(indexRoot[:])
 	_ = binary.Write(&preimage, binary.BigEndian, receiptCount)
-	_ = binary.Write(&preimage, binary.BigEndian, nonReceiptLeafCount)
+	_ = binary.Write(&preimage, binary.BigEndian, nonKnowledgeReceiptLeafCount)
 	_ = binary.Write(&preimage, binary.BigEndian, intervalCount)
 	_ = binary.Write(&preimage, binary.BigEndian, nonTemporalCount)
 	_ = binary.Write(&preimage, binary.BigEndian, uint32(len(binding.Gaps)))
