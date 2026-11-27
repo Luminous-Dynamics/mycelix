@@ -50,7 +50,7 @@ jobs:
       - name: Check out owner-universe source revision
         uses: actions/checkout@v7
         with:
-          ref: b8cc18609c2d66880c6ecc5c597ef1e4be54b2c7
+          ref: 5ea4d9c2278ef21a36ffdb7a476c130da1fdcb5c
           path: source-scope-closure
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C source-hindsight rev-parse HEAD)" = "152aa6966e1cd96750ba68aca7cb2d65ba574d15"
-          test "$(git -C source-scope-closure rev-parse HEAD)" = "b8cc18609c2d66880c6ecc5c597ef1e4be54b2c7"
+          test "$(git -C source-scope-closure rev-parse HEAD)" = "5ea4d9c2278ef21a36ffdb7a476c130da1fdcb5c"
           test "$(git -C source-temporal-ads rev-parse HEAD)" = "6d4dde1bdaaa6a118fd6787e7eb78f174c103e1a"
 
       - name: Assert all pinned source artifacts are present
@@ -372,24 +372,30 @@ jobs:
           echo "Expected omitted-owner counterexample observed."
 
       - name: Check paginated enumeration continuity model
+        id: enumeration_tlc
         working-directory: source-scope-closure/tools/economic/temporal-hindsight/formal
         shell: bash
         run: |
           set -euo pipefail
           jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          mkdir -p "$RUNNER_TEMP/temporal-qualification"
+          log="$RUNNER_TEMP/temporal-qualification/tlc-enumeration-continuity-correct.log"
           java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
             -workers 1 -seed 1 \
             -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-correct" \
             -config TemporalEnumerationContinuity.cfg \
-            TemporalEnumerationContinuity.tla
+            TemporalEnumerationContinuity.tla >"$log" 2>&1
+          cat "$log"
 
       - name: Require truncated enumeration mutant counterexample
+        id: enumeration_mutant
         working-directory: source-scope-closure/tools/economic/temporal-hindsight/formal
         shell: bash
         run: |
           set -euo pipefail
           jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          log="$RUNNER_TEMP/tlc-enumeration-continuity-mutant.log"
+          mkdir -p "$RUNNER_TEMP/temporal-qualification"
+          log="$RUNNER_TEMP/temporal-qualification/tlc-enumeration-continuity-mutant.log"
           status=0
           java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
             -workers 1 -seed 1 \
