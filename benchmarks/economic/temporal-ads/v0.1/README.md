@@ -26,13 +26,14 @@ The corpus separates three outputs:
 
 The expected values are adjudicated semantics, not claims that any one implementation has passed them. Each implementation must report unsupported inputs as explicit abstention/Indeterminate rather than dropping them.
 
-Scenario fields use owner-local sequence cuts, not a global scalar order. The time values are integer seconds plus nanoseconds. A profile that needs higher precision or uncertainty intervals must version and extend the schema rather than silently reinterpret these values.
+Scenario fields use owner-local sequence cuts, not a global scalar order. Both query instants and endpoint values use integer seconds plus nanoseconds. Every frontier explicitly binds the registry identity, registry epoch, universe profile, frontier digest and each owner's log-root digest; a frontier from an older roster epoch is not current for a newer owner universe.
 
 ## Use
 
-- Validate every JSONL line against `scenario.schema.json`.
-- Verify that each scenario has a unique ID and that all event/owner references are internally consistent.
-- Run the same corpus through the independent Go oracle, an independently authored Rust oracle, each database adapter and each authenticated ADS adapter.
+- The self-contained Go corpus validator is in this directory. Run `go test ./...`, `go test -race ./...` and `go vet ./...`.
+- The validator strictly decodes each JSONL line, checks IDs/sequence and owner references, independently evaluates the seed temporal semantics, and checks expected owner-roster/frontier dispositions.
+- Validate every JSONL line against `scenario.schema.json` with a JSON Schema draft 2020-12 validator.
+- Run the same corpus through the independent Go owner-prefix oracle, an independently authored Rust oracle, each database adapter and each authenticated ADS adapter.
 - Keep the held-out adversarial set separate; do not tune an implementation against the held-out expected results.
 
 The corpus is a starting synthetic conformance set, not a statistically representative production workload or a proof of full field coverage.
