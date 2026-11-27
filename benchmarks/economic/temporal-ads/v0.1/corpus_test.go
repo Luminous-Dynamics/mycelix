@@ -10,9 +10,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
-	hindsight "mycelix-temporal-hindsight-oracle"
-	scopeclosure "mycelix-temporal-scope-closure"
 )
 
 type Instant struct {
@@ -20,13 +17,13 @@ type Instant struct {
 	Nanos   uint32 `json:"nanos"`
 }
 type Scope struct {
-	VerifierRef    string  `json:"verifier_ref"`
-	PolicyEpochRef string  `json:"policy_epoch_ref"`
-	NamespaceRef   string  `json:"namespace_ref"`
-	SubjectRef     string  `json:"subject_ref"`
-	ClaimID        string  `json:"claim_id"`
-	QueryProfileRef string `json:"query_profile_ref"`
-	ValidAt        Instant `json:"valid_at"`
+	VerifierRef     string  `json:"verifier_ref"`
+	PolicyEpochRef  string  `json:"policy_epoch_ref"`
+	NamespaceRef    string  `json:"namespace_ref"`
+	SubjectRef      string  `json:"subject_ref"`
+	ClaimID         string  `json:"claim_id"`
+	QueryProfileRef string  `json:"query_profile_ref"`
+	ValidAt         Instant `json:"valid_at"`
 }
 type Candidate struct {
 	OwnerRef             string `json:"owner_ref"`
@@ -43,9 +40,9 @@ type Universe struct {
 	Candidates        []Candidate `json:"candidates"`
 }
 type OwnerCut struct {
-	OwnerRef     string `json:"owner_ref"`
-	HistoryRef   string `json:"history_ref"`
-	SequenceCut  uint64 `json:"sequence_cut"`
+	OwnerRef      string `json:"owner_ref"`
+	HistoryRef    string `json:"history_ref"`
+	SequenceCut   uint64 `json:"sequence_cut"`
 	LogRootDigest string `json:"log_root_digest"`
 }
 type Frontier struct {
@@ -57,13 +54,13 @@ type Frontier struct {
 	Owners             []OwnerCut `json:"owners"`
 }
 type Event struct {
-	Sequence     uint64  `json:"sequence"`
-	EventID       string  `json:"event_id"`
-	Dimension     string  `json:"dimension"`
-	IntervalRef   string  `json:"interval_ref"`
-	Value         *int64  `json:"value"`
-	ExplicitOpen  bool    `json:"explicit_open"`
-	Supersedes    string  `json:"supersedes"`
+	Sequence    uint64   `json:"sequence"`
+	EventID      string   `json:"event_id"`
+	Dimension    string   `json:"dimension"`
+	IntervalRef  string   `json:"interval_ref"`
+	Value        *Instant `json:"value"`
+	ExplicitOpen bool     `json:"explicit_open"`
+	Supersedes   string   `json:"supersedes"`
 }
 type OwnerLog struct {
 	OwnerRef   string  `json:"owner_ref"`
@@ -71,25 +68,25 @@ type OwnerLog struct {
 	Events     []Event `json:"events"`
 }
 type ExpectedFrontier struct {
-	Disposition           string   `json:"disposition"`
-	MatchingIntervalRefs  []string `json:"matching_interval_refs"`
-	ReasonCode            string   `json:"reason_code"`
+	Disposition          string   `json:"disposition"`
+	MatchingIntervalRefs []string `json:"matching_interval_refs"`
+	ReasonCode           string   `json:"reason_code"`
 }
 type Expected struct {
-	FrontierResults map[string]ExpectedFrontier `json:"frontier_results"`
-	RosterDisposition string `json:"roster_disposition"`
-	RosterReasonCode  string `json:"roster_reason_code"`
-	HistoricalReplayEqual bool `json:"historical_replay_equal_across_suffix_variants"`
+	FrontierResults     map[string]ExpectedFrontier `json:"frontier_results"`
+	RosterDisposition   string                      `json:"roster_disposition"`
+	RosterReasonCode    string                      `json:"roster_reason_code"`
+	HistoricalReplayEqual bool                      `json:"historical_replay_equal_across_suffix_variants"`
 }
 type Scenario struct {
-	SchemaVersion string             `json:"schema_version"`
-	ScenarioID    string             `json:"scenario_id"`
-	Purpose       string             `json:"purpose"`
-	Scope         Scope              `json:"scope"`
-	Universe      Universe           `json:"universe"`
+	SchemaVersion string              `json:"schema_version"`
+	ScenarioID    string              `json:"scenario_id"`
+	Purpose       string              `json:"purpose"`
+	Scope         Scope               `json:"scope"`
+	Universe      Universe            `json:"universe"`
 	Frontiers     map[string]Frontier `json:"frontiers"`
-	OwnerLogs     []OwnerLog         `json:"owner_logs"`
-	Expected      Expected           `json:"expected"`
+	OwnerLogs     []OwnerLog          `json:"owner_logs"`
+	Expected      Expected            `json:"expected"`
 }
 type CorpusManifest struct {
 	CorpusVersion string   `json:"corpus_version"`
@@ -166,6 +163,7 @@ func validateScenario(s Scenario) error {
 		}
 		candidates[candidate.OwnerRef] = candidate
 	}
+
 	logs := make(map[string]OwnerLog, len(s.OwnerLogs))
 	globalEventIDs := make(map[string]bool)
 	for _, log := range s.OwnerLogs {
@@ -193,6 +191,9 @@ func validateScenario(s Scenario) error {
 				}
 			default:
 				return fmt.Errorf("unknown event dimension: %s", event.EventID)
+			}
+			if event.Dimension != "NON_TEMPORAL" && event.Value != nil && event.Value.Nanos >= 1_000_000_000 {
+				return fmt.Errorf("event nanoseconds out of range: %s", event.EventID)
 			}
 			if event.Supersedes != "" {
 				prior, ok := seen[event.Supersedes]
@@ -234,82 +235,146 @@ func digest(s string) bool {
 	for _, r := range s { if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')) { return false } }
 	return true
 }
+func cmpInstant(a,b Instant) int {
+	if a.Seconds < b.Seconds { return -1 }; if a.Seconds > b.Seconds { return 1 }
+	if a.Nanos < b.Nanos { return -1 }; if a.Nanos > b.Nanos { return 1 }
+	return 0
+}
+func sortedUnique(in []string) []string {
+	out:=append([]string(nil),in...); sort.Strings(out)
+	result:=out[:0]
+	for _,value:=range out { if len(result)==0 || result[len(result)-1]!=value { result=append(result,value) } }
+	return result
+}
+func evaluateIntervals(s Scenario, frontier Frontier) (string, []string, string) {
+	required:=make([]string,0)
+	for _,candidate:=range s.Universe.Candidates { if candidate.Disposition=="Required" { required=append(required,candidate.OwnerRef) } }
+	required=sortedUnique(required)
+	cuts:=make(map[string]OwnerCut,len(frontier.Owners))
+	for _,cut:=range frontier.Owners { cuts[cut.OwnerRef]=cut }
+	if len(cuts)!=len(required) { return "Indeterminate",nil,"required-owner-omitted" }
+	logs:=make(map[string]OwnerLog,len(s.OwnerLogs))
+	for _,log:=range s.OwnerLogs { logs[log.OwnerRef]=log }
+	matches:=make([]string,0)
+	for _,owner:=range required {
+		cut,ok:=cuts[owner]; if !ok { return "Indeterminate",nil,"required-owner-omitted" }
+		log,ok:=logs[owner]; if !ok || log.HistoryRef!=cut.HistoryRef { return "Indeterminate",nil,"owner-history-missing-or-substituted" }
+		prefix:=make([]Event,0,cut.SequenceCut)
+		for _,event:=range log.Events { if event.Sequence<=cut.SequenceCut { prefix=append(prefix,event) } }
+		if uint64(len(prefix))!=cut.SequenceCut { return "Indeterminate",nil,"owner-prefix-gap" }
+		for i,event:=range prefix { if event.Sequence!=uint64(i+1) { return "Indeterminate",nil,"owner-prefix-gap" } }
+		type endpointGroup struct { starts,ends []Event }
+		groups:=make(map[string]*endpointGroup)
+		ids:=make(map[string]Event)
+		for _,event:=range prefix {
+			ids[event.EventID]=event
+			if event.Dimension=="NON_TEMPORAL" { continue }
+			group:=groups[event.IntervalRef]; if group==nil { group=&endpointGroup{}; groups[event.IntervalRef]=group }
+			if event.Dimension=="VALID_FROM" { group.starts=append(group.starts,event) } else { group.ends=append(group.ends,event) }
+		}
+		refs:=make([]string,0,len(groups)); for ref:=range groups { refs=append(refs,ref) }; sort.Strings(refs)
+		for _,ref:=range refs {
+			group:=groups[ref]
+			resolve:=func(events []Event)(Event,bool) {
+				if len(events)==0 { return Event{},false }
+				superseded:=make(map[string]bool)
+				for _,event:=range events {
+					if event.Supersedes=="" { continue }
+					prior,exists:=ids[event.Supersedes]
+					if !exists || prior.Dimension!=event.Dimension || prior.IntervalRef!=event.IntervalRef { return Event{},false }
+					superseded[event.Supersedes]=true
+				}
+				heads:=make([]Event,0)
+				for _,event:=range events { if !superseded[event.EventID] { heads=append(heads,event) } }
+				if len(heads)!=1 { return Event{},false }
+				return heads[0],true
+			}
+			start,startOK:=resolve(group.starts); end,endOK:=resolve(group.ends)
+			if !startOK || !endOK { return "Indeterminate",nil,"unpaired-or-conflicting-validity-endpoint" }
+			if end.Value!=nil && cmpInstant(*end.Value,*start.Value)<0 { return "Indeterminate",nil,"invalid-validity-order" }
+			if cmpInstant(*start.Value,s.Scope.ValidAt)<=0 && (end.ExplicitOpen || cmpInstant(s.Scope.ValidAt,*end.Value)<0) {
+				matches=append(matches,ref)
+			}
+		}
+	}
+	return "CompleteForSuppliedOwnerPrefixes",sortedUnique(matches),""
+}
+func evaluateRoster(s Scenario, frontier Frontier) (string,string) {
+	if frontier.RegistryRef!=s.Universe.RegistryRef || frontier.RegistryEpoch!=s.Universe.RegistryEpoch ||
+		frontier.UniverseProfileRef!=s.Universe.ProfileRef { return "Indeterminate","stale-registry-epoch-or-profile" }
+	candidates:=make(map[string]Candidate,len(s.Universe.Candidates))
+	required:=make(map[string]bool)
+	for _,candidate:=range s.Universe.Candidates {
+		candidates[candidate.OwnerRef]=candidate
+		switch candidate.Disposition {
+		case "Unknown": return "Indeterminate","unknown-owner"
+		case "Withheld": return "Indeterminate","withheld-owner"
+		case "Unavailable": return "Indeterminate","unavailable-owner"
+		case "Required": required[candidate.OwnerRef]=true
+		}
+	}
+	frontierOwners:=make(map[string]OwnerCut,len(frontier.Owners))
+	for _,owner:=range frontier.Owners { frontierOwners[owner.OwnerRef]=owner }
+	for owner:=range required {
+		cut,ok:=frontierOwners[owner]; if !ok { return "Indeterminate","required-owner-omitted" }
+		if candidates[owner].HistoryRef!=cut.HistoryRef { return "Indeterminate","owner-history-substitution" }
+	}
+	for owner:=range frontierOwners {
+		if !required[owner] { return "Indeterminate","unexpected-or-excluded-owner-in-frontier" }
+	}
+	return "FrontierCoversSuppliedRequiredRoster",""
+}
 
 func TestCorpusManifestAndStrictScenarioValidation(t *testing.T) {
 	scenarios, manifest := loadCorpus(t)
 	if manifest.CorpusVersion != "MYCELIX-TEMPORAL-ADS-CORPUS-V0.1" || manifest.ScenarioCount != len(scenarios) || manifest.ScenarioCount != len(manifest.ScenarioIDs) {
 		t.Fatalf("manifest count/version mismatch: %+v scenarios=%d", manifest, len(scenarios))
 	}
-	seen := make(map[string]bool)
-	for _, s := range scenarios {
-		if err := validateScenario(s); err != nil { t.Fatalf("%s: %v", s.ScenarioID, err) }
-		if seen[s.ScenarioID] { t.Fatalf("duplicate scenario ID: %s", s.ScenarioID) }
-		seen[s.ScenarioID] = true
+	seen:=make(map[string]bool)
+	for _,s:=range scenarios {
+		if err:=validateScenario(s); err!=nil { t.Fatalf("%s: %v",s.ScenarioID,err) }
+		if seen[s.ScenarioID] { t.Fatalf("duplicate scenario ID: %s",s.ScenarioID) }; seen[s.ScenarioID]=true
 	}
-	for _, id := range manifest.ScenarioIDs { if !seen[id] { t.Fatalf("manifest scenario missing: %s", id) } }
+	for _,id:=range manifest.ScenarioIDs { if !seen[id] { t.Fatalf("manifest scenario missing: %s",id) } }
+	if len(seen)!=len(manifest.ScenarioIDs) { t.Fatal("manifest omits or duplicates a scenario ID") }
 }
 
-func TestFrozenCorpusMatchesIndependentReferenceOracles(t *testing.T) {
-	scenarios, _ := loadCorpus(t)
-	for _, s := range scenarios {
-		t.Run(s.ScenarioID, func(t *testing.T) {
-			scope := hindsight.Scope{Verifier:s.Scope.VerifierRef,Policy:s.Scope.PolicyEpochRef,Namespace:s.Scope.NamespaceRef,Subject:s.Scope.SubjectRef,Claim:s.Scope.ClaimID}
-			owners:=make([]string,0)
-			for _,candidate:=range s.Universe.Candidates { if candidate.Disposition=="Required" { owners=append(owners,candidate.OwnerRef) } }
-			histories:=make(map[string][]hindsight.Event,len(s.OwnerLogs))
-			for _,log:=range s.OwnerLogs {
-				events:=make([]hindsight.Event,0,len(log.Events))
-				for _,event:=range log.Events {
-					dim:=hindsight.NonTemporal
-					switch event.Dimension { case "VALID_FROM": dim=hindsight.ValidFrom; case "VALID_TO": dim=hindsight.ValidTo }
-					value:=int64(0); if event.Value!=nil { value=*event.Value }
-					events=append(events,hindsight.Event{Owner:log.OwnerRef,OwnerHistoryRef:log.HistoryRef,Sequence:event.Sequence,ID:event.EventID,Namespace:s.Scope.NamespaceRef,Subject:s.Scope.SubjectRef,Claim:s.Scope.ClaimID,IntervalRef:event.IntervalRef,Dimension:dim,Value:value,ExplicitOpen:event.ExplicitOpen,Supersedes:event.Supersedes})
-				}
-				histories[log.OwnerRef]=events
-			}
+func TestFrozenCorpusExpectedFrontierAndRosterResults(t *testing.T) {
+	scenarios,_:=loadCorpus(t)
+	for _,s:=range scenarios {
+		t.Run(s.ScenarioID,func(t *testing.T){
 			for label,frontier:=range s.Frontiers {
-				cut:=make(hindsight.Cut,len(frontier.Owners))
-				for _,owner:=range frontier.Owners { cut[owner.OwnerRef]=hindsight.OwnerCut{OwnerHistoryRef:owner.HistoryRef,Sequence:owner.SequenceCut} }
-				result:=hindsight.Evaluate(owners,histories,cut,scope,s.Scope.ValidAt.Seconds)
-				expected:=s.Expected.FrontierResults[label]
-				if result.Disposition!=expected.Disposition { t.Fatalf("frontier %s disposition=%s want=%s reason=%s",label,result.Disposition,expected.Disposition,result.Reason) }
-				actual:=make([]string,0,len(result.Matches)); for _,match:=range result.Matches { actual=append(actual,match.IntervalRef) }; sort.Strings(actual)
-				wanted:=append([]string(nil),expected.MatchingIntervalRefs...); sort.Strings(wanted)
-				if strings.Join(actual,"\x00")!=strings.Join(wanted,"\x00") { t.Fatalf("frontier %s matches=%v want=%v",label,actual,wanted) }
-			}
-
-			scopeDigest,err:=scopeclosure.ScopeDigest(scopeclosure.QueryScope{
-				VerifierRef:s.Scope.VerifierRef,PolicyEpochRef:s.Scope.PolicyEpochRef,NamespaceRef:s.Scope.NamespaceRef,
-				SubjectRef:s.Scope.SubjectRef,ClaimID:s.Scope.ClaimID,QueryProfileRef:s.Scope.QueryProfileRef,
-				ValidAt:scopeclosure.Instant{UnixSeconds:s.Scope.ValidAt.Seconds,Nanoseconds:s.Scope.ValidAt.Nanos},
-			})
-			if err!=nil { t.Fatal(err) }
-			candidates:=make([]scopeclosure.OwnerCandidate,0,len(s.Universe.Candidates))
-			for _,candidate:=range s.Universe.Candidates { candidates=append(candidates,scopeclosure.OwnerCandidate{
-				OwnerRef:candidate.OwnerRef,HistoryRef:candidate.HistoryRef,Disposition:scopeclosure.CandidateDisposition(candidate.Disposition),
-				ExclusionCode:candidate.ExclusionCode,ExclusionProof:candidate.ExclusionProofDigest,
-			}) }
-			root,err:=scopeclosure.CandidateRoot(candidates); if err!=nil { t.Fatal(err) }
-			universe:=scopeclosure.UniverseSnapshot{RegistryRef:s.Universe.RegistryRef,RegistryEpoch:s.Universe.RegistryEpoch,ProfileRef:s.Universe.ProfileRef,ScopeDigest:scopeDigest,SourceProofDigest:s.Universe.SourceProofDigest,Candidates:candidates}
-			manifest:=scopeclosure.ScopeClosureManifest{RegistryRef:s.Universe.RegistryRef,RegistryEpoch:s.Universe.RegistryEpoch,ProfileRef:s.Universe.ProfileRef,ScopeDigest:scopeDigest,CandidateRoot:root,SourceProofDigest:s.Universe.SourceProofDigest,Candidates:candidates}
-			label:="F0"; frontier,ok:=s.Frontiers[label]; if !ok { t.Fatalf("scenario requires F0 frontier for roster oracle") }
-			frontierOwners:=make([]scopeclosure.OwnerFrontierBinding,0,len(frontier.Owners))
-			for _,owner:=range frontier.Owners { frontierOwners=append(frontierOwners,scopeclosure.OwnerFrontierBinding{
-				OwnerRef:owner.OwnerRef,HistoryRef:owner.HistoryRef,SequenceCut:owner.SequenceCut,TreeSize:owner.SequenceCut,LogRootDigest:owner.LogRootDigest,
-			})}
-			frontierSnapshot:=scopeclosure.FrontierSnapshot{
-				VerifierRef:s.Scope.VerifierRef,PolicyEpochRef:s.Scope.PolicyEpochRef,
-				RegistryRef:frontier.RegistryRef,RegistryEpoch:frontier.RegistryEpoch,UniverseProfileRef:frontier.UniverseProfileRef,
-				ScopeDigest:scopeDigest,FrontierDigest:frontier.FrontierDigest,Owners:frontierOwners,
-			}
-			closure:=scopeclosure.Reconcile(scopeclosure.QueryScope{
-				VerifierRef:s.Scope.VerifierRef,PolicyEpochRef:s.Scope.PolicyEpochRef,NamespaceRef:s.Scope.NamespaceRef,
-				SubjectRef:s.Scope.SubjectRef,ClaimID:s.Scope.ClaimID,QueryProfileRef:s.Scope.QueryProfileRef,
-				ValidAt:scopeclosure.Instant{UnixSeconds:s.Scope.ValidAt.Seconds,Nanoseconds:s.Scope.ValidAt.Nanos},
-			},manifest,universe,frontierSnapshot)
-			if string(closure.Disposition)!=s.Expected.RosterDisposition {
-				t.Fatalf("roster disposition=%s want=%s reason=%s",closure.Disposition,s.Expected.RosterDisposition,closure.Reason)
+				gotDisposition,gotMatches,gotReason:=evaluateIntervals(s,frontier)
+				want:=s.Expected.FrontierResults[label]
+				if gotDisposition!=want.Disposition { t.Fatalf("%s disposition=%s want=%s (%s)",label,gotDisposition,want.Disposition,gotReason) }
+				gotMatches=sortedUnique(gotMatches); wantMatches:=sortedUnique(want.MatchingIntervalRefs)
+				if strings.Join(gotMatches,"\x00")!=strings.Join(wantMatches,"\x00") { t.Fatalf("%s matches=%v want=%v",label,gotMatches,wantMatches) }
+				roster,reason:=evaluateRoster(s,frontier)
+				if roster!=s.Expected.RosterDisposition { t.Fatalf("roster=%s want=%s reason=%s",roster,s.Expected.RosterDisposition,reason) }
+				if s.Expected.RosterReasonCode!="" && reason!=s.Expected.RosterReasonCode { t.Fatalf("roster reason=%s want=%s",reason,s.Expected.RosterReasonCode) }
 			}
 		})
 	}
+}
+
+func TestNoHindsightFixtureUsesSameHistoricalFrontierAcrossSuffixVariants(t *testing.T) {
+	scenarios,_:=loadCorpus(t)
+	for _,s:=range scenarios {
+		if s.ScenarioID!="HINDSIGHT-BACKDATED-REVOCATION-001" { continue }
+		f0:=s.Frontiers["F0"]
+		baseDisposition,baseMatches,_:=evaluateIntervals(s,f0)
+		variant:=s
+		variant.OwnerLogs=append([]OwnerLog(nil),s.OwnerLogs...)
+		for i:=range variant.OwnerLogs {
+			events:=append([]Event(nil),variant.OwnerLogs[i].Events...)
+			if len(events)>0 { variant.OwnerLogs[i].Events=events[:len(events)-1] }
+		}
+		vd,vm,_:=evaluateIntervals(variant,f0)
+		if baseDisposition!=vd || strings.Join(baseMatches,"\x00")!=strings.Join(vm,"\x00") {
+			t.Fatal("suffix visibility changed the F0 result")
+		}
+		if !s.Expected.HistoricalReplayEqual { t.Fatal("scenario does not assert historical replay equivalence") }
+		return
+	}
+	t.Fatal("no hindsight scenario found")
 }
