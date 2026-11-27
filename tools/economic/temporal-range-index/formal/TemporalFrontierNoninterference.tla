@@ -117,7 +117,7 @@ Next ==
     \/ ReplayAtHistoricalCutA
     \/ ReplayAtHistoricalCutB
 
-(* Negative-control actions: these model two common implementation bugs. *)
+(* Negative-control actions model two independent implementation bugs. *)
 ReplayUsingLatestCutA ==
     /\ replayA' = QueryResult(visibleA, currentCutA)
     /\ UNCHANGED <<visibleA, visibleB, currentCutA, currentCutB,
@@ -128,9 +128,23 @@ RelabelHistoricalCertificateA ==
     /\ UNCHANGED <<visibleA, visibleB, currentCutA, currentCutB,
                    replayA, replayB, certificateB>>
 
-BuggyNext ==
+(* Test each mutation independently. A failure in one mutant must not mask
+   a missing counterexample in the other. *)
+BuggyReplayNext ==
     \/ Next
     \/ ReplayUsingLatestCutA
+
+BuggyCertificateNext ==
+    \/ Next
+    \/ RelabelHistoricalCertificateA
+
+BuggyReplaySpec == Init /\ [][BuggyReplayNext]_vars
+BuggyCertificateSpec == Init /\ [][BuggyCertificateNext]_vars
+
+(* Kept as a combined exploratory spec; qualification runs the two mutants
+   above separately and checks the exact invariant each one violates. *)
+BuggyNext ==
+    \/ BuggyReplayNext
     \/ RelabelHistoricalCertificateA
 
 Spec == Init /\ [][Next]_vars
