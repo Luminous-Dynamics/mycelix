@@ -170,6 +170,16 @@ A conventional case-centric XES flattening baseline is useful only as a measured
 
 Targets (not results): zero silent field/relation loss within the declared profile, 100% normalized round-trip preservation, zero duplicate-callout inflation, zero repeat-episode merges, and unchanged owner-core dispositions after serialization round-trip.
 
+### Temporal relationship-claim projection (prototype slice; exact-head qualification pending)
+
+The experimental Rust module `harness/src/temporal_relationships.rs` models a relationship as a provenance-carrying claim rather than a timeless edge. Fields include relation ID, subject/predicate/object, half-open valid interval `[valid_from, valid_to)`, source-recorded time, accepted host sequence, source reference/digest, asserting principal and authority scope. Append-only mutations supersede or revoke a relation. Supersession points to a replacement claim and includes a digest commitment to the exact target claim.
+
+At query time, the projector applies two independent cutoffs: valid time and accepted sequence. It returns visible relation IDs, active claims, conflicting subject/predicate assignments, applied mutation IDs, superseded/revoked IDs and a deterministic snapshot receipt. Competing active assertions are surfaced as conflicts; no last-write-wins selection occurs. Mutation records are validated in accepted-sequence order. A supersession chain is permitted only when the replacement has already been accepted, retains the target's subject/predicate/authority scope, and is not a previously retired relation.
+
+The prototype currently has focused unit tests for late-recorded relation visibility, conflicting asset-zone assignment, supersession, revocation at both frontiers, source-claim digest binding, authority-scope mismatch, duplicate accepted sequence, half-open expiry, supersession chains, attempted relation reactivation and input-order invariance.
+
+This is an in-memory typed projection, not yet a JSON parser or direct OCEL-to-tEKG adapter. It carries source digests but does not authenticate source bytes, verify signer identity, prove the authority scope is valid, or establish the relationship's truth. Equality of authority-scope strings is a structural boundary only, not an authorization decision. Host sequence is a knowledge-order frontier, not trusted transaction time. Exact-head compilation/formatting/Clippy and independent known-answer oracle results are pending.
+
 ### Dual-frontier temporal replay (implemented slice)
 
 The Rust harness exposes `temporal_replay::replay_temporal_frontier`. It evaluates two inclusive cutoffs: (1) event valid time, represented by canonical fixed-width UTC seconds in this V1 replay path, and (2) a host-assigned append sequence representing what had been accepted into the log. The host sequence is an ordering frontier, **not** a timestamp and not proof of when a platform committed or independently verified an event. The source-recorded timestamp is validated and preserved but is not promoted to transaction time.
