@@ -613,6 +613,68 @@ mod tests {
     }
 
     #[test]
+    fn unknown_event_and_object_types_fail_closed() {
+        let mut unknown_event_type = fixture();
+        unknown_event_type["events"][0]["type"] = Value::String("unregistered-event".to_owned());
+        let input = serde_json::to_string(&unknown_event_type).unwrap();
+        assert_eq!(
+            validate_ocel20_water_profile(&input),
+            Err(OcelProfileErrorV1::UnknownEventType)
+        );
+
+        let mut unknown_object_type = fixture();
+        unknown_object_type["objects"][0]["type"] =
+            Value::String("unregistered-object".to_owned());
+        let input = serde_json::to_string(&unknown_object_type).unwrap();
+        assert_eq!(
+            validate_ocel20_water_profile(&input),
+            Err(OcelProfileErrorV1::UnknownObjectType)
+        );
+    }
+
+    #[test]
+    fn malformed_time_and_attribute_type_mismatches_fail_closed() {
+        let mut malformed_time = fixture();
+        malformed_time["events"][0]["time"] = Value::String("2026-02-30T12:00:00".to_owned());
+        let input = serde_json::to_string(&malformed_time).unwrap();
+        assert_eq!(
+            validate_ocel20_water_profile(&input),
+            Err(OcelProfileErrorV1::InvalidTimestamp)
+        );
+
+        let mut wrong_type = fixture();
+        wrong_type["events"][0]["attributes"][1]["value"] = Value::String("not-an-integer".to_owned());
+        let input = serde_json::to_string(&wrong_type).unwrap();
+        assert_eq!(
+            validate_ocel20_water_profile(&input),
+            Err(OcelProfileErrorV1::AttributeTypeMismatch)
+        );
+    }
+
+    #[test]
+    fn event_without_object_relation_and_duplicate_relations_fail_closed() {
+        let mut no_relation = fixture();
+        no_relation["events"][0]["relationships"] = Value::Array(Vec::new());
+        let input = serde_json::to_string(&no_relation).unwrap();
+        assert_eq!(
+            validate_ocel20_water_profile(&input),
+            Err(OcelProfileErrorV1::EventWithoutObjectRelationship)
+        );
+
+        let mut duplicate_relation = fixture();
+        let relation = duplicate_relation["events"][0]["relationships"][0].clone();
+        duplicate_relation["events"][0]["relationships"]
+            .as_array_mut()
+            .unwrap()
+            .push(relation);
+        let input = serde_json::to_string(&duplicate_relation).unwrap();
+        assert_eq!(
+            validate_ocel20_water_profile(&input),
+            Err(OcelProfileErrorV1::DuplicateRelationship)
+        );
+    }
+
+    #[test]
     fn knowledge_time_and_host_sequence_survive_canonical_round_trip() {
         let mut value = fixture();
         value["metadata"] = serde_json::json!({
