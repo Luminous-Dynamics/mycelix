@@ -171,7 +171,7 @@ fn evaluate_episode(
     episode: WaterEpisode,
     local_mapping_reviews: usize,
 ) -> CrossCoreReceipt {
-    use decision_closure::{DecisionClosureDispositionV1, SupportDispositionV1};
+    use decision_closure::DecisionClosureDispositionV1;
     use impact::{SupportEvidenceStateV1, SupportRuleV1};
 
     let proposal = need_helpers::valid_proposal();
@@ -181,7 +181,7 @@ fn evaluate_episode(
     assert_eq!(ratification.state, need_intake::RatificationStateV1::Draft);
     assert!(need_intake::ratified_need_envelope(&proposal, 100).is_err());
 
-    let project = project_helpers::project(project_formation::RequirementKindV1::SafetyCritical, 1);
+    let project = project_helpers::project(project_formation::RequirementKindV1::Required, 1);
     let team = project_formation::evaluate_team(
         &project,
         &project_helpers::proposal(vec![project_helpers::member("local-maintainer")], vec![]),
