@@ -7,6 +7,10 @@
 //! Large event counts can require substantial memory because the current API
 //! materializes JSON values and a canonical JSON receipt.
 
+use craft_water_cross_core_harness::ocel_profile::validate_ocel20_water_profile;
+use craft_water_cross_core_harness::temporal_replay::{
+    replay_temporal_frontier, TemporalReplayCutV1,
+};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::error::Error;
@@ -14,11 +18,6 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-
-use craft_water_cross_core_harness::ocel_profile::validate_ocel20_water_profile;
-use craft_water_cross_core_harness::temporal_replay::{
-    replay_temporal_frontier, TemporalReplayCutV1,
-};
 
 const FIXTURE: &str = include_str!("../../../ocel/ocel-water-service-v1.json");
 const MAX_EVENTS: usize = 10_000_000;
@@ -148,9 +147,11 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         known_through_sequence: event_count as u64,
     };
     for _ in 0..WARMUP_RUNS {
-        let _ = validate_ocel20_water_profile(&input)?;
-        let _ = replay_temporal_frontier(&input, &warmup_cut)
-            .map_err(|error| format!("temporal replay warm-up failed: {error:?}"))?;
+        drop(validate_ocel20_water_profile(&input)?);
+        drop(
+            replay_temporal_frontier(&input, &warmup_cut)
+                .map_err(|error| format!("temporal replay warm-up failed: {error:?}"))?,
+        );
     }
 
     let mut elapsed_ns = Vec::with_capacity(repeats);
@@ -222,7 +223,8 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
     };
 
     let report = serde_json::json!({
-        "benchmark": "craft_ocel_profile_validate_and_canonicalize_v1",
+        "benchmark": "craft_ocel_profile_and_temporal_replay_v1",
+        "generator_profile": "repeated complaint_logged event with unique ID, source reference, source digest and host sequence",
         "gate": "measurement_only",
         "event_count": event_count,
         "object_count": object_count,
@@ -235,6 +237,8 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         "input_sha256": input_sha256,
         "canonical_sha256": canonical_sha256,
         "replay_sha256": replay_sha256,
+        "replay_valid_time_as_of": cut.valid_time_as_of,
+        "replay_known_through_sequence": cut.known_through_sequence,
         "replay_visible_event_count": visible_event_count,
         "replay_effective_event_count": effective_event_count,
         "warmup_runs": WARMUP_RUNS,
@@ -246,6 +250,8 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         "temporal_replay_p95_ns": replay_p95,
         "temporal_replay_events_per_second_at_p50": replay_events_per_second,
         "peak_rss_kib": high_water_rss_kib(),
+        "operating_system": std::env::consts::OS,
+        "architecture": std::env::consts::ARCH,
         "claim_boundary": "Synthetic profile validation, canonicalization and replay only; no OCEL general-conformance, source authenticity, owner-core, process-discovery or field-effectiveness claim."
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
