@@ -173,6 +173,29 @@ Utility service-performance measures (including interruption duration, pressure,
 
 All baselines receive the same source packet, permitted data, service scope, intervention opportunity and time budget. Record configuration, human review time, model/version, prompts, retrieval snapshot and cost.
 
+### Cohort matching and censored-event handling
+
+Raw 48-hour percentages must not be used as a cross-utility league table. The World Bank finds that water-utility performance varies substantially across and within countries, with population scale, connection patterns and local conditions influencing outcomes. The AWWA Utility Benchmarking Program also organizes comparisons by utility type, size and region.
+
+For matched comparisons, stratify or match at least:
+- utility/service-area size and population served;
+- household connections versus shared connections/public standposts;
+- baseline continuity of supply and planned versus intermittent supply;
+- outage cause, incident severity and affected asset class;
+- pressure zone/topography and relevant network characteristics;
+- reporting-period and metric-definition vintage.
+
+Report unmatched and excluded cohorts instead of silently dropping them. Do not infer a causal efficiency difference from a raw difference between unmatched utilities.
+
+**Open episodes must remain in the denominator.** A report that computes time-to-repair only over closed work orders can omit long-running unresolved cases and create survivorship bias. At each frozen extraction cutoff:
+- include all eligible notifications in the declared cohort;
+- record whether each episode has reached the named terminal event;
+- represent still-open episodes as right-censored at the knowledge-time cutoff, not as completed and not as absent;
+- preserve duplicate, cancelled, reopened and repeat-event rules explicitly;
+- report number at risk / still open, observed event counts and missing timestamps alongside completion percentages.
+
+For larger prospective datasets, evaluate time-to-event distributions (including median/p90 where estimable) and survival estimates with stated censoring assumptions, rather than only threshold pass rates. Do not apply survival estimators when their censoring assumptions are unsupported; publish the raw counts and uncertainty instead. A 48-hour indicator remains one view of the distribution, not a complete service-quality measure.
+
 ## 9. Qualification targets — targets, not results
 
 | Dimension | Target |
