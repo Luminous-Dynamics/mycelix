@@ -7,9 +7,9 @@
   "no_real_personal_data": true,
   "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
   "source_cases": 16,
-  "relation_count": 16,
-  "adversarial_operator_count": 30,
-  "negative_control_count": 16,
+  "relation_count": 18,
+  "adversarial_operator_count": 34,
+  "negative_control_count": 20,
   "digest_semantics": "Every seed reference points to synthetic WSR fixture identifiers. Digest values are not included here; any digest used by adapters must be explicitly marked as a synthetic placeholder unless it is recomputed from exact fixture bytes.",
   "execution_status": "protocol-and-structural-validation-only",
   "prohibited_claims": [
@@ -20,6 +20,11 @@
     "SOTA performance",
     "source independence inferred from identifiers"
   ],
-  "scorecard_metric_count": 15,
-  "comparator_count": 9
+  "scorecard_metric_count": 17,
+  "comparator_count": 9,
+  "seed_count": 10,
+  "source_benchmarks": [
+    "CRAFT-WATER-SERVICE-REPAIR-V1",
+    "CRAFT-NEED-INTAKE-V1"
+  ]
 }
