@@ -184,6 +184,8 @@ pub enum GuidanceErrorV1 {
     GuidanceStepCycle,
     InvalidGuidanceRequirement,
     InvalidEvidenceRequirement,
+    GuidanceRequirementDoesNotMatchBlocker,
+    IncompleteBlockerRequirements,
     InvalidArtifactReference,
     DuplicatePosition,
     DuplicateSummaryPosition,
@@ -427,6 +429,8 @@ pub fn build_repair_certificate(
     let mut step_index = BTreeMap::new();
     let mut step_graph = BTreeMap::new();
     let mut covered_blockers = BTreeSet::new();
+    let mut covered_evidence = BTreeSet::new();
+    let mut covered_authority = BTreeSet::new();
     let mut semantic_requirements = BTreeSet::new();
     for step in &packet.guidance_steps {
         if !non_empty(&step.step_id) || !non_empty(&step.responsible_owner_id) {
@@ -447,10 +451,22 @@ pub fn build_repair_certificate(
             return Err(GuidanceErrorV1::MissingGuidanceForBlocker);
         }
         for blocker_id in &step.satisfies_blocker_ids {
-            if !blocker_index.contains_key(blocker_id.as_str()) {
-                return Err(GuidanceErrorV1::UnknownBlocker);
-            }
+            let blocker = blocker_index
+                .get(blocker_id.as_str())
+                .ok_or(GuidanceErrorV1::UnknownBlocker)?;
             covered_blockers.insert(blocker_id.as_str());
+            if let Some(requirement) = &step.required_evidence {
+                if !blocker.required_evidence.contains(requirement) {
+                    return Err(GuidanceErrorV1::GuidanceRequirementDoesNotMatchBlocker);
+                }
+                covered_evidence.insert((blocker_id.clone(), requirement.clone()));
+            }
+            if let Some(authority) = &step.required_authority {
+                if blocker.required_authority.as_ref() != Some(authority) {
+                    return Err(GuidanceErrorV1::GuidanceRequirementDoesNotMatchBlocker);
+                }
+                covered_authority.insert((blocker_id.clone(), authority.clone()));
+            }
         }
         if step
             .required_authority
@@ -521,6 +537,13 @@ pub fn build_repair_certificate(
     for blocker in &packet.blockers {
         if !covered_blockers.contains(blocker.blocker_id.as_str()) {
             return Err(GuidanceErrorV1::MissingGuidanceForBlocker);
+        }
+        if blocker.required_evidence.iter().any(|requirement| {
+            !covered_evidence.contains(&(blocker.blocker_id.clone(), requirement.clone()))
+        }) || blocker.required_authority.as_ref().is_some_and(|authority| {
+            !covered_authority.contains(&(blocker.blocker_id.clone(), authority.clone()))
+        }) {
+            return Err(GuidanceErrorV1::IncompleteBlockerRequirements);
         }
     }
 
@@ -948,12 +971,50 @@ mod tests {
     #[test]
     fn one_owner_step_may_address_multiple_exact_blockers() {
         let mut packet = valid_packet();
-        let second_requirement = evidence_requirement("pressure-duration-observation");
+        let second_requirement = evidence_requirement("independent-pressure-observation");
         packet.blockers.push(blocker("pressure-duration", second_requirement));
         packet.guidance_steps[0]
             .satisfies_blocker_ids
             .push("pressure-duration".to_owned());
         assert!(build_repair_certificate(&packet).is_ok());
+    }
+
+    #[test]
+    fn every_evidence_requirement_must_be_satisfied_by_an_exact_step() {
+        let mut packet = valid_packet();
+        packet.blockers[0]
+            .required_evidence
+            .push(evidence_requirement("pressure-duration-observation"));
+        assert_eq!(
+            build_repair_certificate(&packet),
+            Err(GuidanceErrorV1::IncompleteBlockerRequirements)
+        );
+    }
+
+    #[test]
+    fn guidance_cannot_substitute_a_different_evidence_kind() {
+        let mut packet = valid_packet();
+        packet.guidance_steps[0].required_evidence =
+            Some(evidence_requirement("provider-completion-assertion"));
+        assert_eq!(
+            build_repair_certificate(&packet),
+            Err(GuidanceErrorV1::GuidanceRequirementDoesNotMatchBlocker)
+        );
+    }
+
+    #[test]
+    fn guidance_cannot_expand_or_substitute_the_authority_reference() {
+        let mut packet = valid_packet();
+        let required = artifact("local-authority-policy", 3, 34);
+        packet.blockers[0].required_authority = Some(required);
+        packet.guidance_steps[0].kind = GuidanceStepKindV1::ObtainAuthorityDecision;
+        packet.guidance_steps[0].required_evidence = None;
+        packet.guidance_steps[0].required_authority =
+            Some(artifact("different-authority-policy", 1, 35));
+        assert_eq!(
+            build_repair_certificate(&packet),
+            Err(GuidanceErrorV1::GuidanceRequirementDoesNotMatchBlocker)
+        );
     }
 
     #[test]
