@@ -17,6 +17,7 @@ const (
 	MaxLedgerEvents = 1000000
 	MaxActiveCapabilities = 100000
 	MaxLedgerOwnerCoordinates = 5000000
+	MaxLedgerEncodingBytes uint64 = 67108864
 	OutcomeCommitted CapabilityOutcomeV1 = "Committed"
 	OutcomeUnknown CapabilityOutcomeV1 = "OutcomeUnknown"
 	OutcomeApplied CapabilityOutcomeV1 = "ReconciledApplied"
@@ -319,11 +320,28 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 	if !validDigest(expectedTail){return failedReplay(result,"expected tail anchor is malformed")}
 	if uint64(len(events))!=expectedCount{return failedReplay(result,"observed event count differs from independent tail anchor")}
 	var totalCoordinates uint64
+	var totalEncodingBytes uint64
+	addEncodedField := func(value string) bool {
+		if len(value)>MaxIdentifierBytes || uint64(len(value))>MaxLedgerEncodingBytes-totalEncodingBytes { return false }
+		totalEncodingBytes+=uint64(len(value))
+		return true
+	}
 	for _,event:=range events {
+		for _,field:=range []string{event.EventID,event.PreviousEventDigest,string(event.Outcome),event.ReconcilesEventID} {
+			if !addEncodedField(field) { return failedReplay(result,"ledger event encoding byte budget exceeded") }
+		}
 		if event.Transition==nil {continue}
+		if len(event.Transition.OwnerCut)>MaxOwners { return failedReplay(result,"transition owner cut exceeds owner limit") }
 		count:=uint64(len(event.Transition.OwnerCut))
 		if count>MaxLedgerOwnerCoordinates-totalCoordinates{return failedReplay(result,"ledger owner-coordinate work budget exceeded")}
 		totalCoordinates+=count
+		for _,field:=range []string{string(event.Transition.Kind),event.Transition.CapabilityID,event.Transition.PriorCapabilityDigest,
+			event.Transition.IssuerRef,event.Transition.IssuerKeyEpoch,event.Transition.AuthorityGrantRef,event.Transition.CheckpointRef} {
+			if !addEncodedField(field) { return failedReplay(result,"ledger transition encoding byte budget exceeded") }
+		}
+		for _,coordinate:=range event.Transition.OwnerCut {
+			if !addEncodedField(coordinate.OwnerRef) { return failedReplay(result,"ledger owner-coordinate encoding byte budget exceeded") }
+		}
 	}
 	result.SubmittedEventsDigest=rawEventsDigest(events)
 	active:=make(map[string]activeState)
