@@ -14,7 +14,7 @@ VARIABLES registryEpoch, liveUniverse, manifestEpoch,
 vars == <<registryEpoch, liveUniverse, manifestEpoch,
           rosterCandidates, requiredOwners, excludedOwners,
           unknownOwners, exclusionProofs, frontierOwners,
-          rosterClosed, frontierCovered, historicalCertEpoch>>
+          rosterClosed, frontierCovered, frontierEpoch, historicalCertEpoch>>
 
 Init ==
     /\ registryEpoch = Epoch0
@@ -39,7 +39,7 @@ RegisterOwnerB ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<manifestEpoch, rosterCandidates, requiredOwners,
                    excludedOwners, unknownOwners, exclusionProofs,
-                   frontierOwners, historicalCertEpoch>>
+                   frontierOwners, frontierEpoch, historicalCertEpoch>>
 
 AddRosterCandidate(owner) ==
     /\ owner \in liveUniverse
@@ -60,7 +60,7 @@ MarkOwnerUnknown(owner) ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, requiredOwners, excludedOwners,
-                   exclusionProofs, frontierOwners, historicalCertEpoch>>
+                   exclusionProofs, frontierOwners, frontierEpoch, historicalCertEpoch>>
 
 ResolveUnknownAsRequired(owner) ==
     /\ owner \in unknownOwners
@@ -118,7 +118,7 @@ AcceptFrontier ==
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, requiredOwners, excludedOwners,
                    unknownOwners, exclusionProofs, frontierOwners,
-                   rosterClosed, frontierEpoch, historicalCertEpoch>>
+                   rosterClosed, historicalCertEpoch>>
 
 Next ==
     \/ RegisterOwnerB
@@ -140,7 +140,7 @@ CloseRosterMutant ==
     /\ frontierCovered' = FALSE
     /\ UNCHANGED <<registryEpoch, liveUniverse, rosterCandidates,
                    requiredOwners, excludedOwners, unknownOwners,
-                   exclusionProofs, frontierOwners, historicalCertEpoch>>
+                   exclusionProofs, frontierOwners, frontierEpoch, historicalCertEpoch>>
 
 NextMutant == Next \/ CloseRosterMutant
 
