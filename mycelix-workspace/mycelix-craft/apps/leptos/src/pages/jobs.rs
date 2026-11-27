@@ -3,19 +3,18 @@
 //! Jobs page — search, browse, and post job opportunities.
 //! Job matching runs client-side using the matching engine.
 //!
-//! When connected to the Holochain conductor, posting jobs calls
-//! `job_postings_coordinator::create_job_posting`.
+//! Live job retrieval and the complete posting editor are not yet connected.
+//! Sample postings are displayed only in explicit local mock/demo mode.
 
 use leptos::prelude::*;
 use std::collections::HashSet;
 use wasm_bindgen::JsCast;
 
-use mycelix_leptos_core::{
-    holochain_provider::use_holochain,
-    toasts::{use_toasts, ToastKind},
-};
+use mycelix_leptos_core::holochain_provider::use_holochain;
 
-use crate::matching::{rank_jobs, JobMatch, JobView};
+use crate::matching::{
+    rank_jobs, EducationRequirementStatus, JobMatch, JobView, LegacyProfileSignalStatus,
+};
 
 /// Return a set of mock job postings spanning diverse skill domains.
 fn mock_jobs() -> Vec<JobView> {
@@ -73,20 +72,11 @@ fn mock_jobs() -> Vec<JobView> {
     ]
 }
 
-/// Lightweight input for the `create_job_posting` zome call.
-#[derive(Clone, Debug, serde::Serialize)]
-struct CreateJobPostingInput {
-    title: String,
-    organization: String,
-    required_skills: Vec<String>,
-    preferred_skills: Vec<String>,
-    remote_ok: bool,
-}
 
 #[component]
 pub fn JobsPage() -> impl IntoView {
     let hc = use_holochain();
-    let toasts = use_toasts();
+    let is_mock = hc.is_mock();
 
     let (search_query, set_search_query) = signal(String::new());
     let (skills_input, set_skills_input) = signal(String::from("rust, holochain"));
@@ -101,14 +91,20 @@ pub fn JobsPage() -> impl IntoView {
             .collect::<HashSet<String>>()
     });
 
-    let jobs = mock_jobs();
+    // Sample postings are visible only in an explicitly marked local demo.
+    // Connected mode stays empty until a real indexed read API is wired.
+    let jobs = if is_mock { mock_jobs() } else { Vec::new() };
+    let empty_jobs_message = if is_mock {
+        "No demo jobs match these declared skills. Try adding or removing skills."
+    } else {
+        "Live job retrieval is not connected yet. No sample postings are shown in Live mode."
+    };
 
     // Rank jobs whenever agent_skills changes.
     let matched_jobs = Memo::new(move |_| {
         let skills = agent_skills.get();
         let query = search_query.get().to_lowercase();
-        // TODO: compute avg vitality from CraftCtx credentials when available
-        let mut ranked = rank_jobs(&jobs, &skills, None, None, 0.0, 20);
+        let mut ranked = rank_jobs(&jobs, &skills, None, None, 20);
         // Additionally filter by free-text search if present.
         if !query.is_empty() {
             ranked.retain(|m| {
@@ -127,45 +123,7 @@ pub fn JobsPage() -> impl IntoView {
         ranked
     });
 
-    // Clone hc/toasts for each closure that captures them.
-    let hc_for_post = hc.clone();
-    let toasts_for_post = toasts.clone();
     let hc_for_status = hc.clone();
-    let hc_for_disabled = hc.clone();
-    let hc_for_title = hc.clone();
-
-    // Post-job handler
-    let on_post_job = move |_| {
-        let hc = hc_for_post.clone();
-        let toasts = toasts_for_post.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            if hc.is_mock() {
-                toasts.push(
-                    "Connect to the Holochain conductor to post jobs.",
-                    ToastKind::Info,
-                );
-                return;
-            }
-            let input = CreateJobPostingInput {
-                title: "New Job Posting".into(),
-                organization: "My Organization".into(),
-                required_skills: vec![],
-                preferred_skills: vec![],
-                remote_ok: true,
-            };
-            match hc
-                .call_zome_default::<CreateJobPostingInput, ()>(
-                    "job_postings_coordinator",
-                    "create_job_posting",
-                    &input,
-                )
-                .await
-            {
-                Ok(_) => toasts.success("Job posting created on the network!"),
-                Err(e) => toasts.error(format!("Failed to create posting: {e}")),
-            }
-        });
-    };
 
     view! {
         <div class="page jobs-page">
@@ -182,7 +140,7 @@ pub fn JobsPage() -> impl IntoView {
 
             // Skills input for the matching engine
             <div class="skills-input-section">
-                <label for="agent-skills"><strong>"Your Skills"</strong>" (comma-separated)"</label>
+                <label for="agent-skills"><strong>"Your declared skills"</strong>" (comma-separated)"</label>
                 <input
                     id="agent-skills"
                     type="text"
@@ -198,8 +156,11 @@ pub fn JobsPage() -> impl IntoView {
                 <p class="text-secondary">
                     {move || {
                         let count = agent_skills.get().len();
-                        format!("{count} skill{} active", if count == 1 { "" } else { "s" })
+                        format!("{count} self-declared skill{} active", if count == 1 { "" } else { "s" })
                     }}
+                </p>
+                <p class="text-secondary">
+                    "Prototype ranking uses self-declared skill labels and declared education only. It is an advisory search aid, not verified competence, hiring eligibility or a hiring-success probability."
                 </p>
             </div>
 
@@ -225,7 +186,7 @@ pub fn JobsPage() -> impl IntoView {
                     if matches.is_empty() {
                         view! {
                             <div class="placeholder-card">
-                                <p>"No matching jobs found. Try adding more skills above."</p>
+                                <p>{empty_jobs_message}</p>
                             </div>
                         }
                         .into_any()
@@ -234,7 +195,7 @@ pub fn JobsPage() -> impl IntoView {
                             <div class="matched-jobs-list">
                                 {matches
                                     .into_iter()
-                                    .map(|m| job_card_view(m, agent_skills.get()))
+                                    .map(job_card_view)
                                     .collect::<Vec<_>>()}
                             </div>
                         }
@@ -243,31 +204,59 @@ pub fn JobsPage() -> impl IntoView {
                 }}
             </div>
 
-            // Post a job
+            // Posting is intentionally disabled until the real editor and
+            // coordinator contract are wired. Do not write placeholder jobs.
             <div class="post-job-section">
                 <h3>"Post a Job"</h3>
                 <p class="text-secondary">
-                    "Create a job posting visible to the entire craft network."
+                    "The complete posting form and live indexed retrieval are not connected yet. Craft will not submit a generic placeholder posting."
                 </p>
                 <button
                     class="btn-primary"
-                    on:click=on_post_job
-                    disabled=move || hc_for_disabled.is_mock()
-                    title=move || if hc_for_title.is_mock() { "Connect to Holochain conductor to post jobs" } else { "Create a new job posting" }
+                    disabled
+                    title="Job posting form is not implemented; no placeholder will be written"
                 >
-                    "Create Job Posting"
+                    "Posting Form Not Available Yet"
                 </button>
             </div>
         </div>
     }
 }
 
-/// Render a single matched job card with score bar and highlighted tags.
-fn job_card_view(m: JobMatch, agent_skills: HashSet<String>) -> impl IntoView {
+/// Render a job card with explicit provenance and non-authoritative status.
+fn job_card_view(m: JobMatch) -> impl IntoView {
     let pct = (m.score * 100.0).round() as u32;
-    let pct_label = format!("{}% match", pct);
+    let pct_label = format!("{}% advisory profile heuristic", pct);
     let bar_width = format!("{}%", pct);
     let location = if m.job.remote_ok { "Remote" } else { "On-site" };
+    let matched_required = m.matched_required.clone();
+    let matched_preferred = m.matched_preferred.clone();
+
+    let education_message = match m.education_status {
+        EducationRequirementStatus::NotRequired => None,
+        EducationRequirementStatus::NotProvided => {
+            Some("Education not declared; no ranking bonus applied".to_owned())
+        }
+        EducationRequirementStatus::DeclaredMatch => {
+            Some("Declared education label matches; issuer verification has not run".to_owned())
+        }
+        EducationRequirementStatus::DeclaredMismatch => {
+            Some("Declared education label differs; no equivalency is inferred".to_owned())
+        }
+    };
+
+    let legacy_signal_message = match m.legacy_profile_signal_status {
+        LegacyProfileSignalStatus::NotRequired => None,
+        LegacyProfileSignalStatus::NotEvaluated => {
+            Some("Legacy profile signal not evaluated; this does not exclude the candidate".to_owned())
+        }
+        LegacyProfileSignalStatus::BelowLegacyThreshold => {
+            Some("Legacy profile signal is below the posting value; this does not exclude the candidate".to_owned())
+        }
+        LegacyProfileSignalStatus::MeetsLegacyThreshold => {
+            Some("Legacy profile signal meets the posting value; this is not proof of competence".to_owned())
+        }
+    };
 
     view! {
         <div class="job-card">
@@ -277,10 +266,10 @@ fn job_card_view(m: JobMatch, agent_skills: HashSet<String>) -> impl IntoView {
             </div>
             <p class="job-org">{m.job.organization.clone()}</p>
 
-            // Score bar
             <div
                 class="score-bar-bg"
                 role="progressbar"
+                aria-label="Advisory profile heuristic, not a hiring probability"
                 aria-valuenow=pct
                 aria-valuemin=0
                 aria-valuemax=100
@@ -288,21 +277,21 @@ fn job_card_view(m: JobMatch, agent_skills: HashSet<String>) -> impl IntoView {
                 <div class="score-bar-fill" style:width=bar_width></div>
             </div>
 
-            // Required skills
             <div class="job-skills">
                 <span class="skill-label">"Required: "</span>
                 {m.job
                     .required_skills
                     .iter()
-                    .map(|s| {
-                        let matched = agent_skills.contains(s);
-                        let cls = if matched { "skill-tag matched" } else { "skill-tag" };
-                        view! { <span class=cls>{s.clone()}</span> }
+                    .map(|skill| {
+                        let matched = matched_required.iter().any(|value| {
+                            value == &skill.trim().to_lowercase()
+                        });
+                        let class = if matched { "skill-tag matched" } else { "skill-tag" };
+                        view! { <span class=class>{skill.clone()}</span> }
                     })
                     .collect::<Vec<_>>()}
             </div>
 
-            // Preferred skills (if any)
             {if !m.job.preferred_skills.is_empty() {
                 Some(
                     view! {
@@ -311,14 +300,16 @@ fn job_card_view(m: JobMatch, agent_skills: HashSet<String>) -> impl IntoView {
                             {m.job
                                 .preferred_skills
                                 .iter()
-                                .map(|s| {
-                                    let matched = agent_skills.contains(s);
-                                    let cls = if matched {
+                                .map(|skill| {
+                                    let matched = matched_preferred.iter().any(|value| {
+                                        value == &skill.trim().to_lowercase()
+                                    });
+                                    let class = if matched {
                                         "skill-tag preferred matched"
                                     } else {
                                         "skill-tag preferred"
                                     };
-                                    view! { <span class=cls>{s.clone()}</span> }
+                                    view! { <span class=class>{skill.clone()}</span> }
                                 })
                                 .collect::<Vec<_>>()}
                         </div>
@@ -333,18 +324,19 @@ fn job_card_view(m: JobMatch, agent_skills: HashSet<String>) -> impl IntoView {
                 {m.job
                     .education_level
                     .as_ref()
-                    .map(|ed| {
-                        view! { <span>{format!("Edu: {ed}")}</span> }
+                    .map(|education| {
+                        view! { <span>{format!("Education requirement: {education}")}</span> }
                     })}
-                {if m.credential_bonus {
-                    Some(view! { <span class="credential-ok">"Credential match"</span> })
-                } else {
-                    None
-                }}
+                {education_message.map(|message| {
+                    view! { <span class="education-status">{message}</span> }
+                })}
+                {legacy_signal_message.map(|message| {
+                    view! { <span class="legacy-profile-signal">{message}</span> }
+                })}
             </div>
 
-            <button class="btn-primary" disabled title="Connect to Holochain to apply">
-                "Apply"
+            <button class="btn-primary" disabled title="Live application flow is not implemented yet">
+                "Apply (not available yet)"
             </button>
         </div>
     }
