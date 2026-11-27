@@ -103,13 +103,13 @@ fn high_water_rss_kib() -> Option<u64> {
     #[cfg(target_os = "linux")]
     {
         let status = fs::read_to_string("/proc/self/status").ok()?;
-        return status.lines().find_map(|line| {
+        status.lines().find_map(|line| {
             line.strip_prefix("VmHWM:")?
                 .split_whitespace()
                 .next()?
                 .parse()
                 .ok()
-        });
+        })
     }
     #[cfg(not(target_os = "linux"))]
     {
