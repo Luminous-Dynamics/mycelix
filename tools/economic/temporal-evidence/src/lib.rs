@@ -586,29 +586,6 @@ impl TemporalEvidenceSetV1 {
             }));
         }
 
-        let mut knowledge_ids = from_knowledge;
-        knowledge_ids.extend(to_knowledge);
-        knowledge_ids.sort();
-        knowledge_ids.dedup();
-
-        let episode_binding_is_valid = from.validity_interval_ref.is_some()
-            && to.as_ref().is_some_and(|to_assertion| {
-                to_assertion.validity_interval_ref == from.validity_interval_ref
-            });
-        if !episode_binding_is_valid {
-            return Ok(build_validity_result(ValidityResultInput {
-                disposition: QueryDispositionV1::Indeterminate,
-                claim_id,
-                subject_ref: &subject_ref,
-                verifier_ref,
-                valid_at,
-                known_at,
-                valid_from: Some(from),
-                valid_to: to,
-                knowledge_assertions: knowledge_ids,
-            }));
-        }
-
         if let Some(to_assertion) = to {
             let from_time = normalize_utc(&from.time_value)?;
             let to_time = normalize_utc(&to_assertion.time_value)?;
@@ -1040,6 +1017,24 @@ impl TemporalEvidenceIndexV1 {
         knowledge_ids.extend(to_knowledge);
         knowledge_ids.sort();
         knowledge_ids.dedup();
+
+        let episode_binding_is_valid = from.validity_interval_ref.is_some()
+            && to.as_ref().is_some_and(|to_assertion| {
+                to_assertion.validity_interval_ref == from.validity_interval_ref
+            });
+        if !episode_binding_is_valid {
+            return Ok(build_validity_result(ValidityResultInput {
+                disposition: QueryDispositionV1::Indeterminate,
+                claim_id,
+                subject_ref: &subject_ref,
+                verifier_ref,
+                valid_at,
+                known_at,
+                valid_from: Some(from),
+                valid_to: to,
+                knowledge_assertions: knowledge_ids,
+            }));
+        }
 
         if let Some(to_assertion) = to {
             let from_time = normalize_utc(&from.time_value)?;
