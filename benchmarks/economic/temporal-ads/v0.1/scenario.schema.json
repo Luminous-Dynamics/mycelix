@@ -276,7 +276,7 @@
           "type": "string"
         },
         "value": {
-          "type": "integer"
+          "$ref": "#/$defs/instant"
         },
         "explicit_open": {
           "type": "boolean"
