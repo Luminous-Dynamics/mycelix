@@ -996,6 +996,158 @@ mod tests {
         }
     }
 
+
+    fn ocel_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "name": name,
+            "time": T08,
+            "value": value
+        })
+    }
+
+    fn temporal_relationship_ocel_fixture(
+        target_digest: &str,
+        source_digest: &str,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "objectTypes": [
+                {"name": "asset", "attributes": []},
+                {"name": "zone", "attributes": []},
+                {
+                    "name": "temporal_relation_claim",
+                    "attributes": [
+                        {"name": "predicate", "type": "string"},
+                        {"name": "cardinality", "type": "string"},
+                        {"name": "valid_from", "type": "time"},
+                        {"name": "source_recorded_at", "type": "time"},
+                        {"name": "accepted_sequence", "type": "integer"},
+                        {"name": "source_ref", "type": "string"},
+                        {"name": "source_digest", "type": "string"},
+                        {"name": "asserting_principal", "type": "string"},
+                        {"name": "authority_scope", "type": "string"}
+                    ]
+                }
+            ],
+            "eventTypes": [{
+                "name": "temporal_relation_revoked",
+                "attributes": [
+                    {"name": "target_claim_digest", "type": "string"},
+                    {"name": "effective_at", "type": "time"},
+                    {"name": "source_recorded_at", "type": "time"},
+                    {"name": "accepted_sequence", "type": "integer"},
+                    {"name": "source_ref", "type": "string"},
+                    {"name": "source_digest", "type": "string"},
+                    {"name": "asserting_principal", "type": "string"},
+                    {"name": "authority_scope", "type": "string"}
+                ]
+            }],
+            "objects": [
+                {"id": "asset-1", "type": "asset", "attributes": [], "relationships": []},
+                {"id": "zone-1", "type": "zone", "attributes": [], "relationships": []},
+                {
+                    "id": "rel-asset-zone",
+                    "type": "temporal_relation_claim",
+                    "attributes": [
+                        ocel_attribute("predicate", "member_of_zone"),
+                        ocel_attribute("cardinality", "many_to_one"),
+                        ocel_attribute("valid_from", T08),
+                        ocel_attribute("source_recorded_at", T08),
+                        ocel_attribute("accepted_sequence", 1),
+                        ocel_attribute("source_ref", "source:asset-zone"),
+                        ocel_attribute("source_digest", source_digest),
+                        ocel_attribute("asserting_principal", "principal:operator"),
+                        ocel_attribute("authority_scope", "scope:zone-A")
+                    ],
+                    "relationships": [
+                        {"objectId": "asset-1", "qualifier": "subject"},
+                        {"objectId": "zone-1", "qualifier": "object"}
+                    ]
+                }
+            ],
+            "events": [{
+                "id": "event-zone-revoked",
+                "type": "temporal_relation_revoked",
+                "time": T13,
+                "attributes": [
+                    ocel_attribute("target_claim_digest", target_digest),
+                    ocel_attribute("effective_at", T10),
+                    ocel_attribute("source_recorded_at", T13),
+                    ocel_attribute("accepted_sequence", 2),
+                    ocel_attribute("source_ref", "source:zone-revocation"),
+                    ocel_attribute("source_digest", digest_hex(&[0x22; 32])),
+                    ocel_attribute("asserting_principal", "principal:reviewer"),
+                    ocel_attribute("authority_scope", "scope:zone-A")
+                ],
+                "relationships": [{
+                    "objectId": "rel-asset-zone",
+                    "qualifier": "target_claim"
+                }]
+            }]
+        })
+    }
+
+    #[test]
+    fn parses_ocel20_claim_objects_and_revocation_events_into_temporal_projection() {
+        let mut expected_claim = claim(
+            "rel-asset-zone",
+            "asset-1",
+            "member_of_zone",
+            "zone-1",
+            T08,
+            1,
+        );
+        expected_claim.source_ref = "source:asset-zone".to_owned();
+        expected_claim.source_digest = [0x11; 32];
+        expected_claim.asserting_principal = "principal:operator".to_owned();
+        expected_claim.authority_scope = "scope:zone-A".to_owned();
+
+        let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
+        let source_digest = digest_hex(&expected_claim.source_digest);
+        let fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
+        let input = serde_json::to_string(&fixture).unwrap();
+
+        let (claims, mutations) = parse_temporal_relationships_ocel20(&input).unwrap();
+        assert_eq!(claims, vec![expected_claim]);
+        assert_eq!(mutations.len(), 1);
+        assert_eq!(mutations[0].target_relation_id, "rel-asset-zone");
+        assert_eq!(mutations[0].kind, TemporalRelationMutationKindV1::Revoke);
+
+        let receipt = project_temporal_relationships(&claims, &mutations, &cut(T11, 2)).unwrap();
+        assert!(receipt.active_relations.is_empty());
+        assert_eq!(
+            receipt.revoked_relation_ids,
+            vec!["rel-asset-zone"]
+        );
+    }
+
+    #[test]
+    fn rejects_ambiguous_ocel_relation_endpoint_qualifier() {
+        let expected_claim = claim(
+            "rel-asset-zone",
+            "asset-1",
+            "member_of_zone",
+            "zone-1",
+            T08,
+            1,
+        );
+        let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
+        let source_digest = digest_hex(&expected_claim.source_digest);
+        let mut fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
+        fixture["objects"][2]["relationships"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "objectId": "asset-1",
+                "qualifier": "subject"
+            }));
+        let input = serde_json::to_string(&fixture).unwrap();
+
+        assert_eq!(
+            parse_temporal_relationships_ocel20(&input),
+            Err(TemporalRelationshipErrorV1::InvalidOcelRelationship)
+        );
+    }
+
     #[test]
     fn late_recorded_relation_is_invisible_before_accepted_sequence() {
         let mut late = claim("rel-crew-wo", "crew-7", "assigned_to", "work-order-9", T08, 2);
