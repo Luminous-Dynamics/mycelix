@@ -19,5 +19,6 @@
     "real-world service improvement",
     "SOTA performance",
     "source independence inferred from identifiers"
-  ]
+  ],
+  "scorecard_metric_count": 15
 }
