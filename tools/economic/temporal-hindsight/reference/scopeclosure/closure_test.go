@@ -60,6 +60,9 @@ func TestProfileExclusionMustBeExplicitAndNotInFrontier(t *testing.T) {
 
 func TestRegistryEpochScopeAndHistorySubstitutionFailClosed(t *testing.T) {
 	t.Run("registry epoch",func(t *testing.T){s,m,u,f:=fixture();u.RegistryEpoch="epoch:43";if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate{t.Fatalf("stale epoch accepted: %+v",got)}})
+	t.Run("frontier registry epoch",func(t *testing.T){s,m,u,f:=fixture();f.RegistryEpoch="epoch:41";if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate || !strings.Contains(got.Reason,"frontier registry identity"){t.Fatalf("frontier registry epoch substitution accepted: %+v",got)}})
+	t.Run("frontier registry identity",func(t *testing.T){s,m,u,f:=fixture();f.RegistryRef="directory:other";if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate{t.Fatalf("frontier registry identity substitution accepted: %+v",got)}})
+	t.Run("frontier universe profile",func(t *testing.T){s,m,u,f:=fixture();f.UniverseProfileRef="universe:other";if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate{t.Fatalf("frontier universe profile substitution accepted: %+v",got)}})
 	t.Run("scope",func(t *testing.T){s,m,u,f:=fixture();s.ClaimID="grant:other";if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate{t.Fatalf("scope substitution accepted: %+v",got)}})
 	t.Run("owner history",func(t *testing.T){s,m,u,f:=fixture();f.Owners[0].HistoryRef="history:A:forked";if got:=Reconcile(s,m,u,f);got.Disposition!=Indeterminate{t.Fatalf("history substitution accepted: %+v",got)}})
 }
