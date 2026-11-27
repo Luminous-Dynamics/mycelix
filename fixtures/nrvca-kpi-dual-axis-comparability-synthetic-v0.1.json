@@ -66,7 +66,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -90,7 +91,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -128,7 +130,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -152,7 +155,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -190,7 +194,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -214,7 +219,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -252,7 +258,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -276,7 +283,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -314,7 +322,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -338,7 +347,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 95,
@@ -377,7 +387,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -401,7 +412,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -440,7 +452,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -464,7 +477,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -502,7 +516,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -526,7 +541,8 @@
           "category_rule": "interruption_category_A_B_C",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -564,7 +580,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -588,7 +605,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -625,7 +643,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -649,7 +668,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -686,7 +706,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -710,7 +731,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -747,7 +769,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -771,7 +794,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -808,7 +832,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -832,7 +857,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -869,7 +895,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -893,7 +920,8 @@
           "category_rule": "none",
           "geographic_scope": "sampled_wards_only",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -930,7 +958,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -954,7 +983,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "monthly_cohort",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -991,7 +1021,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1015,7 +1046,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_reopened_and_cancelled_records"
+          "inclusion_rule": "include_closed_interruption_records; exclude_reopened_and_cancelled_records",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1052,7 +1084,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1076,7 +1109,8 @@
           "category_rule": null,
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1114,7 +1148,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1138,7 +1173,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1175,7 +1211,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1199,7 +1236,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": null,
@@ -1237,7 +1275,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1261,7 +1300,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 0.9,
@@ -1300,7 +1340,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1324,7 +1365,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1361,7 +1403,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1386,7 +1429,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1425,7 +1469,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1449,7 +1494,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1486,7 +1532,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
@@ -1510,7 +1557,8 @@
           "category_rule": "none",
           "geographic_scope": "Johannesburg_Water_service_area",
           "aggregation": "annual_fiscal_year",
-          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates"
+          "inclusion_rule": "include_closed_interruption_records; exclude_cancelled_duplicates",
+          "clock_stop": "interruption_concluded_timestamp"
         },
         "target": {
           "value": 90,
