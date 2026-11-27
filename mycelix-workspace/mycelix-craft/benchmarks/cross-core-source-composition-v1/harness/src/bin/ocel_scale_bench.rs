@@ -119,6 +119,11 @@ fn generate_log(
         let group = (index - 1) / complaints_per_callout;
         let mut complaint = complaint_template.clone();
         complaint["id"] = Value::String(format!("scale-complaint-{index:012}"));
+        complaint["relationships"][0]["objectId"] = if group == 0 {
+            Value::String("callout-1".to_owned())
+        } else {
+            Value::String(format!("scale-callout-{group:012}"))
+        };
         set_object_attribute(
             &mut complaint,
             "fault_fingerprint",
