@@ -50,7 +50,7 @@ jobs:
       - name: Check out owner-universe source revision
         uses: actions/checkout@v7
         with:
-          ref: a340d0d5be803a9390631f2773de6be71195a8dd
+          ref: 0808da2f8b76546881b9cdd359a45ac25decbe9d
           path: source-scope-closure
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C source-hindsight rev-parse HEAD)" = "152aa6966e1cd96750ba68aca7cb2d65ba574d15"
-          test "$(git -C source-scope-closure rev-parse HEAD)" = "a340d0d5be803a9390631f2773de6be71195a8dd"
+          test "$(git -C source-scope-closure rev-parse HEAD)" = "0808da2f8b76546881b9cdd359a45ac25decbe9d"
           test "$(git -C source-temporal-ads rev-parse HEAD)" = "6d4dde1bdaaa6a118fd6787e7eb78f174c103e1a"
 
       - name: Assert all pinned source artifacts are present
@@ -79,6 +79,8 @@ jobs:
           test -f source-hindsight/tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference-Mutant.cfg
           test -f source-hindsight/tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference-Certificate-Mutant.cfg
           test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/go.mod
+          test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/enumeration.go
+          test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/enumeration_test.go
           test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure.tla
           test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure.cfg
           test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure-Mutant.cfg
@@ -141,7 +143,7 @@ jobs:
           go test ./...
           go test -race ./...
           go vet ./...
-          go test -run 'TestValidFrontierOverOmittedOwner|TestManifestCannotSelfDeclareAnIncompleteRoster|TestLaterRegistryEpochDoesNotRewriteHistoricalCertificate|TestMultipleOmissionsProduceDeterministicFailureCertificate|TestCandidateOrderingDoesNotChangeReconciliationCertificate|TestMultipleUnknownCandidatesHaveDeterministicFailureReason|TestRegistryEpochScopeAndHistorySubstitutionFailClosed' -count=30 ./...
+          go test -run 'Test(Enumeration|TruncatedEnumeration|PageIndexGap|Cursor|EarlyTerminal|MissingTerminal|CrossPageDuplicateOwner|ForeignEpochOrSnapshotOrPredicate|Manifest|UnknownOrIncompleteSourceStatus|PageDigestAndAggregateRoot|ExpectedAndObservedPageCounts|MalformedMetadataFailureReason|CandidateOrderingWithinPage|ValidFrontierOverOmittedOwner|ManifestCannotSelfDeclareAnIncompleteRoster|LaterRegistryEpochDoesNotRewriteHistoricalCertificate|MultipleOmissionsProduceDeterministicFailureCertificate|CandidateOrderingDoesNotChangeReconciliationCertificate|MultipleUnknownCandidatesHaveDeterministicFailureReason|RegistryEpochScopeAndHistorySubstitutionFailClosed)' -count=30 ./...
           go test -run '^$' -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=1x ./...
 
       - name: Validate language-neutral temporal ADS corpus
