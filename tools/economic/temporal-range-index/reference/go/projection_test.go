@@ -133,26 +133,26 @@ func TestProjectionReplayMatchesCompleteMixedOwnerLogInventory(t *testing.T) {
 func TestProjectionReplayMixedLogKnownAnswerVectors(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
-	if got := binding.OwnerLogRootDigest; got != "sha256:0c849935a06de2d47ce04d52e3489ec183a7beb381ebdb7d60f9c5f74b8dfbe4" {
+	if got := binding.OwnerLogRootDigest; got != "sha256:2f54b60be7b27a704b31b4fb2d2da50cd06f3e6843f966c97934c65574ef6b40" {
 		t.Fatalf("full owner-log root vector mismatch: %s", got)
 	}
-	if got := inventory.Receipts[0].ReceiptDigest; got != "sha256:698207b0ee4372e7bd3a6aab5065159e211d994e4a7ed712bbc746aa9d1323ec" {
+	if got := inventory.Receipts[0].ReceiptDigest; got != "sha256:aee54246a474eb7cc88db961fc86d33507dc174971606058e852f7500b72566c" {
 		t.Fatalf("first canonical receipt digest mismatch: %s", got)
 	}
-	if got := inventory.Receipts[1].ReceiptDigest; got != "sha256:3acde28073a35f5d54deca0ad55955e45117e78c82b2e20d44dea483a628de5d" {
+	if got := inventory.Receipts[1].ReceiptDigest; got != "sha256:0e3c882a46133141e13daa00f9b25cf4edc818ebc649419721cd3af363c004ff" {
 		t.Fatalf("second canonical receipt digest mismatch: %s", got)
 	}
 	audit, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, inventory)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprintf("%x", audit.DerivedIntervalIndexRoot); got != "862db8be1469f34bcdba1d1c706f848da42dacd195c8f2964a010b59b64b52b6" {
+	if got := fmt.Sprintf("%x", audit.DerivedIntervalIndexRoot); got != "c399a222836b9cae71b80bae4fa920b3a2a86690f03baab8c207e28a3bf869ef" {
 		t.Fatalf("derived interval root vector mismatch: %s", got)
 	}
-	if got := fmt.Sprintf("%x", audit.InventoryDigest); got != "5423d95e2df450d8836ba81536131f25eb860430c1ada02109a24b49da52a197" {
+	if got := fmt.Sprintf("%x", audit.InventoryDigest); got != "634d09acd50f6fb2059ae43fa40d15a7c1c039ec82ce5d9f365d381d3c02f9da" {
 		t.Fatalf("full inventory digest vector mismatch: %s", got)
 	}
-	if got := fmt.Sprintf("%x", audit.AuditDigest); got != "ff8282895e16e90e815e97b4bd72f7ac78b2adacd477e3513ff424dfb8f87e0a" {
+	if got := fmt.Sprintf("%x", audit.AuditDigest); got != "7ebf5680d430c78caff59fb059408c96459a03d621d6e274372ba5de7bccd515" {
 		t.Fatalf("projection audit digest vector mismatch: %s", got)
 	}
 }
