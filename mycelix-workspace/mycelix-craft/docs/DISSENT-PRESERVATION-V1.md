@@ -46,7 +46,7 @@ A summary may shorten wording, cluster related subjects, or present alternatives
 
 The reference core checks exact revisions, digests, identity coverage and resolution references. It does not authenticate a community vote, representative mandate, signature, quorum, legal competence or consent procedure. Those remain host and community-governance responsibilities, and their evidence must be retained as the authority artifact referenced by the resolution.
 
-A position withdrawal is not necessarily agreement with another position. It must remain a separately attributed state and must not be represented as consensus unless a separate explicit resolution record establishes that exact outcome.
+A position withdrawal is not agreement with another position. The contract distinguishes ExplicitlyWithdrawn from ExplicitlyResolved, and the position carries a PositionResolutionKind of Withdraw rather than Resolve. A withdrawal remains a separately attributed state and must not be represented as consensus or compromise.
 
 ## Acceptance tests
 
