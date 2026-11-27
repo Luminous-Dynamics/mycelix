@@ -1,0 +1,56 @@
+name: Terra Preta dynamic response reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/dynamic-response-reference/**'
+      - '.github/workflows/terra-preta-dynamic-response-reference.yml'
+  push:
+    branches: [research/terra-dynamic-boundary-v0.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dynamic-response-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path research/terra-preta/tools/dynamic-response-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/dynamic-response-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/dynamic-response-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Execute manufactured dynamic fixture
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/dynamic-response-reference/Cargo.toml -- \
+            research/terra-preta/tools/dynamic-response-reference/fixtures/single-storage-node.json \
+            "$RUNNER_TEMP/dynamic-response-report.json"
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .node_count == 3 and .edge_count == 2 and
+            ((.dc_boundary_response[0][1] + 1.2 | fabs) < 1e-10) and
+            .real_laplace_axis_sampled_passivity_check == true and
+            (.maximum_symmetry_residual < 1e-10) and
+            (.minimum_sampled_quadratic_form > -1e-10) and
+            (.minimum_sampled_response_eigenvalue > -1e-10) and
+            (.samples | length == 6)
+          ' "$RUNNER_TEMP/dynamic-response-report.json"
+      - name: Reject output overwrite
+        run: |
+          before=$(sha256sum "$RUNNER_TEMP/dynamic-response-report.json" | cut -d ' ' -f 1)
+          if cargo run --quiet --manifest-path research/terra-preta/tools/dynamic-response-reference/Cargo.toml -- \
+            research/terra-preta/tools/dynamic-response-reference/fixtures/single-storage-node.json \
+            "$RUNNER_TEMP/dynamic-response-report.json"; then
+            echo "unexpected overwrite success" >&2
+            exit 1
+          fi
+          after=$(sha256sum "$RUNNER_TEMP/dynamic-response-report.json" | cut -d ' ' -f 1)
+          test "$before" = "$after"

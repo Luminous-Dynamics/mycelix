@@ -1,0 +1,16 @@
+{
+  "schema_version": "dynamic-response-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "single-storage-node-two-port",
+  "nodes": [
+    { "node_id": "inlet", "storage_capacity": 0.0 },
+    { "node_id": "storage", "storage_capacity": 4.0 },
+    { "node_id": "outlet", "storage_capacity": 0.0 }
+  ],
+  "edges": [
+    { "edge_id": "inlet-storage", "tail_node_id": "inlet", "head_node_id": "storage", "conductance": 2.0 },
+    { "edge_id": "storage-outlet", "tail_node_id": "storage", "head_node_id": "outlet", "conductance": 3.0 }
+  ],
+  "boundary_nodes": ["inlet", "outlet"],
+  "laplace_parameters_per_second": [0.0, 0.01, 0.1, 1.0, 10.0, 100.0]
+}
