@@ -310,7 +310,11 @@ pub fn evaluate_action_coverage_v1(
         return Ok(empty_report(plan, CoverageDispositionV1::Indeterminate));
     }
 
-    let action_ids: BTreeSet<&str> = plan.actions().iter().map(|a| a.action_id.as_str()).collect();
+    let action_ids: BTreeSet<&str> = plan
+        .actions()
+        .iter()
+        .map(|a| a.action_id.as_str())
+        .collect();
     let mut seen_observation_ids = BTreeMap::<&str, DigestV1>::new();
     let mut duplicates_ignored = 0_u64;
     let mut rejected = Vec::new();
@@ -416,8 +420,10 @@ pub fn evaluate_action_coverage_v1(
         }
         if let Some(groups) = groups {
             for (group_id, group_observations) in groups {
-                let unique: BTreeSet<DigestV1> =
-                    group_observations.iter().map(|o| o.evidence_digest).collect();
+                let unique: BTreeSet<DigestV1> = group_observations
+                    .iter()
+                    .map(|o| o.evidence_digest)
+                    .collect();
                 let unavailable = unavailable_groups
                     .get(action.action_id.as_str())
                     .is_some_and(|groups| groups.contains(group_id));
@@ -499,10 +505,10 @@ pub fn evaluate_action_coverage_v1(
         });
     }
 
-    let denominator = u64::try_from(plan.actions().len())
-        .map_err(|_| EvaluationErrorV1::ArithmeticOverflow)?;
-    let covered_count = u64::try_from(covered.len())
-        .map_err(|_| EvaluationErrorV1::ArithmeticOverflow)?;
+    let denominator =
+        u64::try_from(plan.actions().len()).map_err(|_| EvaluationErrorV1::ArithmeticOverflow)?;
+    let covered_count =
+        u64::try_from(covered.len()).map_err(|_| EvaluationErrorV1::ArithmeticOverflow)?;
     let basis_points = covered_count
         .checked_mul(10_000)
         .ok_or(EvaluationErrorV1::ArithmeticOverflow)?
@@ -611,9 +617,7 @@ fn validate_actions(actions: &[AuthorizedActionV1]) -> Result<(), PlanErrorV1> {
         require_identifier(&action.action_type)?;
         require_identifier(&action.responsible_role)?;
         require_identifier(&action.evidence_profile_ref)?;
-        if action.evidence_profile_digest == [0; 32]
-            || action.minimum_independent_groups == 0
-        {
+        if action.evidence_profile_digest == [0; 32] || action.minimum_independent_groups == 0 {
             return Err(PlanErrorV1::InvalidMinimumIndependentGroups);
         }
         for reference in action
@@ -647,7 +651,10 @@ fn validate_acyclic(actions: &[AuthorizedActionV1]) -> Result<(), PlanErrorV1> {
     let mut indegree = BTreeMap::<&str, usize>::new();
     let mut dependents = BTreeMap::<&str, Vec<&str>>::new();
     for action in actions {
-        indegree.insert(action.action_id.as_str(), action.prerequisite_action_ids.len());
+        indegree.insert(
+            action.action_id.as_str(),
+            action.prerequisite_action_ids.len(),
+        );
         for prerequisite in &action.prerequisite_action_ids {
             dependents
                 .entry(prerequisite.as_str())
@@ -693,7 +700,9 @@ struct Encoder {
 
 impl Encoder {
     fn new(domain: &[u8]) -> Self {
-        Self { bytes: domain.to_vec() }
+        Self {
+            bytes: domain.to_vec(),
+        }
     }
     fn u8(&mut self, value: u8) {
         self.bytes.push(value);
@@ -848,10 +857,9 @@ mod tests {
         assert_eq!(
             actual,
             [
-                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea,
-                0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23,
-                0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c,
-                0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
+                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
+                0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
+                0xf2, 0x00, 0x15, 0xad,
             ]
         );
     }
@@ -880,7 +888,16 @@ mod tests {
         ))
         .unwrap();
         let observations: Vec<_> = (1..=5)
-            .map(|i| observation(&plan, &format!("obs:{i}"), &format!("action:{i}"), &format!("independent:{i}"), 100, 900))
+            .map(|i| {
+                observation(
+                    &plan,
+                    &format!("obs:{i}"),
+                    &format!("action:{i}"),
+                    &format!("independent:{i}"),
+                    100,
+                    900,
+                )
+            })
             .collect();
         let report = evaluate_action_coverage_v1(&plan, &observations, 200).unwrap();
         assert_eq!(report.denominator_count, 6);
@@ -892,7 +909,8 @@ mod tests {
 
     #[test]
     fn identical_duplicate_observation_is_idempotent() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let item = observation(&plan, "obs:1", "action:1", "independent:1", 100, 900);
         let report = evaluate_action_coverage_v1(&plan, &[item.clone(), item], 200).unwrap();
         assert_eq!(report.covered_count, 1);
@@ -913,7 +931,8 @@ mod tests {
 
     #[test]
     fn duplicate_independence_group_does_not_inflate_numerator() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 2)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 2)])).unwrap();
         let first = observation(&plan, "obs:1", "action:1", "same-meter-cluster", 100, 900);
         let mut second = observation(&plan, "obs:2", "action:1", "same-meter-cluster", 110, 900);
         second.evidence_digest = first.evidence_digest;
@@ -929,11 +948,21 @@ mod tests {
     #[test]
     fn wrong_zone_observation_is_rejected_and_not_counted() {
         let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
-        let mut item = observation(&plan, "obs:wrong-zone", "action:1", "independent:1", 100, 900);
+        let mut item = observation(
+            &plan,
+            "obs:wrong-zone",
+            "action:1",
+            "independent:1",
+            100,
+            900,
+        );
         item.zone_ref = "zone:other".to_owned();
         let report = evaluate_action_coverage_v1(&plan, &[item], 200).unwrap();
         assert_eq!(report.covered_count, 0);
-        assert_eq!(report.rejected_observations[0].reason, RejectionReasonV1::WrongZone);
+        assert_eq!(
+            report.rejected_observations[0].reason,
+            RejectionReasonV1::WrongZone
+        );
     }
 
     #[test]
