@@ -1,0 +1,163 @@
+{
+  "contract": {
+    "trial_id": "cg-trial-001",
+    "benchmark_version": "common-ground-adapter-v0.1",
+    "task_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "oracle_spec_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "expected_final_state_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "oracle_attestation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "helper_id": "helper",
+    "worker_id": "worker",
+    "worker_state_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "worker_state_version": 3,
+    "view_mode": "shared_worker_state",
+    "required_placements": [
+      {
+        "object_id": "piece-1",
+        "target_slot_id": "slot-1"
+      },
+      {
+        "object_id": "piece-2",
+        "target_slot_id": "slot-2"
+      }
+    ],
+    "time_budget_ms": 10000,
+    "turn_budget": 20
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "event_id": "view-worker",
+      "timestamp_ms": 10,
+      "kind": {
+        "type": "task_state_visible",
+        "viewer_id": "worker",
+        "state_owner_id": "worker",
+        "state_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "state_version": 3,
+        "exposure_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "sequence": 2,
+      "event_id": "view-helper",
+      "timestamp_ms": 12,
+      "kind": {
+        "type": "task_state_visible",
+        "viewer_id": "helper",
+        "state_owner_id": "worker",
+        "state_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "state_version": 3,
+        "exposure_receipt_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "sequence": 3,
+      "event_id": "message",
+      "timestamp_ms": 100,
+      "kind": {
+        "type": "message_delivered",
+        "message_id": "msg-1",
+        "sender_id": "worker",
+        "recipient_id": "helper",
+        "payload_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "delivery_receipt_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    {
+      "sequence": 4,
+      "event_id": "request",
+      "timestamp_ms": 120,
+      "kind": {
+        "type": "clarification_requested",
+        "request_id": "clar-1",
+        "requester_id": "worker",
+        "message_id": "msg-1",
+        "ambiguous_referent_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    {
+      "sequence": 5,
+      "event_id": "resolve",
+      "timestamp_ms": 180,
+      "kind": {
+        "type": "clarification_resolved",
+        "request_id": "clar-1",
+        "resolver_id": "helper",
+        "resolved_referent_id": "blue-piece",
+        "object_id": "piece-1",
+        "rationale_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    },
+    {
+      "sequence": 6,
+      "event_id": "confirm",
+      "timestamp_ms": 200,
+      "kind": {
+        "type": "referent_confirmed",
+        "request_id": "clar-1",
+        "confirmer_id": "worker"
+      }
+    },
+    {
+      "sequence": 7,
+      "event_id": "action-1",
+      "timestamp_ms": 300,
+      "kind": {
+        "type": "joint_action_executed",
+        "action_id": "place-1",
+        "initiator_id": "worker",
+        "confirmer_id": "helper",
+        "object_id": "piece-1",
+        "target_slot_id": "slot-1",
+        "clarification_request_id": "clar-1",
+        "environment_accepted": true,
+        "effect_receipt_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    },
+    {
+      "sequence": 8,
+      "event_id": "action-2",
+      "timestamp_ms": 400,
+      "kind": {
+        "type": "joint_action_executed",
+        "action_id": "place-2",
+        "initiator_id": "helper",
+        "confirmer_id": "worker",
+        "object_id": "piece-2",
+        "target_slot_id": "slot-2",
+        "clarification_request_id": null,
+        "environment_accepted": true,
+        "effect_receipt_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+      }
+    },
+    {
+      "sequence": 9,
+      "event_id": "ack",
+      "timestamp_ms": 450,
+      "kind": {
+        "type": "verbal_acknowledgement",
+        "actor_id": "worker",
+        "message_id": "msg-1"
+      }
+    },
+    {
+      "sequence": 10,
+      "event_id": "done",
+      "timestamp_ms": 600,
+      "kind": {
+        "type": "trial_completed",
+        "final_state_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "environment_completion_receipt_digest": "8888888888888888888888888888888888888888888888888888888888888888"
+      }
+    }
+  ],
+  "expected": {
+    "qualification": "pass",
+    "outcome": "success",
+    "joint_success": true,
+    "exact_placements": 2,
+    "required_placements": 2,
+    "verbal_acknowledgements": 1
+  }
+}
