@@ -227,15 +227,21 @@
         "#6069",
         "#6754",
         "#6757",
-        "#4835"
+        "#4835",
+        "#5434",
+        "#5437",
+        "#5442"
       ],
       "checks": [
         "metric_label_vs_definition",
         "valid_time_vs_reporting_period",
         "response_vs_resolution",
-        "no_unjustified_performance_comparison"
+        "no_unjustified_performance_comparison",
+        "explicit_clock_start_and_stop_semantics",
+        "separate_measurement_vs_target_policy_comparability",
+        "reuse_nrvca_dual_axis_comparator"
       ],
-      "owner_boundary": "This is measurement-definition and bitemporal evidence quality, not a claim that the published percentages are comparable or that a pilot improved them."
+      "owner_boundary": "Reuse NRVCA-014/#5437 and NRVCA-015/#5442 for declared KPI measurement/target comparability, including explicit clock_stop. Craft maps each observation to the service episode and preserves owner results; it does not create a second comparator or prove the utility implemented its published definition."
     }
   ]
 }
