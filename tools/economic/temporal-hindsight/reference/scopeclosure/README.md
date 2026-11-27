@@ -7,7 +7,7 @@ It addresses a gap above the temporal frontier forest: a valid proof over all ow
 2. a closure manifest committing to that candidate roster and its explicit dispositions; and
 3. the verifier's exact owner-frontier bindings.
 
-The checker requires each Required owner to appear exactly once in the frontier with the same stable owner-history identity. Unknown, withheld or unavailable candidates, missing owners, duplicate owners, wrong registry epochs, scope substitution, explicit exclusions appearing in the frontier, and unresolved owner gaps all yield `Indeterminate`.
+The checker requires each Required owner to appear exactly once in the frontier with the same stable owner-history identity. The frontier itself binds the exact registry identity, registry epoch and universe profile used by the roster manifest; a frontier from an older registry epoch cannot be reused against a newer roster, even when owner labels happen to be unchanged. Unknown, withheld or unavailable candidates, missing owners, duplicate owners, wrong registry epochs, scope substitution, explicit exclusions appearing in the frontier, and unresolved owner gaps all yield `Indeterminate`.
 
 ## Important claim ceiling
 
@@ -27,7 +27,7 @@ go test -run 'TestValidFrontierOverOmittedOwner|TestManifestCannotSelfDeclareAnI
 go test -run '^$' -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=30x ./...
 ```
 
-Tests cover omitted owners, manifest self-substitution, Unknown/Withheld/Unavailable candidates, explicit out-of-scope evidence, stale registry epoch, scope and stable-history substitution, duplicate history identities, owner gaps, empty roster, nanosecond scope commitment and later registry-epoch noninterference.
+Tests cover omitted owners, manifest self-substitution, Unknown/Withheld/Unavailable candidates, explicit out-of-scope evidence, registry epoch mismatch in both manifest and frontier, registry/profile substitution, scope and stable-history substitution, duplicate history identities, owner gaps, empty roster, nanosecond scope commitment, canonical owner ordering and later registry-epoch noninterference.
 
 ## Benchmarks
 
