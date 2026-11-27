@@ -803,6 +803,15 @@ mod tests {
             project_temporal_relationships(&[original.clone()], &[revocation.clone()], &cut(T11, 2))
                 .unwrap();
         assert_eq!(before_effective_time.active_relations.len(), 1);
+        assert_eq!(
+            before_effective_time.known_mutation_ids,
+            vec!["event-permit-revoked"]
+        );
+        assert_eq!(
+            before_effective_time.pending_mutation_ids,
+            vec!["event-permit-revoked"]
+        );
+        assert!(before_effective_time.applied_mutation_ids.is_empty());
 
         let after_effective_before_knowledge =
             project_temporal_relationships(&[original.clone()], &[revocation.clone()], &cut(T13, 1))
@@ -815,6 +824,43 @@ mod tests {
         assert_eq!(
             after_effective_and_knowledge.revoked_relation_ids,
             vec!["rel-permit-crew"]
+        );
+    }
+
+    #[test]
+    fn pending_mutation_is_visible_and_changes_snapshot_receipt() {
+        let original = claim(
+            "rel-permit-crew",
+            "permit-2",
+            "authorizes",
+            "crew-7",
+            T08,
+            1,
+        );
+        let future_revocation = mutation(
+            "event-permit-revoked",
+            &original,
+            TemporalRelationMutationKindV1::Revoke,
+            T12,
+            2,
+            None,
+        );
+        let cut = cut(T11, 2);
+
+        let no_known_mutation =
+            project_temporal_relationships(&[original.clone()], &[], &cut).unwrap();
+        let known_but_pending =
+            project_temporal_relationships(&[original], &[future_revocation], &cut).unwrap();
+
+        assert_eq!(known_but_pending.active_relations.len(), 1);
+        assert_eq!(
+            known_but_pending.pending_mutation_ids,
+            vec!["event-permit-revoked"]
+        );
+        assert!(known_but_pending.applied_mutation_ids.is_empty());
+        assert_ne!(
+            no_known_mutation.snapshot_sha256,
+            known_but_pending.snapshot_sha256
         );
     }
 
