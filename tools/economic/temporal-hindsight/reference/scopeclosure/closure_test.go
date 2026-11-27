@@ -119,3 +119,16 @@ func TestMultipleOmissionsProduceDeterministicFailureCertificate(t *testing.T) {
 		}
 	}
 }
+
+
+func TestCandidateOrderingDoesNotChangeReconciliationCertificate(t *testing.T) {
+	s, m, u, f := fixture()
+	baseline := Reconcile(s, m, u, f)
+	u.Candidates[0], u.Candidates[1] = u.Candidates[1], u.Candidates[0]
+	m.Candidates[0], m.Candidates[1] = m.Candidates[1], m.Candidates[0]
+	f.Owners[0], f.Owners[1] = f.Owners[1], f.Owners[0]
+	got := Reconcile(s, m, u, f)
+	if got.CertificateDigest != baseline.CertificateDigest || got.Disposition != baseline.Disposition {
+		t.Fatalf("non-canonical input ordering changed result: baseline=%+v got=%+v", baseline, got)
+	}
+}
