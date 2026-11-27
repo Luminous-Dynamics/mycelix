@@ -197,7 +197,7 @@ struct FireEvent {
     late_warning: bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct SuppressedEvent {
     evaluation_step: i64,
     action_id: String,

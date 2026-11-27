@@ -1,0 +1,283 @@
+{
+  "schema_version": "nrvca-service-evidence-ledger/0.1",
+  "artifact_status": "source_discovery_and_reported_claims_only",
+  "scope": "Johannesburg-area water continuity source qualification prototype",
+  "as_of_date": "2026-10-22",
+  "policy": {
+    "source_discovery_is_not_event_validation": true,
+    "reported_assertion_is_not_operator_measurement": true,
+    "public_notice_is_not_proof_of_delivered_service": true,
+    "completed_maintenance_is_not_proof_of_restoration": true,
+    "planned_interruption_is_not_proof_interruption_occurred": true,
+    "automatic_dispatch_enabled": false,
+    "no_unknown_to_zero_conversion": true,
+    "no_event_probability_from_fixture_counts": true,
+    "customer_level_service_outcome_requires_independent_evidence": true
+  },
+  "source_registry": [
+    {
+      "source_id": "jhb-water-interruptions-page",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "source_class": "official_operator_guidance_page",
+      "url": "https://www.johannesburgwater.co.za/interruptions/",
+      "retrieved_or_checked_date": "2026-10-22",
+      "page_text_accessed_via_web": true,
+      "source_html_bytes_acquired": false,
+      "linked_asset_bytes_acquired": false,
+      "sha256": null,
+      "access_status": "page_content_accessible; underlying file bytes not acquired",
+      "visible_content": [
+        "Separates unplanned interruptions, planned interruptions, and completed maintenance/repairs.",
+        "Describes emergency updates as posted through website/social channels and SMS.",
+        "Says planned interruptions are communicated with expected time and duration."
+      ],
+      "content_classification": "operator_publication_policy_and_process",
+      "not_evidence_of": [
+        "complete historical incident inventory",
+        "actual outage occurrence for a named locality",
+        "measured outage duration",
+        "customer-level water availability or restoration"
+      ],
+      "rights_status": "website usage/privacy policy linked; reuse terms not independently qualified",
+      "source_sha256_note": "No source bytes were acquired, so no digest is asserted."
+    },
+    {
+      "source_id": "jhb-water-daily-notices",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "source_class": "official_operator_daily_status_page",
+      "url": "https://www.johannesburgwater.co.za/daily-water-notices/",
+      "retrieved_or_checked_date": "2026-10-22",
+      "page_text_accessed_via_web": true,
+      "source_html_bytes_acquired": false,
+      "linked_asset_bytes_acquired": false,
+      "sha256": null,
+      "access_status": "page text accessible; latest visible notice assets were presented as images and were not independently inspected as source files",
+      "visible_asset_alt_text": [
+        "WhatsApp Image 2026-10-15 at 09.05.05 (1)",
+        "WhatsApp Image 2026-10-15 at 09.05.05"
+      ],
+      "asset_date_semantics": "date parsed from page image alt text only; not a validated publication timestamp or event time",
+      "content_classification": "operator_notice_discovery",
+      "archive_is_machine_readable": false,
+      "not_evidence_of": [
+        "full text of the visible notice images",
+        "precise incident start/end time",
+        "affected household/customer count",
+        "restoration time",
+        "complete list of active incidents"
+      ],
+      "rights_status": "website usage/privacy policy linked; linked asset reuse terms not independently qualified",
+      "source_sha256_note": "No source or image bytes were acquired, so no digest is asserted."
+    },
+    {
+      "source_id": "dws-gauteng-water-security-dashboard-index",
+      "publisher": "Department of Water and Sanitation, Republic of South Africa",
+      "source_class": "official_dashboard_report_index",
+      "url": "https://www.dws.gov.za/gautengreports.aspx",
+      "retrieved_or_checked_date": "2026-10-22",
+      "page_text_accessed_via_web": false,
+      "search_result_snippet_accessed": true,
+      "page_fetch_status": "403_forbidden_in_this_retrieval",
+      "source_html_bytes_acquired": false,
+      "report_bytes_acquired": false,
+      "sha256": null,
+      "visible_listing_claim": "Search-indexed listing included Gauteng Dashboard monthly updates through 31 May 2026 and earlier reports.",
+      "listing_semantics": "last visible indexed entry, not proof that no later report exists",
+      "content_classification": "report_discovery_index",
+      "not_evidence_of": [
+        "content of any individual report",
+        "June-October 2026 operational state",
+        "current municipal reservoir levels",
+        "current bulk supply volume"
+      ],
+      "rights_status": "not checked for individual report reuse terms",
+      "source_sha256_note": "No page/report bytes were acquired, so no digest is asserted."
+    },
+    {
+      "source_id": "govza-gauteng-water-update-2026-02-13",
+      "publisher": "Gauteng Provincial Government via South African Government",
+      "source_class": "official_government_press_statement",
+      "url": "https://www.gov.za/news/media-statements/gauteng-provincial-government-addresses-water-challenges-13-feb-2026",
+      "published_date": "2026-02-13",
+      "page_text_accessed_via_web": true,
+      "source_html_bytes_acquired": false,
+      "sha256": null,
+      "reported_context": [
+        "Supply challenges affected parts of Johannesburg and other Gauteng municipalities.",
+        "The statement attributes disruptions to a combination including infrastructure age, high demand, leaks, power interruptions affecting pumping, and maintenance backlogs.",
+        "The statement describes a provincial operations centre and coordination effort."
+      ],
+      "content_classification": "official_reported_context_not_sensor_observation",
+      "not_evidence_of": [
+        "independently measured causal contribution for each cause",
+        "neighbourhood-level outage duration",
+        "customer-level delivered service",
+        "causal impact of the intervention"
+      ],
+      "rights_status": "government publication; specific data-reuse terms not independently established",
+      "source_sha256_note": "Page text was read through web access; original HTML/PDF bytes were not acquired or hashed."
+    },
+    {
+      "source_id": "presidency-gauteng-water-task-team-2026-02-13",
+      "publisher": "The Presidency / South African Government",
+      "source_class": "official_government_press_statement",
+      "url": "https://www.gov.za/news/media-statements/deputy-president-paul-mashatile-convenes-water-task-team-address-gauteng",
+      "published_date": "2026-02-13",
+      "page_text_accessed_via_web": true,
+      "source_html_bytes_acquired": false,
+      "sha256": null,
+      "reported_context": [
+        "The statement reports that Rand Water had returned to full capacity by 4 February 2026 after January/early-February pump-station and pipe disruptions.",
+        "The statement says municipal systems, particularly in Johannesburg, remained under pressure due to low reservoir levels and high demand."
+      ],
+      "content_classification": "official_reported_context_not_sensor_observation",
+      "not_evidence_of": [
+        "continuous delivery at full capacity throughout the period",
+        "all municipal reservoirs recovered",
+        "specific household restoration times",
+        "a measured municipal service-quality result"
+      ],
+      "rights_status": "government publication; specific data-reuse terms not independently established",
+      "source_sha256_note": "Page text was read through web access; original bytes were not acquired or hashed."
+    },
+    {
+      "source_id": "govza-rand-water-additional-abstraction-2026-02-19",
+      "publisher": "Department of Water and Sanitation via South African Government",
+      "source_class": "official_government_press_statement",
+      "url": "https://www.gov.za/news/media-statements/minister-pemmy-majodina-permits-rand-water-additional-abstraction-stabilise",
+      "published_date": "2026-02-19",
+      "page_text_accessed_via_web": true,
+      "source_html_bytes_acquired": false,
+      "sha256": null,
+      "reported_context": [
+        "The statement reports that Rand Water returned to its normal supply of 5,000 million litres of treated water per day by 4 February 2026 after January disruptions.",
+        "The statement reports that municipal reservoirs were depleted in many places after the period of reduced bulk supply."
+      ],
+      "content_classification": "official_reported_context_not_sensor_observation",
+      "not_evidence_of": [
+        "a measured daily delivered volume at each connection",
+        "continuous service to all areas",
+        "municipal demand satisfaction",
+        "household-level duration or restoration"
+      ],
+      "rights_status": "government publication; specific data-reuse terms not independently established",
+      "source_sha256_note": "Page text was read through web access; original bytes were not acquired or hashed."
+    }
+  ],
+  "reported_assertions": [
+    {
+      "assertion_id": "gauteng-disruption-context-feb-2026",
+      "source_ids": [
+        "govza-gauteng-water-update-2026-02-13"
+      ],
+      "assertion_type": "official_reported_context",
+      "subject": "water supply disruptions affecting parts of Johannesburg and other Gauteng municipalities",
+      "reported_valid_period": {
+        "start": null,
+        "end": null,
+        "precision": "not fully specified by the source statement"
+      },
+      "publication_date": "2026-02-13",
+      "geography": {
+        "reported_text": "parts of Johannesburg and other Gauteng municipalities",
+        "geocoded": false,
+        "geometry": null
+      },
+      "structured_measurement": null,
+      "evidence_status": "reported_statement_unindependently_measured",
+      "causal_interpretation": "source-reported list of contributing factors; no separately estimated causal effects",
+      "outcome_status": "unknown"
+    },
+    {
+      "assertion_id": "bulk-supply-reported-normal-by-2026-02-04",
+      "source_ids": [
+        "presidency-gauteng-water-task-team-2026-02-13",
+        "govza-rand-water-additional-abstraction-2026-02-19"
+      ],
+      "assertion_type": "official_reported_operational_state",
+      "subject": "Rand Water bulk treated-water supply reportedly returned to normal capacity",
+      "reported_valid_period": {
+        "start": "2026-02-04",
+        "end": null,
+        "precision": "source says by date; no complete time series is included here"
+      },
+      "publication_date": "2026-02-13",
+      "geography": {
+        "reported_text": "Rand Water supply to Gauteng municipalities",
+        "geocoded": false,
+        "geometry": null
+      },
+      "value": 5000,
+      "unit": "million_litres_per_day",
+      "value_semantics": "reported normal supply capacity/level, not independently measured flow series and not household delivery",
+      "evidence_status": "official_reported_quantity",
+      "outcome_status": "bulk_supply_reported_normal; municipal customer-level service remains unknown",
+      "cross_source_note": "The second government statement repeats related information; it is corroborating reporting, not a fully independent measurement."
+    },
+    {
+      "assertion_id": "municipal-storage-depletion-reported-feb-2026",
+      "source_ids": [
+        "presidency-gauteng-water-task-team-2026-02-13",
+        "govza-rand-water-additional-abstraction-2026-02-19"
+      ],
+      "assertion_type": "official_reported_operational_context",
+      "subject": "municipal reservoirs reported depleted or constrained following the bulk-supply disruption",
+      "reported_valid_period": {
+        "start": null,
+        "end": null,
+        "precision": "period and site-level measurements not specified in this fixture"
+      },
+      "publication_date": "2026-02-13",
+      "geography": {
+        "reported_text": "many Gauteng municipalities; some areas of Johannesburg are discussed",
+        "geocoded": false,
+        "geometry": null
+      },
+      "structured_measurement": null,
+      "evidence_status": "reported_statement_no_site_level_measurement",
+      "outcome_status": "unknown"
+    }
+  ],
+  "unacquired_evidence_requirements": [
+    {
+      "requirement_id": "jw-notice-image-bytes",
+      "needed": "Original daily-notice image bytes and original publication metadata",
+      "why": "Current visible page exposes notice assets as images; complete incident details cannot be reconstructed from alt text alone.",
+      "qualification_gate": "Acquire source asset, hash bytes, retain capture timestamp and source locator; transcribe fields with review receipts."
+    },
+    {
+      "requirement_id": "dws-dashboard-report-bytes",
+      "needed": "Official monthly Gauteng Water Security Dashboard reports, including months after May 2026 if published",
+      "why": "Dashboard listing is discoverable but its page fetch returned 403 in this pass.",
+      "qualification_gate": "Acquire official PDFs through an authorized accessible route, record hash and publication date, parse only after file-level verification."
+    },
+    {
+      "requirement_id": "operator-telemetry",
+      "needed": "Metered flow, reservoir level, pressure, service interruptions, restoration timestamps and quality measures with spatial coverage",
+      "why": "Press statements and notices do not provide a continuous operator-measured service outcome series.",
+      "qualification_gate": "Obtain permission, definitions, units, sampling cadence, calibration metadata, missingness and geographic coverage."
+    },
+    {
+      "requirement_id": "independent-corroboration",
+      "needed": "Independent or community-level service observations under a privacy-preserving collection protocol",
+      "why": "Government narrative alone cannot quantify customer-level continuity or distributional impact.",
+      "qualification_gate": "Pre-register sampling/consent, deduplication and uncertainty rules before use."
+    }
+  ],
+  "claim_ceiling": {
+    "permitted": [
+      "the listed organizations published the located statements/pages on or around the recorded dates",
+      "the statements report the quoted operational context",
+      "the visible notice page is not a structured incident feed in this retrieval",
+      "identify data acquisition and measurement gaps"
+    ],
+    "not_permitted": [
+      "infer current water availability in Johannesburg from this source ledger",
+      "treat reports as verified sensor telemetry",
+      "estimate outage prevalence, customer-minutes lost, affected households or recovery time from these assertions",
+      "claim that additional abstraction caused customer restoration",
+      "infer causal effects from before/after statements",
+      "promote a reported 5000 ML/day source statement into independently verified measurements"
+    ]
+  }
+}
