@@ -1,6 +1,7 @@
 package progressantichain
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -289,5 +290,46 @@ func TestMalformedScopeSubmissionsAreBoundIntoCertificate(t *testing.T) {
 	}
 	if first.CertificateDigest == second.CertificateDigest || first.ScopeDigest == second.ScopeDigest {
 		t.Fatal("distinct malformed scopes collapsed to one receipt")
+	}
+}
+
+func TestOversizedScopeIdentifiersFailClosed(t *testing.T) {
+	scope := testScope("owner:A")
+	scope.SourceRef = strings.Repeat("s", maxProgressStringBytes+1)
+	if _, err := ValidateProgressAntichainV1(testAntichain(scope)); err == nil {
+		t.Fatal("oversized source reference accepted")
+	}
+}
+
+func TestOversizedOwnerIdentifiersFailClosed(t *testing.T) {
+	scope := testScope(strings.Repeat("o", maxProgressStringBytes+1))
+	if _, err := ValidateProgressAntichainV1(testAntichain(scope)); err == nil {
+		t.Fatal("oversized owner reference accepted")
+	}
+}
+
+func TestOwnerUniverseLimitFailClosed(t *testing.T) {
+	owners := make([]string, maxProgressOwners+1)
+	for i := range owners {
+		owners[i] = fmt.Sprintf("owner:%d", i)
+	}
+	if _, err := ValidateProgressAntichainV1(testAntichain(testScope(owners...))); err == nil {
+		t.Fatal("owner universe above configured limit accepted")
+	}
+}
+
+func TestAntichainWidthLimitFailClosed(t *testing.T) {
+	antichain := ProgressAntichainV1{Scope: testScope(), Points: make([]ProgressCutV1, maxProgressPoints+1)}
+	if _, err := ValidateProgressAntichainV1(antichain); err == nil {
+		t.Fatal("antichain width above configured limit accepted")
+	}
+}
+
+func TestOversizedQueryCoordinateFailsClosed(t *testing.T) {
+	antichain := testAntichain(testScope("owner:A"))
+	query := ProgressCutV1{Owners: []OwnerSequenceV1{{OwnerRef: strings.Repeat("x", maxProgressStringBytes+1), Sequence: 1}}}
+	result := EvaluateProgressAtV1(antichain, query)
+	if result.Disposition != ProgressIndeterminate {
+		t.Fatalf("oversized query coordinate accepted: %+v", result)
 	}
 }
