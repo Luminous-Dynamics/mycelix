@@ -366,7 +366,7 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 			applyTransition(active,usedCapabilityIDs,*event.Transition,cut,digest)
 		case OutcomeUnknown:
 			if pending!=nil || event.Transition==nil || event.ReconcilesEventID!=""{return failedReplay(result,"malformed or nested unknown-outcome event")}
-			if _,_,err:=validateTransition(scopeDigest,owners,*event.Transition,active);err!=nil{return failedReplay(result,"unknown transition intent is invalid: "+err.Error())}
+			if _,_,err:=validateTransition(scopeDigest,owners,*event.Transition,active,usedCapabilityIDs);err!=nil{return failedReplay(result,"unknown transition intent is invalid: "+err.Error())}
 			copyEvent:=event;pending=&copyEvent
 		case OutcomeApplied,OutcomeNotApplied:
 			if event.Transition!=nil || pending==nil || event.ReconcilesEventID!=pending.EventID{return failedReplay(result,"reconciliation does not match the pending unknown outcome")}
