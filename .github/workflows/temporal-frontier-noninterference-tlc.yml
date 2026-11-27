@@ -93,6 +93,42 @@ jobs:
             -config TemporalFrontierNoninterference.cfg \
             TemporalFrontierNoninterference.tla
 
+      - name: Check owner-universe closure specification
+        working-directory: tools/economic/temporal-hindsight/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-owner-universe-correct" \
+            -config TemporalOwnerUniverseClosure.cfg \
+            TemporalOwnerUniverseClosure.tla
+
+      - name: Require omitted-owner mutant to produce the expected counterexample
+        working-directory: tools/economic/temporal-hindsight/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$RUNNER_TEMP/tlc-owner-universe-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-owner-universe-mutant" \
+            -config TemporalOwnerUniverseClosure-Mutant.cfg \
+            TemporalOwnerUniverseClosure.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "The deliberately incomplete-roster mutant unexpectedly passed."
+            exit 1
+          fi
+          if ! grep -E "Invariant RosterUniverseEquality is violated" "$log"; then
+            echo "TLC failed, but not for the expected omitted-owner counterexample."
+            exit 1
+          fi
+          echo "Expected omitted-owner counterexample observed."
+
       - name: Require the deliberately faulty mutant to fail safely
         working-directory: tools/economic/temporal-range-index/formal
         shell: bash
@@ -117,6 +153,52 @@ jobs:
           fi
           echo "Expected counterexample observed; negative control is effective."
  -bench 'BenchmarkReplay' -benchmem -benchtime=1x ./...
+
+      - name: Qualify owner-universe scope closure oracle
+        working-directory: tools/economic/temporal-hindsight/reference/scopeclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go test -race ./...
+          go vet ./...
+          go test -run 'TestValidFrontierOverOmittedOwner|TestManifestCannotSelfDeclareAnIncompleteRoster|TestLaterRegistryEpochDoesNotRewriteHistoricalCertificate|TestMultipleOmissionsProduceDeterministicFailureCertificate' -count=30 ./...
+          go test -run '^
+        working-directory: tools/economic/temporal-range-index/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-noninterference-correct" \
+            -config TemporalFrontierNoninterference.cfg \
+            TemporalFrontierNoninterference.tla
+
+      - name: Require the deliberately faulty mutant to fail safely
+        working-directory: tools/economic/temporal-range-index/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$RUNNER_TEMP/tlc-noninterference-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-noninterference-mutant" \
+            -config TemporalFrontierNoninterference-Mutant.cfg \
+            TemporalFrontierNoninterference.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "The deliberately faulty mutant unexpectedly passed."
+            exit 1
+          fi
+          if ! grep -E "Invariant (HistoricalReplayBound|ExactHistoricalCertificateBinding) is violated" "$log"; then
+            echo "TLC failed, but not for the expected hindsight/relabel invariant."
+            exit 1
+          fi
+          echo "Expected counterexample observed; negative control is effective."
+ -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=1x ./...
 
       - name: Check correct noninterference specification
         working-directory: tools/economic/temporal-range-index/formal
