@@ -1,0 +1,501 @@
+{
+  "schema_version": "nrvca-water-service-kpi-comparability/1.0.0",
+  "benchmark_id": "NRVCA-WATER-KPI-EVENT-SEMANTICS-V1",
+  "data_classification": "synthetic_conformance",
+  "source_context": {
+    "annual_report_2024_25": "https://joburg.org.za/work_/Documents/Annual-Integrated-Report-2025/City-of-Johannesburg-Annual-Intergrated-Report-2025.pdf",
+    "business_plan_2025_26": "https://www.johannesburgwater.co.za/wp-content/uploads/2025/07/JHB-Water_Business-Plan-2025_For-Upload_FINAL_070725.pdf",
+    "note": "Published values and descriptions motivate the fixture. This synthetic contract corpus is not a byte-pinned extraction, complete data reconciliation, legal determination or service-outcome dataset."
+  },
+  "policy": {
+    "same_display_label_does_not_imply_same_event_boundary": true,
+    "event_start_and_terminal_event_are_both_semantic_fields": true,
+    "target_policy_is_compared_separately_from_measurement_semantics": true,
+    "missing_semantic_fields_force_indeterminate": true,
+    "caller_supplied_fingerprint_does_not_override_semantic_fields": true,
+    "source_metadata_is_not_measurement_semantics": true
+  },
+  "cases": [
+    {
+      "case_id": "WSR-KPI-001-response-vs-repair",
+      "description": "The same 48-hour label masks a different terminal event: first response versus repair completion.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "crew_arrival_and_resolution_initiated_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "percentage of water bursts restored within 48 hours",
+        "source_id": "JW-BP-2025-26",
+        "period": "baseline labelled 2023/24"
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "percentage of water bursts restored within 48 hours",
+        "source_id": "JW-IAR-2024-25",
+        "period": "2024/25"
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [
+          "clock_stop"
+        ],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-002-repair-vs-pressure-restoration",
+      "description": "Repair work completion and independently observed service restoration are distinct event endpoints.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "water burst repaired within 48 hours"
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "independently_observed_pressure_restoration_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "water burst repaired within 48 hours"
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [
+          "clock_stop"
+        ],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-003-label-is-not-semantics",
+      "description": "Different display labels do not prevent comparison where all semantic contract fields match.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "bursts repaired within 48 hours",
+        "source_id": "REPORT-A",
+        "period": "FY2024/25"
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "48-hour burst repair rate",
+        "source_id": "REPORT-B",
+        "period": "FY2025/26"
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-004-target-policy-only",
+      "description": "A changed target policy does not erase comparability of the underlying measured event definition.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "crew_arrival_and_resolution_initiated_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 85,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2024/25"
+        },
+        "source_id": "JW-BP-2024-25"
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "crew_arrival_and_resolution_initiated_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "source_id": "JW-BP-2025-26"
+      },
+      "expected": {
+        "measurement_comparability": "comparable",
+        "target_comparability": "changed_target_policy",
+        "measurement_changed_fields": [],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [
+          "value",
+          "policy_vintage"
+        ],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-005-missing-stop-event",
+      "description": "A missing terminal-event definition forces abstention rather than label-based comparison.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        }
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": null,
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "indeterminate",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [],
+        "measurement_unknown_fields": [
+          "clock_stop"
+        ],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-006-fingerprint-cannot-hide-stop-drift",
+      "description": "A caller-supplied matching fingerprint cannot mask a different clock-stop semantic.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "semantic_fingerprint": "SYNTHETIC-FINGERPRINT-1"
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "crew_arrival_and_resolution_initiated_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "semantic_fingerprint": "SYNTHETIC-FINGERPRINT-1"
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [
+          "clock_stop"
+        ],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-007-denominator-drift",
+      "description": "A change in the eligible denominator prevents direct comparison even when the event endpoint is unchanged.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        }
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "only completed work orders",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [
+          "denominator_definition"
+        ],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    },
+    {
+      "case_id": "WSR-KPI-008-missing-denominator",
+      "description": "A missing denominator semantic prevents a confident comparability decision.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        }
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": null,
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "repair_completed_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "include all eligible episodes; disclose cancellations, duplicate reports, reopened events and missing terminal events"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        }
+      },
+      "expected": {
+        "measurement_comparability": "indeterminate",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [],
+        "measurement_unknown_fields": [
+          "denominator_definition"
+        ],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
+    }
+  ]
+}
