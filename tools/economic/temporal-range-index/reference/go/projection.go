@@ -13,6 +13,13 @@ import (
 
 const projectionAuditDomainV1 = "MYCELIX-OWNER-TEMPORAL-PROJECTION-AUDIT-V0.1\x00"
 const projectionInventoryDomainV1 = "MYCELIX-OWNER-ACCEPTED-RECEIPT-INVENTORY-V0.1\x00"
+const canonicalKnowledgeReceiptMagicV1 = "MYCELIX-KNOWLEDGE-RECEIPT-V1\x00"
+
+const (
+	maxProjectionReceiptsV1 = 100_000
+	maxProjectionReceiptBytesV1 = 64 * 1024 * 1024
+	maxProjectionDependenciesV1 = 10_000
+)
 
 type ReceiptProjectionClassV1 uint8
 
