@@ -292,6 +292,44 @@
       "invariant": "Generated text, model confidence, or inferred consensus cannot substitute for authenticated human assent, delegation, or authority.",
       "expected_relation": "authority_state_unchanged_without_authority_artifact",
       "oracle": "Need Intake, Project Formation and host-authenticated authority records."
+    },
+    {
+      "relation_id": "MR-017",
+      "name": "Minimal lawful counterfactual repair plan is complete and non-bypassing",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "mutation_ids": [
+        "M-OMIT-MATERIAL-BLOCKER-FROM-PLAN",
+        "M-RECOMMEND-UNAUTHORIZED-BYPASS"
+      ],
+      "negative_control_ids": [
+        "N-FULFILL-ONE-REQUIRED-BLOCKER",
+        "N-PRESERVE-OPEN-PLAN-ON-UNRELATED-CHANGE"
+      ],
+      "invariant": "For an open decision, a repair plan identifies every currently material blocker, its owner and prerequisite, and only lawful ways to address it; it never changes the decision state or bypasses safety/authority requirements.",
+      "expected_relation": "plan_is_complete_minimal_owner_scoped_and_state_preserving",
+      "oracle": "Decision Closure, Claim Support and authority owners; independently compare the plan with the exact material-element dependency graph."
+    },
+    {
+      "relation_id": "MR-018",
+      "name": "Attributed material dissent is preserved without fabricated consensus",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "mutation_ids": [
+        "M-ERASE-MINORITY-DISSENT",
+        "M-MERGE-ATTRIBUTED-POSITIONS-INTO-CONSENSUS"
+      ],
+      "negative_control_ids": [
+        "N-ADD-NEW-ATTRIBUTED-POSITION",
+        "N-RECORD-AUTHENTICATED-COMPROMISE"
+      ],
+      "invariant": "Every material stakeholder position remains separately attributable through summaries and revisions; positions may be reconciled only by an authenticated, explicitly scoped community decision.",
+      "expected_relation": "all_material_attributed_positions_preserved_until_authenticated_resolution",
+      "oracle": "Need Intake exact position provenance, reviewer authority and revision history."
     }
   ]
 }
