@@ -44,78 +44,131 @@ pub enum GameValidationIssue {
     /// A game must declare at least one strategy.
     NoStrategies,
     /// A player identifier is empty.
-    EmptyPlayerId { player_index: usize },
+    EmptyPlayerId {
+        /// Zero-based position of the player in the game definition.
+        player_index: usize,
+    },
     /// A player identifier appears more than once.
-    DuplicatePlayerId { player_id: String },
+    DuplicatePlayerId {
+        /// Identifier shared by multiple player records.
+        player_id: String,
+    },
     /// A player's initial trust is outside [0, 1] or non-finite.
-    InvalidInitialTrust { player_id: String },
+    InvalidInitialTrust {
+        /// Identifier of the player with the invalid trust value.
+        player_id: String,
+    },
     /// A strategy identifier is empty.
-    EmptyStrategyId { strategy_index: usize },
+    EmptyStrategyId {
+        /// Zero-based position of the strategy in the game definition.
+        strategy_index: usize,
+    },
     /// A strategy identifier appears more than once.
-    DuplicateStrategyId { strategy_id: String },
+    DuplicateStrategyId {
+        /// Identifier shared by multiple strategy records.
+        strategy_id: String,
+    },
     /// A strategy has no action definitions.
-    StrategyHasNoActions { strategy_id: String },
+    StrategyHasNoActions {
+        /// Identifier of the strategy with no actions.
+        strategy_id: String,
+    },
     /// An action probability is outside [0, 1] or non-finite.
     InvalidActionProbability {
+        /// Identifier of the strategy containing the action.
         strategy_id: String,
+        /// Zero-based position of the invalid action in its strategy.
         action_index: usize,
     },
     /// An action contains a non-finite numeric parameter or an empty required name.
     InvalidActionParameter {
+        /// Identifier of the strategy containing the action.
         strategy_id: String,
+        /// Zero-based position of the invalid action in its strategy.
         action_index: usize,
+        /// Name of the invalid parameter.
         parameter: String,
     },
     /// A condition contains an invalid numeric threshold.
     InvalidConditionParameter {
+        /// Identifier of the strategy containing the action.
         strategy_id: String,
+        /// Zero-based position of the action in its strategy.
         action_index: usize,
+        /// Zero-based position of the invalid condition in the action.
         condition_index: usize,
     },
     /// No declared strategy is legal for a player type.
-    PlayerHasNoApplicableStrategies { player_id: String },
+    PlayerHasNoApplicableStrategies {
+        /// Identifier of the player without a legal strategy.
+        player_id: String,
+    },
     /// The repeated-game round count is zero.
     ZeroRounds,
     /// The discount factor is non-finite or outside [0, 1].
     InvalidDiscountFactor,
     /// A payoff entry has the wrong number of player actions.
     WrongProfileArity {
+        /// Zero-based position of the payoff entry.
         entry_index: usize,
+        /// Number of players expected in the profile.
         expected: usize,
+        /// Number of strategy identifiers actually supplied.
         actual: usize,
     },
     /// A payoff entry refers to an unknown strategy.
     UnknownStrategyInProfile {
+        /// Zero-based position of the payoff entry.
         entry_index: usize,
+        /// Zero-based player position using the unknown strategy.
         player_index: usize,
+        /// Unknown strategy identifier.
         strategy_id: String,
     },
     /// A payoff entry assigns a strategy to a player type for which it is not declared.
     InapplicableStrategyInProfile {
+        /// Zero-based position of the payoff entry.
         entry_index: usize,
+        /// Zero-based player position with the inapplicable strategy.
         player_index: usize,
+        /// Strategy identifier not declared for this player's type.
         strategy_id: String,
     },
     /// Two payoff entries define the same ordered strategy profile.
-    DuplicatePayoffProfile { profile: Vec<String> },
+    DuplicatePayoffProfile {
+        /// Ordered strategy identifiers that occur more than once.
+        profile: Vec<String>,
+    },
     /// A payoff vector does not have exactly one value per player.
     WrongPayoffArity {
+        /// Zero-based position of the payoff entry.
         entry_index: usize,
+        /// Number of player payoffs expected.
         expected: usize,
+        /// Number of payoffs actually supplied.
         actual: usize,
     },
     /// A payoff is NaN or infinite.
     NonFinitePayoff {
+        /// Zero-based position of the payoff entry.
         entry_index: usize,
+        /// Zero-based player position with the non-finite payoff.
         player_index: usize,
     },
     /// The legal profile count overflowed usize while being calculated.
     ProfileCountOverflow,
     /// The legal profile space exceeds the configured validation bound.
-    ProfileSpaceTooLarge { expected: usize, maximum: usize },
+    ProfileSpaceTooLarge {
+        /// Total legal profile count.
+        expected: usize,
+        /// Configured maximum profile count.
+        maximum: usize,
+    },
     /// One or more legal profiles have no valid payoff entry.
     MissingPayoffProfiles {
+        /// Number of legal profiles without a valid payoff entry.
         count: usize,
+        /// Up to eight missing profiles, in player order, for diagnosis.
         examples: Vec<Vec<String>>,
     },
 }
