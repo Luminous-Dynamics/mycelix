@@ -496,6 +496,70 @@
         "target_changed_fields": [],
         "target_unknown_fields": []
       }
+    },
+    {
+      "case_id": "WSR-KPI-009-duplicate-callout-denominator",
+      "description": "A changed same-fault duplicate-callout rule changes the eligible unit of count and prevents direct trend comparison.",
+      "left": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "crew_arrival_and_resolution_initiated_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "consolidate multiple complaints logged separately for the same fault into one callout"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "percentage water callouts responded within 48 hours",
+        "source_id": "REPORT-A",
+        "period": "FY2024/25"
+      },
+      "right": {
+        "measurement": {
+          "canonical_concept_id": "water_burst_service_standard_48h",
+          "unit": "percent",
+          "numerator_definition": "eligible water burst episodes where the defined terminal event occurred within 48 hours of notification",
+          "denominator_definition": "all eligible water burst notifications in the declared service population",
+          "eligible_population": "eligible water burst notifications under the named service-standard vintage",
+          "clock_start": "notification_received_timestamp",
+          "clock_stop": "crew_arrival_and_resolution_initiated_timestamp",
+          "deadline_rule": "within_48_elapsed_hours",
+          "category_rule": "none",
+          "geographic_scope": "Johannesburg_Water_declared_service_area",
+          "aggregation": "annual_fiscal_year",
+          "inclusion_rule": "count each separately logged complaint as a distinct callout"
+        },
+        "target": {
+          "value": 90,
+          "unit": "percent",
+          "target_population": "eligible water burst notifications",
+          "policy_vintage": "FY2025/26"
+        },
+        "label": "percentage water callouts responded within 48 hours",
+        "source_id": "REPORT-B",
+        "period": "FY2025/26"
+      },
+      "expected": {
+        "measurement_comparability": "not_comparable",
+        "target_comparability": "same_target_policy",
+        "measurement_changed_fields": [
+          "inclusion_rule"
+        ],
+        "measurement_unknown_fields": [],
+        "target_changed_fields": [],
+        "target_unknown_fields": []
+      }
     }
   ]
 }
