@@ -485,19 +485,21 @@ fn ocel_relation_target(
         .get("relationships")
         .and_then(Value::as_array)
         .ok_or(TemporalRelationshipErrorV1::InvalidOcelRelationship)?;
-    let mut targets = relationships.iter().filter_map(|relationship| {
-        (relationship.get("qualifier").and_then(Value::as_str) == Some(qualifier))
-            .then(|| relationship.get("objectId").and_then(Value::as_str))
-            .flatten()
-    });
-    let target = targets
-        .next()
-        .filter(|target| non_empty(target))
-        .ok_or(TemporalRelationshipErrorV1::InvalidOcelRelationship)?;
-    if targets.next().is_some() {
+    let mut targets = Vec::new();
+    for relationship in relationships {
+        if relationship.get("qualifier").and_then(Value::as_str) == Some(qualifier) {
+            let target = relationship
+                .get("objectId")
+                .and_then(Value::as_str)
+                .filter(|target| non_empty(target))
+                .ok_or(TemporalRelationshipErrorV1::InvalidOcelRelationship)?;
+            targets.push(target);
+        }
+    }
+    if targets.len() != 1 {
         return Err(TemporalRelationshipErrorV1::InvalidOcelRelationship);
     }
-    Ok(target.to_owned())
+    Ok(targets[0].to_owned())
 }
 
 fn decode_digest(value: &str) -> Result<[u8; 32], TemporalRelationshipErrorV1> {
@@ -545,6 +547,11 @@ pub fn parse_temporal_relationships_ocel20(
 > {
     let root: Value =
         serde_json::from_str(input).map_err(|_| TemporalRelationshipErrorV1::InvalidOcel20)?;
+    for key in ["objectTypes", "eventTypes"] {
+        if !root.get(key).and_then(Value::as_array).is_some() {
+            return Err(TemporalRelationshipErrorV1::InvalidOcel20);
+        }
+    }
     let objects = root
         .get("objects")
         .and_then(Value::as_array)
