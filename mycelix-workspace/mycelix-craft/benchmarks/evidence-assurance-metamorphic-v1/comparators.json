@@ -1,0 +1,201 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "matching_protocol": {
+    "same_seed_bytes": true,
+    "same_mutation_schedule": true,
+    "same_external_evidence_access": true,
+    "same_consequence_labels": true,
+    "same_output_schema": true,
+    "same_adjudication_corpus": true,
+    "compute_and_time_budget": "pre-register per run and apply consistently; record any platform-imposed limits",
+    "model_and_tool_versions": "pin exact provider, model, version, system prompt, retrieval corpus digest, tool configuration, and run date",
+    "randomization": "randomize case order and comparator order where practical; keep deterministic seeds and disclose nondeterminism",
+    "repetitions": "at least 3 repeated runs for nondeterministic systems; report per-run and pooled results",
+    "adjudication": "independent domain reviewers blinded to comparator identity where feasible"
+  },
+  "comparators": [
+    {
+      "comparator_id": "BASE-HUMAN-EXPERT",
+      "category": "human_baseline",
+      "name": "Manual domain-expert workflow",
+      "configuration_requirements": [
+        "Record reviewer roles, credentials, jurisdictional scope, conflicts and decision authority.",
+        "Use the same frozen evidence packet and exact time budget.",
+        "Record source retrieval, discussion time, missing-evidence requests, decision reasons and dissent.",
+        "Separate individual review from final authorized decision."
+      ],
+      "required_outputs": [
+        "structured disposition",
+        "claim-to-evidence mapping",
+        "authority and review trail",
+        "time and reviewer effort",
+        "dissent and unresolved items"
+      ],
+      "interpretation_guard": "Human review is not an infallible oracle; adjudicate against independent expert consensus and preserve dissent."
+    },
+    {
+      "comparator_id": "BASE-CHECKLIST",
+      "category": "structured_process_baseline",
+      "name": "Structured checklist/template workflow",
+      "configuration_requirements": [
+        "Freeze the checklist/template revision and decision rules.",
+        "Give reviewers the same inputs and evidence access.",
+        "Record required fields, validation steps, escalation paths and override policy.",
+        "Do not silently add undocumented expert review."
+      ],
+      "required_outputs": [
+        "completed checklist",
+        "evidence references",
+        "exceptions and escalation record",
+        "time and reviewer effort"
+      ],
+      "interpretation_guard": "Do not compare a carefully staffed checklist against an unattended model without reporting resource and authority differences."
+    },
+    {
+      "comparator_id": "BASE-SINGLE-LLM",
+      "category": "model_baseline",
+      "name": "Single LLM",
+      "configuration_requirements": [
+        "Pin provider, exact model identifier/version, inference settings and system prompt digest.",
+        "Freeze the complete prompt and tool policy.",
+        "Provide exactly the authorized evidence corpus; log retrieval omissions and tool outputs.",
+        "Run with a separately recorded compute/token/time budget."
+      ],
+      "required_outputs": [
+        "structured disposition",
+        "claim/evidence references",
+        "quoted or localized support basis",
+        "uncertainty and unresolved elements",
+        "model/tool trace"
+      ],
+      "interpretation_guard": "A model output is a candidate proposal, not consent, authority, or verified evidence."
+    },
+    {
+      "comparator_id": "BASE-RAG-LLM",
+      "category": "model_baseline",
+      "name": "Retrieval-augmented LLM",
+      "configuration_requirements": [
+        "Pin the base model and prompt as for the single-LLM baseline.",
+        "Freeze the retrieval corpus, embedding/index version and corpus digest.",
+        "Record top-k, filters, chunking, reranker, retrieval scores and omitted sources.",
+        "Apply the same source and time limits as all other model baselines."
+      ],
+      "required_outputs": [
+        "single-LLM outputs",
+        "retrieval IDs and exact source revisions",
+        "retrieval trace and corpus digest",
+        "claim/evidence references"
+      ],
+      "interpretation_guard": "Retrieved provenance is not semantic support or authority; retrieval quality must be scored separately."
+    },
+    {
+      "comparator_id": "BASE-MULTI-AGENT",
+      "category": "model_baseline",
+      "name": "Multi-agent LLM",
+      "configuration_requirements": [
+        "Pin all agent models, roles, prompts, routing rules, tools and orchestration version.",
+        "Record whether agents share context, evidence, memory, tools or common model/provider origins.",
+        "Define authority boundaries and prevent agent votes from becoming institutional approval.",
+        "Use the same total compute/time budget and preserve full message/event trace."
+      ],
+      "required_outputs": [
+        "per-agent proposals",
+        "shared/common-cause map",
+        "conflict and aggregation record",
+        "final candidate output",
+        "tool and execution trace"
+      ],
+      "interpretation_guard": "Agent count is not independent evidence; shared prompts, models, tools and inputs may create common-cause dependence."
+    },
+    {
+      "comparator_id": "BASE-IBM-DOORS-NEXT",
+      "category": "commercial_alm",
+      "name": "IBM Engineering Requirements Management DOORS Next",
+      "official_reference": "https://www.ibm.com/docs/en/engineering-lifecycle-management-suite/doors-next/7.1.0?topic=requirements-analyzing-impact-change",
+      "configuration_requirements": [
+        "Record product edition/version, modules, artifact/link types, baselines and traceability setup.",
+        "Enable and exercise supported suspect-link and change-impact workflows relevant to the same case.",
+        "Record integrations, extensions, exports, permissions and administrator configuration.",
+        "Have a DOORS Next administrator attest which requested capability was available and configured."
+      ],
+      "required_outputs": [
+        "traceability/baseline evidence",
+        "change-impact results",
+        "review and approval workflow evidence",
+        "export/API limitations"
+      ],
+      "interpretation_guard": "Do not claim DOORS Next lacks traceability, baselines, impact analysis or suspect-link workflows; compare the measured end-to-end assurance boundary."
+    },
+    {
+      "comparator_id": "BASE-JAMA-CONNECT",
+      "category": "commercial_alm",
+      "name": "Jama Connect",
+      "official_reference": "https://support.jamasoftware.com/hc/en-us/articles/40781365974541-Using-Trace-View-Coverage-Explorer-Impact-Analysis-in-Jama-Connect",
+      "configuration_requirements": [
+        "Record edition/version, project configuration, item and relationship types, review workflows and baselines.",
+        "Configure and exercise Trace View, Coverage Explorer, Impact Analysis and change request review where licensed and available.",
+        "Record integrations, exports, permission constraints and administrator settings.",
+        "Have a Jama administrator attest capability availability and configuration."
+      ],
+      "required_outputs": [
+        "trace and coverage views",
+        "impact-analysis results",
+        "review/baseline evidence",
+        "export/API limitations"
+      ],
+      "interpretation_guard": "Do not claim Jama lacks traceability, coverage, impact analysis or review workflows; differentiate only on measured preservation of consent, evidence validity and outcome semantics."
+    },
+    {
+      "comparator_id": "BASE-SIEMENS-POLARION",
+      "category": "commercial_alm",
+      "name": "Siemens Polarion ALM",
+      "official_reference": "https://www.siemens.com/en-gb/products/polarion/application-lifecycle-management-alm/",
+      "configuration_requirements": [
+        "Record edition/version, project configuration, work item types, links, live documents and baselines.",
+        "Configure and exercise change request impact-analysis views, traceability and audit workflows relevant to the case.",
+        "Record integrations, exports, access control and extensions.",
+        "Have a Polarion administrator attest which requested capability was available and configured."
+      ],
+      "required_outputs": [
+        "traceability and baseline evidence",
+        "impact-analysis and change-request evidence",
+        "audit/review workflow evidence",
+        "export/API limitations"
+      ],
+      "interpretation_guard": "Do not claim Polarion lacks impact analysis, traceability or audit workflows; benchmark the complete assurance requirements at equal configuration effort."
+    },
+    {
+      "comparator_id": "BASE-MYCELIX-CRAFT",
+      "category": "candidate_system",
+      "name": "Mycelix Craft reference profile",
+      "configuration_requirements": [
+        "Pin exact PR/commit heads and evaluator crate versions.",
+        "Use independent owner evaluators for claim support, decision closure, evidence lineage and impact qualification.",
+        "Record which layers are merged, compiled, tested, structurally checked, or still pending.",
+        "Capture exact inputs, owner receipts, independent replay outputs, false holds and reviewer effort."
+      ],
+      "required_outputs": [
+        "owner-native evaluator outputs",
+        "exact revisions, digests and authority references",
+        "canonical replay receipt",
+        "mutation and negative-control outcomes",
+        "review and field measurement traces"
+      ],
+      "interpretation_guard": "A synthetic fixture validator or unmerged reference crate is not an operationally qualified production system."
+    }
+  ],
+  "non_comparable_policy": {
+    "statuses": [
+      "comparable",
+      "partially_comparable",
+      "not_comparable",
+      "not_configured",
+      "not_available"
+    ],
+    "required_reason": true,
+    "no_penalty_for_missing_interface": true,
+    "no_claim_of_absence_without_admin_attestation": true,
+    "record_configuration_effort": true
+  }
+}
