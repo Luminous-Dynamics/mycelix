@@ -5,8 +5,8 @@
 //! does not infer semantic preservation from byte equality or output drift.
 
 use aero_adapter_run_receipt::{
-    verify_artifact_payloads, AdapterRunReceiptV1, InputRole, OutputRole, ReceiptError,
-    RunInputV1, RunOutputV1, RunStatus,
+    AdapterRunReceiptV1, InputRole, OutputRole, ReceiptError, RunInputV1, RunOutputV1, RunStatus,
+    verify_artifact_payloads,
 };
 use aero_evidence_types::ArtifactRef;
 use thiserror::Error;
@@ -128,41 +128,41 @@ pub fn compare_verified_runs(
     second: &AdapterRunReceiptV1,
     second_payloads: &[(&ArtifactRef, &[u8])],
 ) -> Result<ReplayComparison, ReplayError> {
-    let first_verified =
-        verify_artifact_payloads(first, first_payloads).map_err(|source| {
-            ReplayError::ReceiptValidation {
-                run_id: first.run_id.clone(),
-                source,
-            }
-        })?;
-    let second_verified =
-        verify_artifact_payloads(second, second_payloads).map_err(|source| {
-            ReplayError::ReceiptValidation {
-                run_id: second.run_id.clone(),
-                source,
-            }
-        })?;
+    let first_verified = verify_artifact_payloads(first, first_payloads).map_err(|source| {
+        ReplayError::ReceiptValidation {
+            run_id: first.run_id.clone(),
+            source,
+        }
+    })?;
+    let second_verified = verify_artifact_payloads(second, second_payloads).map_err(|source| {
+        ReplayError::ReceiptValidation {
+            run_id: second.run_id.clone(),
+            source,
+        }
+    })?;
 
     if first.run_id == second.run_id {
         return Err(ReplayError::DuplicateRunIdentity(first.run_id.clone()));
     }
 
     let context_differences = context_differences(first, second);
-    let both_successful = first_verified.semantic_output_eligible
-        && second_verified.semantic_output_eligible;
+    let both_successful =
+        first_verified.semantic_output_eligible && second_verified.semantic_output_eligible;
 
-    let (all_output_bytes_identical, raw_output_bytes_identical, normalized_assertion_bytes_identical) =
-        if both_successful {
-            let first_outputs = sorted_outputs(&first.outputs);
-            let second_outputs = sorted_outputs(&second.outputs);
-            let all_equal = output_bytes_equal(&first_outputs, &second_outputs);
-            let raw_equal = raw_output_bytes_equal(&first_outputs, &second_outputs);
-            let assertions_equal =
-                normalized_assertion_bytes_equal(&first_outputs, &second_outputs);
-            (Some(all_equal), Some(raw_equal), Some(assertions_equal))
-        } else {
-            (None, None, None)
-        };
+    let (
+        all_output_bytes_identical,
+        raw_output_bytes_identical,
+        normalized_assertion_bytes_identical,
+    ) = if both_successful {
+        let first_outputs = sorted_outputs(&first.outputs);
+        let second_outputs = sorted_outputs(&second.outputs);
+        let all_equal = output_bytes_equal(&first_outputs, &second_outputs);
+        let raw_equal = raw_output_bytes_equal(&first_outputs, &second_outputs);
+        let assertions_equal = normalized_assertion_bytes_equal(&first_outputs, &second_outputs);
+        (Some(all_equal), Some(raw_equal), Some(assertions_equal))
+    } else {
+        (None, None, None)
+    };
 
     let disposition = if !both_successful {
         ReplayDisposition::RunNotEligible
@@ -327,15 +327,18 @@ fn sorted_outputs(outputs: &[RunOutputV1]) -> Vec<&RunOutputV1> {
 
 fn input_artifacts_equal(first: &[&RunInputV1], second: &[&RunInputV1]) -> bool {
     first.len() == second.len()
-        && first.iter().zip(second).all(|(left, right)| {
-            left.role == right.role && left.artifact == right.artifact
-        })
+        && first
+            .iter()
+            .zip(second)
+            .all(|(left, right)| left.role == right.role && left.artifact == right.artifact)
 }
 
 fn rights_status_key(status: aero_adapter_run_receipt::RightsStatus) -> &'static str {
     match status {
         aero_adapter_run_receipt::RightsStatus::ClearedForTesting => "CLEARED_FOR_TESTING",
-        aero_adapter_run_receipt::RightsStatus::ClearedForRedistribution => "CLEARED_FOR_REDISTRIBUTION",
+        aero_adapter_run_receipt::RightsStatus::ClearedForRedistribution => {
+            "CLEARED_FOR_REDISTRIBUTION"
+        },
         aero_adapter_run_receipt::RightsStatus::NotReviewed => "NOT_REVIEWED",
         aero_adapter_run_receipt::RightsStatus::Restricted => "RESTRICTED",
     }
@@ -344,11 +347,21 @@ fn rights_status_key(status: aero_adapter_run_receipt::RightsStatus) -> &'static
 fn input_rights_equal(first: &[&RunInputV1], second: &[&RunInputV1]) -> bool {
     let mut first_rights: Vec<_> = first
         .iter()
-        .map(|item| (input_role_key(item.role), rights_status_key(item.rights_status)))
+        .map(|item| {
+            (
+                input_role_key(item.role),
+                rights_status_key(item.rights_status),
+            )
+        })
         .collect();
     let mut second_rights: Vec<_> = second
         .iter()
-        .map(|item| (input_role_key(item.role), rights_status_key(item.rights_status)))
+        .map(|item| {
+            (
+                input_role_key(item.role),
+                rights_status_key(item.rights_status),
+            )
+        })
         .collect();
     first_rights.sort_unstable();
     second_rights.sort_unstable();
@@ -368,11 +381,21 @@ fn output_profiles_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> boo
 fn output_rights_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> bool {
     let mut first_rights: Vec<_> = first
         .iter()
-        .map(|item| (output_role_key(item.role), rights_status_key(item.rights_status)))
+        .map(|item| {
+            (
+                output_role_key(item.role),
+                rights_status_key(item.rights_status),
+            )
+        })
         .collect();
     let mut second_rights: Vec<_> = second
         .iter()
-        .map(|item| (output_role_key(item.role), rights_status_key(item.rights_status)))
+        .map(|item| {
+            (
+                output_role_key(item.role),
+                rights_status_key(item.rights_status),
+            )
+        })
         .collect();
     first_rights.sort_unstable();
     second_rights.sort_unstable();
@@ -404,10 +427,7 @@ fn raw_output_bytes_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> bo
         })
 }
 
-fn normalized_assertion_bytes_equal(
-    first: &[&RunOutputV1],
-    second: &[&RunOutputV1],
-) -> bool {
+fn normalized_assertion_bytes_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> bool {
     let first_assertions = first
         .iter()
         .find(|item| item.role == OutputRole::NormalizedAssertions);
@@ -427,8 +447,8 @@ fn normalized_assertion_bytes_equal(
 mod tests {
     use super::*;
     use aero_adapter_run_receipt::{
-        compute_receipt_digest, AdapterIdentityV1, ContentArtifactV1, InvocationV1,
-        NetworkPolicy, RightsStatus,
+        AdapterIdentityV1, ContentArtifactV1, InvocationV1, NetworkPolicy, RightsStatus,
+        compute_receipt_digest,
     };
     use sha2::{Digest, Sha256};
 
@@ -439,7 +459,10 @@ mod tests {
 
     fn content_artifact(kind: &str, format: &str, media: &str, bytes: &[u8]) -> ContentArtifactV1 {
         let digest = Sha256::digest(bytes);
-        let sha256 = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        let sha256 = digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         ContentArtifactV1 {
             reference: ArtifactRef {
                 id: format!("sha256:{sha256}"),
@@ -464,23 +487,50 @@ mod tests {
     ) -> Fixture {
         let executable_bytes = adapter_bytes;
         let argument_bytes = br#"["--input","source.step","--config","adapter.json"]"#;
-        let environment_bytes =
-            br#"{"locale":"C","timezone":"UTC","network_policy":"disabled"}"#;
+        let environment_bytes = br#"{"locale":"C","timezone":"UTC","network_policy":"disabled"}"#;
 
-        let executable =
-            content_artifact("adapter_executable", "SYNTHETIC_ADAPTER_V1", "application/octet-stream", executable_bytes);
-        let arguments =
-            content_artifact("adapter_arguments", "AERO_ARGUMENT_VECTOR_V1", "application/json", argument_bytes);
-        let environment =
-            content_artifact("environment_profile", "AERO_ENVIRONMENT_PROFILE_V1", "application/json", environment_bytes);
-        let source =
-            content_artifact("step_file", "ISO_10303_242:2025", "application/step", source_bytes);
-        let configuration =
-            content_artifact("adapter_config", "AERO_ADAPTER_CONFIG_V1", "application/json", configuration_bytes);
-        let raw_output =
-            content_artifact("qif_result", "ISO_23952:2020", "application/xml", raw_output_bytes);
-        let assertions =
-            content_artifact("semantic_assertions", "AeroSemanticAssertionV1", "application/json", assertion_bytes);
+        let executable = content_artifact(
+            "adapter_executable",
+            "SYNTHETIC_ADAPTER_V1",
+            "application/octet-stream",
+            executable_bytes,
+        );
+        let arguments = content_artifact(
+            "adapter_arguments",
+            "AERO_ARGUMENT_VECTOR_V1",
+            "application/json",
+            argument_bytes,
+        );
+        let environment = content_artifact(
+            "environment_profile",
+            "AERO_ENVIRONMENT_PROFILE_V1",
+            "application/json",
+            environment_bytes,
+        );
+        let source = content_artifact(
+            "step_file",
+            "ISO_10303_242:2025",
+            "application/step",
+            source_bytes,
+        );
+        let configuration = content_artifact(
+            "adapter_config",
+            "AERO_ADAPTER_CONFIG_V1",
+            "application/json",
+            configuration_bytes,
+        );
+        let raw_output = content_artifact(
+            "qif_result",
+            "ISO_23952:2020",
+            "application/xml",
+            raw_output_bytes,
+        );
+        let assertions = content_artifact(
+            "semantic_assertions",
+            "AeroSemanticAssertionV1",
+            "application/json",
+            assertion_bytes,
+        );
 
         let inputs = vec![
             RunInputV1 {
@@ -554,7 +604,10 @@ mod tests {
             (arguments.reference.clone(), argument_bytes.to_vec()),
             (environment.reference.clone(), environment_bytes.to_vec()),
             (source.reference.clone(), source_bytes.to_vec()),
-            (configuration.reference.clone(), configuration_bytes.to_vec()),
+            (
+                configuration.reference.clone(),
+                configuration_bytes.to_vec(),
+            ),
         ];
         if status != RunStatus::TimedOut {
             payloads.push((raw_output.reference.clone(), raw_output_bytes.to_vec()));
@@ -614,9 +667,11 @@ mod tests {
         let mut second = base("run-b");
         second.receipt.inputs.reverse();
         second.receipt.outputs.reverse();
-        second.receipt.receipt_sha256 =
-            compute_receipt_digest(&second.receipt).unwrap();
-        assert_eq!(compare(&first, &second).unwrap().disposition, ReplayDisposition::ExactByteReplay);
+        second.receipt.receipt_sha256 = compute_receipt_digest(&second.receipt).unwrap();
+        assert_eq!(
+            compare(&first, &second).unwrap().disposition,
+            ReplayDisposition::ExactByteReplay
+        );
     }
 
     #[test]
@@ -678,7 +733,11 @@ mod tests {
         );
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
-        assert!(report.context_differences.contains(&ContextDifference::ExecutableArtifact));
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::ExecutableArtifact)
+        );
     }
 
     #[test]
@@ -696,7 +755,11 @@ mod tests {
         );
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
-        assert!(report.context_differences.contains(&ContextDifference::InputArtifacts));
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::InputArtifacts)
+        );
     }
 
     #[test]
@@ -714,8 +777,16 @@ mod tests {
         );
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
-        assert!(report.context_differences.contains(&ContextDifference::Configuration));
-        assert!(report.context_differences.contains(&ContextDifference::InputArtifacts));
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::Configuration)
+        );
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::InputArtifacts)
+        );
     }
 
     #[test]
@@ -733,8 +804,16 @@ mod tests {
         );
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
-        assert!(report.context_differences.contains(&ContextDifference::InputRights));
-        assert!(report.context_differences.contains(&ContextDifference::OutputRights));
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::InputRights)
+        );
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::OutputRights)
+        );
     }
 
     #[test]
@@ -749,12 +828,20 @@ mod tests {
             bytes,
         );
         second.receipt.invocation.arguments = artifact.clone();
-        second.payloads.retain(|(reference, _)| reference.kind != "adapter_arguments");
-        second.payloads.push((artifact.reference.clone(), bytes.to_vec()));
+        second
+            .payloads
+            .retain(|(reference, _)| reference.kind != "adapter_arguments");
+        second
+            .payloads
+            .push((artifact.reference.clone(), bytes.to_vec()));
         second.receipt.receipt_sha256 = compute_receipt_digest(&second.receipt).unwrap();
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
-        assert!(report.context_differences.contains(&ContextDifference::ArgumentVector));
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::ArgumentVector)
+        );
     }
 
     #[test]
@@ -789,7 +876,10 @@ mod tests {
             RightsStatus::ClearedForTesting,
             RunStatus::TimedOut,
         );
-        assert_eq!(compare(&first, &second).unwrap().disposition, ReplayDisposition::RunNotEligible);
+        assert_eq!(
+            compare(&first, &second).unwrap().disposition,
+            ReplayDisposition::RunNotEligible
+        );
     }
 
     #[test]
@@ -823,7 +913,12 @@ mod tests {
         let mut payloads = borrowed(&second);
         payloads.pop();
         assert!(matches!(
-            compare_verified_runs(&first.receipt, &borrowed(&first), &second.receipt, &payloads),
+            compare_verified_runs(
+                &first.receipt,
+                &borrowed(&first),
+                &second.receipt,
+                &payloads
+            ),
             Err(ReplayError::ReceiptValidation {
                 source: ReceiptError::MissingArtifactPayload(_),
                 ..
@@ -846,13 +941,25 @@ mod tests {
         second.receipt.invocation.network_policy = NetworkPolicy::Allowlisted;
         second.receipt.invocation.declared_egress = vec!["https://approved.example".into()];
         second.receipt.invocation.observed_egress = vec!["https://approved.example".into()];
-        second.payloads.retain(|(reference, _)| reference.kind != "environment_profile");
-        second.payloads.push((environment.reference.clone(), bytes.to_vec()));
+        second
+            .payloads
+            .retain(|(reference, _)| reference.kind != "environment_profile");
+        second
+            .payloads
+            .push((environment.reference.clone(), bytes.to_vec()));
         second.receipt.receipt_sha256 = compute_receipt_digest(&second.receipt).unwrap();
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
-        assert!(report.context_differences.contains(&ContextDifference::EnvironmentProfile));
-        assert!(report.context_differences.contains(&ContextDifference::NetworkPolicy));
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::EnvironmentProfile)
+        );
+        assert!(
+            report
+                .context_differences
+                .contains(&ContextDifference::NetworkPolicy)
+        );
     }
 
     #[test]
@@ -869,7 +976,10 @@ mod tests {
             RightsStatus::ClearedForTesting,
             RunStatus::TimedOut,
         );
-        let comparisons = vec![compare(&first, &exact).unwrap(), compare(&first, &timeout).unwrap()];
+        let comparisons = vec![
+            compare(&first, &exact).unwrap(),
+            compare(&first, &timeout).unwrap(),
+        ];
         let summary = ReplayPanelSummary::from_comparisons(&comparisons);
         assert_eq!(summary.offered_pairs, 2);
         assert_eq!(summary.exact_byte_replays, 1);
