@@ -1209,7 +1209,7 @@
     {
       "id": "event-011",
       "type": "source_assertion_corrected",
-      "time": "2026-11-27T13:00:00Z",
+      "time": "2026-11-27T11:45:00Z",
       "attributes": [
         {
           "name": "source_recorded_at",
