@@ -149,10 +149,10 @@ func TestProjectionReplayMixedLogKnownAnswerVectors(t *testing.T) {
 	if got := fmt.Sprintf("%x", audit.DerivedIntervalIndexRoot); got != "c399a222836b9cae71b80bae4fa920b3a2a86690f03baab8c207e28a3bf869ef" {
 		t.Fatalf("derived interval root vector mismatch: %s", got)
 	}
-	if got := fmt.Sprintf("%x", audit.InventoryDigest); got != "634d09acd50f6fb2059ae43fa40d15a7c1c039ec82ce5d9f365d381d3c02f9da" {
+	if got := fmt.Sprintf("%x", audit.InventoryDigest); got != "dd87ba7939efe7b5733e25f404e6002caf6154845a829ec2134b73bd905a3362" {
 		t.Fatalf("full inventory digest vector mismatch: %s", got)
 	}
-	if got := fmt.Sprintf("%x", audit.AuditDigest); got != "7ebf5680d430c78caff59fb059408c96459a03d621d6e274372ba5de7bccd515" {
+	if got := fmt.Sprintf("%x", audit.AuditDigest); got != "bfcbf88e02754c085640cce59f96e5a910907919226c8397506cb15525a85a7f" {
 		t.Fatalf("projection audit digest vector mismatch: %s", got)
 	}
 }

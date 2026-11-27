@@ -72,7 +72,9 @@ func TestFrontierForestComposesPerOwnerIntervalProofs(t *testing.T) {
 	if result.ProjectionCompleteness != ProjectionCompletenessNotEvaluatedV1 {
 		t.Fatalf("projection claim was upgraded: %s", result.ProjectionCompleteness)
 	}
-	if result.OwnerCount != 2 || result.HasOwnerGaps {
+	// Owner A has declared gaps; they remain visible even though the query is complete
+	// relative to the declared index forest. Projection completeness is separate.
+	if result.OwnerCount != 2 || !result.HasOwnerGaps {
 		t.Fatalf("unexpected forest status: %+v", result)
 	}
 	if len(result.Records) != 2 {
