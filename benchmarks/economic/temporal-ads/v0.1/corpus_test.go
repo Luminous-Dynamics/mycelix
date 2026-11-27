@@ -365,9 +365,13 @@ func TestNoHindsightFixtureUsesSameHistoricalFrontierAcrossSuffixVariants(t *tes
 		baseDisposition,baseMatches,_:=evaluateIntervals(s,f0)
 		variant:=s
 		variant.OwnerLogs=append([]OwnerLog(nil),s.OwnerLogs...)
+		cuts:=make(map[string]uint64,len(f0.Owners))
+		for _,cut:=range f0.Owners { cuts[cut.OwnerRef]=cut.SequenceCut }
 		for i:=range variant.OwnerLogs {
 			events:=append([]Event(nil),variant.OwnerLogs[i].Events...)
-			if len(events)>0 { variant.OwnerLogs[i].Events=events[:len(events)-1] }
+			kept:=events[:0]
+			for _,event:=range events { if event.Sequence<=cuts[variant.OwnerLogs[i].OwnerRef] { kept=append(kept,event) } }
+			variant.OwnerLogs[i].Events=kept
 		}
 		vd,vm,_:=evaluateIntervals(variant,f0)
 		if baseDisposition!=vd || strings.Join(baseMatches,"\x00")!=strings.Join(vm,"\x00") {
