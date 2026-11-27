@@ -76,14 +76,14 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 		Receipts: []AcceptedReceiptProjectionV1{
 			{
 				ReceiptLogLeafIndex: 0, OwnerSequence: 1,
-				ReceiptDigest: receiptDigest, CanonicalReceiptEntryBytes: entry0,
+				ReceiptDigest: receiptDigest, AssertionDigest: assertionDigest, CanonicalReceiptEntryBytes: entry0,
 				AssertionID: assertionRef, Class: ReceiptProjectsIntervalAssertionV1,
 				AssertionRef: record.AssertionRef,
 				ValidFrom: record.ValidFrom, ValidTo: record.ValidTo,
 			},
 			{
 				ReceiptLogLeafIndex: 2, OwnerSequence: 9,
-				ReceiptDigest: receiptDigestFixtureV1(entry2), CanonicalReceiptEntryBytes: entry2,
+				ReceiptDigest: receiptDigestFixtureV1(entry2), AssertionDigest: intervalDigestV1(71), CanonicalReceiptEntryBytes: entry2,
 				AssertionID: "metadata:receipt-9", Class: ReceiptIsNonTemporalV1,
 			},
 		},
@@ -266,6 +266,7 @@ func TestProjectionReplayRejectsNonTemporalSmugglingAndDuplicateAssertions(t *te
 		ReceiptLogLeafIndex: 2,
 		OwnerSequence: 9,
 		ReceiptDigest: receiptDigestFixtureV1(duplicateBytes),
+		AssertionDigest: intervalDigestV1(44),
 		CanonicalReceiptEntryBytes: duplicateBytes,
 		AssertionID: "assertion:grant-42",
 		Class: ReceiptProjectsIntervalAssertionV1,
@@ -357,6 +358,7 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 			ReceiptLogLeafIndex: 0,
 			OwnerSequence: 1,
 			ReceiptDigest: receiptDigestFixtureV1(allBytes),
+			AssertionDigest: intervalDigestV1(52),
 			CanonicalReceiptEntryBytes: allBytes,
 			AssertionID: "metadata:1",
 			Class: ReceiptIsNonTemporalV1,
