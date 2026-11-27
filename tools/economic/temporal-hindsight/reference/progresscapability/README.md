@@ -18,6 +18,10 @@ An applied reconciliation executes the prepared transition after rechecking its 
 
 Active capability owner cuts are normalized to their minimal antichain. Dominated cuts are removed and incomparable cuts remain. A pending unknown outcome blocks derivation. An empty derived antichain means only that no declared capability remains after structurally replayed releases/revocations.
 
+## Input and work limits
+
+Replay is capped at 1,000,000 events, 100,000 active capabilities, 100,000 owners, 5,000,000 total owner coordinates, and 64 MiB of encoded event fields. Progress derivation separately caps active capabilities and 10,000,000 pairwise coordinate comparisons before materializing its antichain. These are explicit v0.1 resource ceilings; exceeding them returns Indeterminate rather than attempting unbounded work.
+
 ## Claim boundary
 
 The package only establishes structural event-chain consistency relative to a supplied tail/count anchor. It does not authenticate that anchor, the issuer, key epoch, authority grant, checkpoint or source roster. It does not validate signatures, RFC 9162 signed tree heads, witnesses, DID key lifecycle, source-universe completeness or production authority.
