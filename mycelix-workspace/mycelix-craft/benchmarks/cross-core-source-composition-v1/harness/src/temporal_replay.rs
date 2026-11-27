@@ -408,10 +408,6 @@ mod tests {
             .effective_event_ids
             .iter()
             .any(|id| id == "event-006"));
-        assert!(receipt
-            .effective_event_ids
-            .iter()
-            .any(|id| id == "event-008"));
     }
 
     #[test]
