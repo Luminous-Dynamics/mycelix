@@ -240,7 +240,13 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 		validateIntervalScopeV1(manifest.QueryScope) != nil {
 		return ErrForestScopeMismatch
 	}
+	if len(manifest.Owners) > maxForestOwnersV1 {
+		return ErrForestMalformed
+	}
 	for i, owner := range manifest.Owners {
+		if len(owner.Gaps) > maxOwnerGapsV1 {
+			return ErrForestMalformed
+		}
 		if validateForestStringV1(owner.OwnerRef) != nil ||
 			validateForestStringV1(owner.OwnerHistoryRef) != nil ||
 			validateForestDigestV1(owner.OwnerLogRootDigest) != nil ||
@@ -256,7 +262,8 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 			if gap.First == 0 || gap.Last < gap.First || gap.Last > owner.OwnerSequence {
 				return ErrForestMalformed
 			}
-			if gapIndex > 0 && gap.First <= previousLast {
+			if gapIndex > 0 &&
+				(gap.First <= previousLast || (previousLast != ^uint64(0) && gap.First == previousLast+1)) {
 				return ErrForestMalformed
 			}
 			previousLast = gap.Last
