@@ -1,0 +1,140 @@
+name: RFC 9162 proof verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/**"
+      - ".github/workflows/rfc9162-proof-verifier.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/**"
+      - ".github/workflows/rfc9162-proof-verifier.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rfc9162-proof-verifier-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: RFC 9162 vectors, property cases, race and clippy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact workflow head and crate files
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/Cargo.toml
+          test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/src/lib.rs
+          test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/src/tests.rs
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustc +1.96.0 --version
+          cargo +1.96.0 --version
+
+      - name: Check formatting
+        id: fmt
+        working-directory: mycelix-workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 fmt --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml -- --check
+
+      - name: Run RFC 9162 vector and generated-tree tests
+        id: tests
+        working-directory: mycelix-workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rfc9162"
+          rustc +1.96.0 --version | tee "$RUNNER_TEMP/rfc9162/toolchain.log"
+          cargo +1.96.0 test --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --all-targets -- --nocapture 2>&1 | tee "$RUNNER_TEMP/rfc9162/test.log"
+
+      - name: Run release-mode tests
+        id: release_tests
+        working-directory: mycelix-workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 test --release --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --all-targets 2>&1 | tee -a "$RUNNER_TEMP/rfc9162/test.log"
+
+      - name: Run clippy with warnings denied
+        id: clippy
+        working-directory: mycelix-workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 clippy --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --all-targets -- -D warnings 2>&1 | tee "$RUNNER_TEMP/rfc9162/clippy.log"
+
+      - name: Assemble exact-head qualification receipt
+        if: always()
+        shell: bash
+        env:
+          FMT: ${{ steps.fmt.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          RELEASE_TESTS: ${{ steps.release_tests.outcome }}
+          CLIPPY: ${{ steps.clippy.outcome }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/rfc9162"
+          mkdir -p "$dir"
+          jq -n \
+            --arg schema "mycelix.rfc9162-proof-verifier-qualification.v1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflow_sha "$(git rev-parse HEAD)" \
+            --arg rustc "$(rustc +1.96.0 --version 2>&1 || printf UNAVAILABLE)" \
+            --arg cargo "$(cargo +1.96.0 --version 2>&1 || printf UNAVAILABLE)" \
+            --arg fmt "$FMT" \
+            --arg tests "$TESTS" \
+            --arg release_tests "$RELEASE_TESTS" \
+            --arg clippy "$CLIPPY" \
+            '{
+              schema:$schema,
+              repository:$repository,
+              run_id:$run_id,
+              run_attempt:$attempt,
+              workflow_sha:$workflow_sha,
+              toolchain:{rustc:$rustc,cargo:$cargo},
+              outcomes:{fmt:$fmt,tests:$tests,release_tests:$release_tests,clippy:$clippy},
+              claims:{
+                inclusion_relative_to_supplied_root_only:true,
+                consistency_relative_to_supplied_roots_only:true,
+                tree_head_authentication:"NotEvaluated",
+                log_identity:"NotEvaluated",
+                split_view_detection:"NotEvaluated",
+                source_universe_completeness:"NotEvaluated",
+                payload_truth:"NotEvaluated"
+              }
+            }' > "$dir/qualification.json"
+          (
+            cd "$dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          )
+
+      - name: Upload RFC 9162 verifier evidence bundle
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rfc9162-proof-verifier-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rfc9162/
+          if-no-files-found: error
+          retention-days: 90
