@@ -77,6 +77,8 @@ pub struct TemporalRelationshipReceiptV1 {
     pub visible_relation_ids: Vec<String>,
     pub active_relations: Vec<TemporalRelationClaimV1>,
     pub conflicts: Vec<TemporalRelationshipConflictV1>,
+    pub known_mutation_ids: Vec<String>,
+    pub pending_mutation_ids: Vec<String>,
     pub applied_mutation_ids: Vec<String>,
     pub superseded_relation_ids: Vec<String>,
     pub revoked_relation_ids: Vec<String>,
@@ -273,7 +275,7 @@ fn snapshot_digest(
     visible_relation_ids: &[String],
     active: &[TemporalRelationClaimV1],
     conflicts: &[TemporalRelationshipConflictV1],
-    applied_mutations: &[&TemporalRelationMutationV1],
+    known_mutations: &[&TemporalRelationMutationV1],
     superseded: &[String],
     revoked: &[String],
 ) -> [u8; 32] {
@@ -303,9 +305,10 @@ fn snapshot_digest(
             hash_field(&mut hasher, object_id);
         }
     }
-    hasher.update((applied_mutations.len() as u64).to_be_bytes());
-    for mutation in applied_mutations {
+    hasher.update((known_mutations.len() as u64).to_be_bytes());
+    for mutation in known_mutations {
         hash_field(&mut hasher, "MYCELIX-TEMPORAL-RELATION-MUTATION-V1");
+        hasher.update([u8::from(mutation.effective_at <= cut.valid_at)]);
         hash_field(&mut hasher, &mutation.event_id);
         hash_field(&mut hasher, &mutation.target_relation_id);
         hasher.update(mutation.target_claim_digest);
@@ -436,14 +439,25 @@ pub fn project_temporal_relationships(
         .into_iter()
         .collect();
 
-    let mut applied: Vec<_> = mutations
+    let mut known_mutations: Vec<_> = mutations
         .iter()
-        .filter(|mutation| {
-            mutation.accepted_sequence <= cut.known_through_sequence
-                && mutation.effective_at <= cut.valid_at
-        })
+        .filter(|mutation| mutation.accepted_sequence <= cut.known_through_sequence)
         .collect();
-    applied.sort_by_key(|mutation| mutation.accepted_sequence);
+    known_mutations.sort_by_key(|mutation| mutation.accepted_sequence);
+    let pending_mutation_ids: Vec<_> = known_mutations
+        .iter()
+        .filter(|mutation| mutation.effective_at > cut.valid_at)
+        .map(|mutation| mutation.event_id.clone())
+        .collect();
+    let applied: Vec<_> = known_mutations
+        .iter()
+        .copied()
+        .filter(|mutation| mutation.effective_at <= cut.valid_at)
+        .collect();
+    let known_mutation_ids: Vec<_> = known_mutations
+        .iter()
+        .map(|mutation| mutation.event_id.clone())
+        .collect();
     let mut superseded = BTreeSet::new();
     let mut revoked = BTreeSet::new();
     for mutation in &applied {
@@ -497,6 +511,7 @@ pub fn project_temporal_relationships(
         .iter()
         .map(|mutation| mutation.event_id.clone())
         .collect();
+    let known_mutation_refs: Vec<_> = known_mutations.iter().copied().collect();
     let superseded_relation_ids: Vec<_> = superseded.into_iter().collect();
     let revoked_relation_ids: Vec<_> = revoked.into_iter().collect();
     let digest = snapshot_digest(
@@ -515,6 +530,8 @@ pub fn project_temporal_relationships(
         visible_relation_ids,
         active_relations,
         conflicts,
+        known_mutation_ids,
+        pending_mutation_ids,
         applied_mutation_ids,
         superseded_relation_ids,
         revoked_relation_ids,
