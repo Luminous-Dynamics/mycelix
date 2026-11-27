@@ -105,8 +105,20 @@ type ChainResultV1 struct {
 	CertificateDigest              string
 }
 
+func writeUint32(b *bytes.Buffer, value uint32) {
+	var encoded [4]byte
+	binary.BigEndian.PutUint32(encoded[:], value)
+	_, _ = b.Write(encoded[:])
+}
+
+func writeUint64(b *bytes.Buffer, value uint64) {
+	var encoded [8]byte
+	binary.BigEndian.PutUint64(encoded[:], value)
+	_, _ = b.Write(encoded[:])
+}
+
 func writeString(b *bytes.Buffer, value string) {
-	_ = binary.Write(b, binary.BigEndian, uint32(len(value)))
+	writeUint32(b, uint32(len(value)))
 	_, _ = b.WriteString(value)
 }
 
@@ -165,7 +177,7 @@ func ScopeDigestV1(scope OracleScopeV1) (string, error) {
 func AnswerDigestV1(payload []byte) string {
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-ANSWER-PAYLOAD-V1")
-	_ = binary.Write(&b, binary.BigEndian, uint64(len(payload)))
+	_ = writeUint64(&b, uint64(len(payload)))
 	_, _ = b.Write(payload)
 	return digestBytes(b.Bytes())
 }
@@ -254,7 +266,7 @@ func SignableDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, err
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-SIGNABLE-RECEIPT-V1")
 	writeString(&b, scopeDigest)
-	_ = binary.Write(&b, binary.BigEndian, receipt.Sequence)
+	_ = writeUint64(&b, receipt.Sequence)
 	for _, value := range []string{
 		receipt.ReceiptID, receipt.PreviousReceiptDigest,
 		receipt.OracleRef, receipt.KeyEpoch, receipt.AuthorityGrantRef,
@@ -265,16 +277,16 @@ func SignableDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, err
 	} {
 		writeString(&b, value)
 	}
-	_ = binary.Write(&b, binary.BigEndian, uint64(receipt.RecordedAtUnixNanos))
-	_ = binary.Write(&b, binary.BigEndian, uint64(receipt.ValidTime.FromUnixNanos))
+	_ = writeUint64(&b, uint64(receipt.RecordedAtUnixNanos))
+	_ = writeUint64(&b, uint64(receipt.ValidTime.FromUnixNanos))
 	if receipt.ValidTime.OpenEnded {
 		b.WriteByte(1)
 	} else {
 		b.WriteByte(0)
-		_ = binary.Write(&b, binary.BigEndian, uint64(*receipt.ValidTime.ToUnixNanos))
+		_ = writeUint64(&b, uint64(*receipt.ValidTime.ToUnixNanos))
 	}
 	writeString(&b, receipt.SupersedesReceiptID)
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(refs)))
+	_ = writeUint32(&b, uint32(len(refs)))
 	for _, ref := range refs {
 		writeString(&b, ref.Reference)
 		writeString(&b, ref.Kind)
@@ -365,7 +377,7 @@ func ReceiptDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, erro
 	writeString(&b, "MYCELIX-ORACLE-RECEIPT-V1")
 	writeString(&b, signableDigest)
 	writeString(&b, receipt.SignatureScheme)
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(receipt.SignatureBytes)))
+	_ = writeUint32(&b, uint32(len(receipt.SignatureBytes)))
 	_, _ = b.Write(receipt.SignatureBytes)
 	writeString(&b, receipt.SignedMessageDigest)
 	return digestBytes(b.Bytes()), nil
@@ -384,8 +396,8 @@ func finalizeChainResult(result ChainResultV1) ChainResultV1 {
 	writeString(&b, string(result.Disposition))
 	writeString(&b, result.Reason)
 	writeString(&b, result.ScopeDigest)
-	_ = binary.Write(&b, binary.BigEndian, result.ExpectedReceiptCount)
-	_ = binary.Write(&b, binary.BigEndian, result.ObservedReceiptCount)
+	_ = writeUint64(&b, result.ExpectedReceiptCount)
+	_ = writeUint64(&b, result.ObservedReceiptCount)
 	writeString(&b, result.GenesisDigest)
 	writeString(&b, result.ObservedTailDigest)
 	writeString(&b, result.ReceiptChainDigest)
