@@ -337,7 +337,7 @@ func TestProjectionReplayRecomputesCanonicalReceiptDigestsAndRFC9162Root(t *test
 	substitutedFields := inventory
 	substitutedFields.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
 	substitutedFields.Receipts[0].OwnerSequence = 8
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, substitutedFields); err != ErrProjectionSequenceOrder {
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, substitutedFields); err != ErrProjectionInventoryMismatch {
 		t.Fatalf("structured owner sequence substitution passed: %v", err)
 	}
 }
