@@ -321,7 +321,7 @@ func TestFrontierForestRejectsUnsupportedIntervalProfile(t *testing.T) {
 		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-UNREVIEWED-INTERVAL-PROFILE",
 		QueryScope: scope,
 		Owners: []OwnerIntervalIndexBindingV1{
-			forestOwnerBindingV1("owner:A", "history:A", 5, 6, [32]byte{1}, nil),
+			forestOwnerBindingV1("owner:A", "history:A", 6, 6, [32]byte{1}, nil),
 		},
 	}
 	if _, err := TemporalFrontierForestRootV1(manifest); err == nil {
