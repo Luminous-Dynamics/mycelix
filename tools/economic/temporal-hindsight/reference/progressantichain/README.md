@@ -62,3 +62,7 @@ Malformed inputs are committed into deterministic failure receipts using a separ
 The mutant spec uses a deliberately premature finalizer and must violate `StableSound`. This finite model does not prove arbitrary owner dimensions, arbitrary sequence values, the source capability ledger, source authentication, or completeness of the owner universe.
 
 The PR workflow runs both the correct model and the mutant with pinned TLA+ tools, retains raw model logs, and uploads a digest-bound run receipt.
+
+## Input-complexity bounds
+
+The reference validator currently caps UTF-8 identifier fields at 4,096 bytes, the declared owner universe at 100,000 owners, and the progress antichain at 4,096 points. The point cap is important because this straightforward validator checks pairwise incomparability in quadratic time with respect to antichain width. These are explicit V0.1 resource limits, not semantic constants; changing them requires matched worst-case benchmark results and adversarial tests. Oversized submissions fail closed and their raw submitted shape is still bound into the failure receipt.
