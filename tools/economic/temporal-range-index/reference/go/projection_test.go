@@ -295,3 +295,49 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 		t.Fatalf("wrong all-non-temporal counts: %+v", allAudit)
 	}
 }
+
+
+func TestProjectionReplayRecomputesCanonicalReceiptDigestsAndRFC9162Root(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	binding, inventory := projectionInventoryFixtureV1(scope)
+	if got := binding.OwnerLogRootDigest; got != "sha256:81f22512600bb2524be01fef5c8d6825b901b4fa025df52e91e43aa53e38c0b3" {
+		t.Fatalf("RFC 9162 owner root vector mismatch: %s", got)
+	}
+	if got := inventory.Receipts[0].ReceiptDigest; got != "sha256:88018893a445c717d6576c6768dc9d94754b0ebb66a6242d5ffdf10097f5db2c" {
+		t.Fatalf("canonical receipt digest vector mismatch: %s", got)
+	}
+	if got := inventory.Receipts[1].ReceiptDigest; got != "sha256:ef2359f6a753245257a8e11141121d5a0f5311335ae9b3b30b6cb0d1123f224e" {
+		t.Fatalf("second canonical receipt digest vector mismatch: %s", got)
+	}
+	audit, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !audit.OwnerLogRootMatches || audit.RecomputedOwnerLogRoot == ([32]byte{}) {
+		t.Fatalf("owner log root not recomputed: %+v", audit)
+	}
+
+	tamperedBytes := inventory
+	tamperedBytes.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	tamperedBytes.Receipts[0].CanonicalReceiptEntryBytes = append([]byte(nil), inventory.Receipts[0].CanonicalReceiptEntryBytes...)
+	tamperedBytes.Receipts[0].CanonicalReceiptEntryBytes[len(tamperedBytes.Receipts[0].CanonicalReceiptEntryBytes)-1] ^= 0x01
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, tamperedBytes); err != ErrProjectionReceiptClass {
+		t.Fatalf("receipt bytes with stale digest passed: %v", err)
+	}
+
+	tamperedAndRedigested := inventory
+	tamperedAndRedigested.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes = append([]byte(nil), inventory.Receipts[0].CanonicalReceiptEntryBytes...)
+	tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes[len(tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes)-1] ^= 0x01
+	tamperedAndRedigested.Receipts[0].ReceiptDigest = receiptDigestFixtureV1(tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes)
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, tamperedAndRedigested); err != ErrProjectionInventoryMismatch {
+		t.Fatalf("mutated and re-digested receipt escaped owner-log root check: %v", err)
+	}
+
+	substitutedFields := inventory
+	substitutedFields.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	substitutedFields.Receipts[0].OwnerSequence = 8
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, substitutedFields); err != ErrProjectionSequenceOrder {
+		t.Fatalf("structured owner sequence substitution passed: %v", err)
+	}
+}
