@@ -8,6 +8,10 @@ RELATIONS="$ROOT/relations.json"
 MUTATIONS="$ROOT/mutations.json"
 SCORECARD="$ROOT/scorecard.json"
 COMPARATORS="$ROOT/comparators.json"
+OWNER_INPUTS="$ROOT/owner-inputs.json"
+MUTATION_SPECS="$ROOT/mutation-specs.json"
+ORACLE_CONTRACT="$ROOT/oracle-contract.json"
+WATER_CASES="$ROOT/../water-service-repair-v1/cases.json"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 127; }
 
@@ -24,6 +28,10 @@ if ! jq -e '
   and .scorecard_metric_count == 17
   and .seed_count == 10
   and .comparator_count == 9
+  and .mutation_spec_count == 54
+  and .owner_projection_count == 10
+  and .oracle_class_count == 5
+  and .execution_contract_status == "declarative-specification-only"
   and ((.prohibited_claims | type) == "array")
   and ((.prohibited_claims | length) >= 5)
 ' "$MANIFEST" >/dev/null; then
@@ -142,15 +150,114 @@ if ! jq -e '
   exit 1
 fi
 
-if ! jq -n -e --slurpfile seeds "$SEEDS" --slurpfile relations "$RELATIONS" --slurpfile mutations "$MUTATIONS" '
+if ! jq -e '
+  .benchmark_id == "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1"
+  and .schema_version == "1.0.0"
+  and .synthetic_only == true
+  and ((.seeds | type) == "array")
+  and ((.seeds | length) == 10)
+  and (([.seeds[].seed_id] | unique | length) == 10)
+  and all(.seeds[];
+    (.seed_id | type == "string" and test("^SEED-[A-Z0-9-]+$"))
+    and (.source_benchmark | type == "string" and length > 0)
+    and (.source_case_id | type == "string" and length > 0)
+    and (.owner_views | type == "object")
+    and (if .source_benchmark == "CRAFT-WATER-SERVICE-REPAIR-V1" then
+      (.source_fixture.immutable == true)
+      and (.source_fixture.blob_sha | type == "string" and test("^[0-9a-f]{40}$"))
+      and (.owner_views.source_case.immutable == true)
+      and (.owner_views.source_case.source_blob_sha == .source_fixture.blob_sha)
+      and (.owner_views.source_case.source_case_id == .source_case_id)
+    else true end)
+  )
+' "$OWNER_INPUTS" >/dev/null; then
+  echo "Owner-input projection validation failed." >&2
+  exit 1
+fi
+
+if ! jq -e '
+  .benchmark_id == "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1"
+  and .schema_version == "1.0.0"
+  and .execution_status == "declarative-specification-only"
+  and .source_registry_count == 54
+  and ((.mutation_specs | type) == "array")
+  and ((.mutation_specs | length) == 54)
+  and (([.mutation_specs[].mutation_id] | unique | length) == 54)
+  and all(.mutation_specs[];
+    (.mutation_id | type == "string" and test("^[MN]-[A-Z0-9-]+$"))
+    and (["adversarial", "negative_control"] | index(.kind) != null)
+    and (["critical", "high", "medium"] | index(.risk_tier) != null)
+    and (.applicable_seed_ids | type == "array" and length > 0)
+    and (.registry_target_path | type == "string" and length > 0)
+    and (.owner_view | type == "string" and length > 0)
+    and (.target_path | type == "string" and length > 0)
+    and (.selector | type == "object")
+    and (.selector.mode | type == "string" and length > 0)
+    and (.selector.ambiguity_policy | type == "string" and length > 0)
+    and (.preconditions | type == "array" and length > 0)
+    and (.operation | type == "object")
+    and (.operation.kind | type == "string" and length > 0)
+    and (.operation.parameters | type == "object")
+    and (.preserve_policy.all_non_target_fields == true)
+    and (.preserve_policy.source_fixture_immutable == true)
+    and (.postconditions | type == "array" and length > 0)
+    and (.owner_evaluator | type == "string" and length > 0)
+    and (.independent_oracle | type == "string" and length > 0)
+    and (.semantic_validity.required == true)
+    and (.semantic_validity.invalid_outcome == "invalid_mutation_excluded_from_detection_denominator")
+    and (.semantic_validity.ambiguous_selection_outcome == "invalid_mutation_excluded_from_detection_denominator")
+  )
+' "$MUTATION_SPECS" >/dev/null; then
+  echo "Typed mutation specification validation failed." >&2
+  exit 1
+fi
+
+if ! jq -e '
+  .benchmark_id == "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1"
+  and .schema_version == "1.0.0"
+  and .execution_status == "oracle-protocol-only_no_owner-adapter-execution"
+  and ((.oracle_classes | type) == "array")
+  and ((.oracle_classes | length) == 5)
+  and (([.oracle_classes[].oracle_id] | unique | length) == 5)
+  and all(.oracle_classes[];
+    (.oracle_id | type == "string" and length > 0)
+    and (.kind | type == "string" and length > 0)
+    and (.description | type == "string" and length > 0)
+    and (.independence_requirements | type == "array" and length > 0)
+  )
+  and all(.risk_requirements[];
+    (.minimum_distinct_oracle_classes >= 2)
+    and (.required_classes | index("OWNER-EVALUATOR") != null)
+    and (.required_classes | index("INDEPENDENT-REFERENCE") != null)
+    and (.trace_required == true)
+  )
+  and (.common_cause_policy.distinct_ids_do_not_prove_independence == true)
+  and (.semantic_validity_gate.translation_policy | type == "string")
+  and ((.outcome_taxonomy | length) >= 8)
+  and ((.receipt_required_fields | index("source_fixture_digest")) != null)
+  and ((.receipt_required_fields | index("independent_oracle_output_digest")) != null)
+' "$ORACLE_CONTRACT" >/dev/null; then
+  echo "Independent oracle and semantic validity contract validation failed." >&2
+  exit 1
+fi
+
+if ! jq -n -e --slurpfile seeds "$SEEDS" --slurpfile relations "$RELATIONS" --slurpfile mutations "$MUTATIONS" --slurpfile owner_inputs "$OWNER_INPUTS" --slurpfile mutation_specs "$MUTATION_SPECS" --slurpfile water_cases "$WATER_CASES" '
   ($seeds[0].seeds | map(.seed_id)) as $seed_ids
+  | ($owner_inputs[0].seeds | map(.seed_id)) as $owner_seed_ids
   | ($mutations[0].mutations | map(.mutation_id)) as $mutation_ids
   | ($mutations[0].mutations | map(select(.kind == "adversarial") | .mutation_id)) as $adversarial_ids
   | ($mutations[0].mutations | map(select(.kind == "negative_control") | .mutation_id)) as $control_ids
+  | ($mutation_specs[0].mutation_specs) as $specs
   | all($relations[0].relations[];
       all(.seed_ids[]; . as $id | ($seed_ids | index($id)) != null)
-      and all(.mutation_ids[]; . as $id | (($adversarial_ids | index($id)) != null))
-      and all(.negative_control_ids[]; . as $id | (($control_ids | index($id)) != null))
+      and all(.mutation_ids[]; . as $id | ($adversarial_ids | index($id)) != null)
+      and all(.negative_control_ids[]; . as $id | ($control_ids | index($id)) != null)
+      and all(.mutation_ids[]; . as $id |
+        ($specs | map(select(.mutation_id == $id)) | length) == 1
+      )
+      and all(.negative_control_ids[]; . as $id |
+        ($specs | map(select(.mutation_id == $id)) | length) == 1
+      )
     )
   and all($mutation_ids[];
     . as $id
@@ -159,9 +266,34 @@ if ! jq -n -e --slurpfile seeds "$SEEDS" --slurpfile relations "$RELATIONS" --sl
         or ((.negative_control_ids | index($id)) != null)
       )
     )
+  and all($specs[];
+    . as $spec
+    | any($mutations[0].mutations[]; .mutation_id == $spec.mutation_id and .kind == $spec.kind and .target_path == $spec.registry_target_path)
+    and all($spec.applicable_seed_ids[];
+      . as $sid
+      | ($seed_ids | index($sid)) != null
+      and ($owner_seed_ids | index($sid)) != null
+      and any($owner_inputs[0].seeds[];
+        .seed_id == $sid
+        and (
+          if $spec.owner_view == "source_case" then
+            (.owner_views.source_case.immutable == true)
+            and any($water_cases[0].cases[]; .case_id == .source_case_id and ($spec.target_path | split(".") as $parts | getpath($parts)) != null)
+          else
+            (.owner_views | has($spec.owner_view))
+            and ((["owner_views", $spec.owner_view] + ($spec.target_path | split("."))) as $parts | getpath($parts)) != null
+          end
+        )
+      )
+    )
+    and any($relations[0].relations[];
+      ((.mutation_ids + .negative_control_ids) | index($spec.mutation_id)) != null
+      and any(.seed_ids[]; . as $sid | ($spec.applicable_seed_ids | index($sid)) != null)
+    )
+  )
 ' >/dev/null; then
   echo "Cross-file relation, seed, mutation, or negative-control reference integrity failed." >&2
   exit 1
 fi
 
-echo "Evidence Assurance Metamorphic V1: 18 relations, 34 adversarial operators, 20 negative controls, 17 metrics, 9 comparators, and 10 synthetic seed references valid."
+echo "Evidence Assurance Metamorphic V1: 18 relations, 34 adversarial operators, 20 negative controls, 17 metrics, 9 comparators, 10 owner projections, 54 typed mutation specs, and 5 oracle classes valid."
