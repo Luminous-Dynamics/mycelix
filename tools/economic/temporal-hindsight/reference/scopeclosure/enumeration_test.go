@@ -1,6 +1,10 @@
 package scopeclosure
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 const (
 	enumA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -32,7 +36,35 @@ func TestEnumerationChainWellFormedDoesNotAuthenticateSource(t *testing.T){
 func TestTruncatedEnumerationFails(t *testing.T){m,p:=enumerationFixture(t);r:=VerifyEnumerationPageChainV1(m,p[:1]);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("truncated chain accepted: %+v",r)}}
 func TestPageIndexGapFails(t *testing.T){m,p:=enumerationFixture(t);p[1].PageIndex=2;resealEnumerationPage(t,&p[1]);m.TerminalPageDigest=p[1].PageDigest;r:=VerifyEnumerationPageChainV1(m,p);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("page gap accepted: %+v",r)}}
 func TestCursorDiscontinuityFails(t *testing.T){m,p:=enumerationFixture(t);p[1].RequestCursorDigest=enumA;resealEnumerationPage(t,&p[1]);m.TerminalPageDigest=p[1].PageDigest;r:=VerifyEnumerationPageChainV1(m,p);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("cursor discontinuity accepted: %+v",r)}}
-func TestCursorCycleFails(t *testing.T){m,p:=enumerationFixture(t);p[1].Terminal=false;p[1].NextCursorDigest=enumC;resealEnumerationPage(t,&p[1]);m.TerminalPageDigest=p[1].PageDigest;r:=VerifyEnumerationPageChainV1(m,p);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("cursor cycle accepted: %+v",r)}}
+func TestCursorCycleFails(t *testing.T) {
+	m, p := enumerationFixture(t)
+	pages := make([]EnumerationPageV1, 4)
+	cursorIn := []string{"", enumC, enumA, enumC}
+	cursorOut := []string{enumC, enumA, enumC, ""}
+	for i := range pages {
+		pages[i] = p[0]
+		pages[i].PageIndex = uint64(i)
+		pages[i].RequestCursorDigest = cursorIn[i]
+		pages[i].NextCursorDigest = cursorOut[i]
+		pages[i].Terminal = i == len(pages)-1
+		pages[i].Candidates = []OwnerCandidate{{
+			OwnerRef: fmt.Sprintf("owner:%d", i),
+			HistoryRef: fmt.Sprintf("history:%d:v1", i),
+			Disposition: CandidateRequired,
+		}}
+		resealEnumerationPage(t, &pages[i])
+	}
+	all := make([]OwnerCandidate, 0, len(pages))
+	for _, page := range pages { all = append(all, page.Candidates...) }
+	m.PageCount = uint64(len(pages))
+	m.FirstPageDigest = pages[0].PageDigest
+	m.TerminalPageDigest = pages[len(pages)-1].PageDigest
+	m.CandidateRoot, _ = CandidateRoot(all)
+	r := VerifyEnumerationPageChainV1(m, pages)
+	if r.Disposition != EnumerationChainIndeterminate || !strings.Contains(r.Reason, "cycle") {
+		t.Fatalf("cursor cycle was not rejected as a cycle: %+v", r)
+	}
+}
 func TestEarlyTerminalFails(t *testing.T){m,p:=enumerationFixture(t);p[0].Terminal=true;p[0].NextCursorDigest="";resealEnumerationPage(t,&p[0]);m.FirstPageDigest=p[0].PageDigest;r:=VerifyEnumerationPageChainV1(m,p);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("early terminal accepted: %+v",r)}}
 func TestMissingTerminalFails(t *testing.T){m,p:=enumerationFixture(t);p[1].Terminal=false;p[1].NextCursorDigest=enumA;resealEnumerationPage(t,&p[1]);m.TerminalPageDigest=p[1].PageDigest;r:=VerifyEnumerationPageChainV1(m,p);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("missing terminal accepted: %+v",r)}}
 func TestCrossPageDuplicateOwnerFails(t *testing.T){m,p:=enumerationFixture(t);p[1].Candidates=p[0].Candidates;resealEnumerationPage(t,&p[1]);all:=append(append([]OwnerCandidate(nil),p[0].Candidates...),p[1].Candidates...);m.CandidateRoot,_=CandidateRoot(all);m.TerminalPageDigest=p[1].PageDigest;r:=VerifyEnumerationPageChainV1(m,p);if r.Disposition!=EnumerationChainIndeterminate{t.Fatalf("duplicate owner across pages accepted: %+v",r)}}
