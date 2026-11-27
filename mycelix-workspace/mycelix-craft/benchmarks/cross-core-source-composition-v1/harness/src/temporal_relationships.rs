@@ -672,9 +672,6 @@ pub fn project_temporal_relationships(
     Ok(TemporalRelationshipReceiptV1 {
         valid_at: cut.valid_at.clone(),
         known_through_sequence: cut.known_through_sequence,
-        visible_relation_ids,
-        active_relations,
-        conflicts,
         known_relation_ids,
         visible_relation_ids,
         pending_relation_ids,
@@ -713,6 +710,7 @@ mod tests {
             subject_id: subject_id.to_owned(),
             predicate: predicate.to_owned(),
             object_id: object_id.to_owned(),
+            cardinality: TemporalRelationCardinalityV1::OneToOne,
             valid_from: valid_from.to_owned(),
             valid_to: None,
             source_recorded_at: T08.to_owned(),
@@ -1012,6 +1010,107 @@ mod tests {
         assert_ne!(
             no_known_mutation.snapshot_sha256,
             known_but_pending.snapshot_sha256
+        );
+    }
+
+    #[test]
+    fn future_malformed_records_do_not_poison_an_earlier_knowledge_frontier() {
+        let known = claim("rel-known", "asset-1", "in_zone", "zone-1", T08, 1);
+        let mut future = claim("rel-future", "asset-2", "in_zone", "zone-2", T08, 99);
+        future.valid_from = "not-a-time".to_owned();
+        future.source_digest = [0; 32];
+        let mut future_mutation = mutation(
+            "event-future-invalid",
+            &known,
+            TemporalRelationMutationKindV1::Revoke,
+            T10,
+            100,
+            None,
+        );
+        future_mutation.source_recorded_at = "not-a-time".to_owned();
+        future_mutation.target_claim_digest = [0; 32];
+
+        let receipt = project_temporal_relationships(
+            &[known],
+            &[future_mutation],
+            &cut(T11, 1),
+        )
+        .unwrap();
+        assert_eq!(receipt.known_relation_ids, vec!["rel-known"]);
+        assert_eq!(receipt.active_relations.len(), 1);
+        assert!(receipt.known_mutation_ids.is_empty());
+    }
+
+    #[test]
+    fn known_future_relation_is_reported_separately_from_active_edges() {
+        let mut future = claim("rel-future", "crew-1", "assigned_to", "work-order-1", T12, 1);
+        future.source_recorded_at = T08.to_owned();
+        let receipt = project_temporal_relationships(&[future], &[], &cut(T11, 1)).unwrap();
+
+        assert_eq!(receipt.known_relation_ids, vec!["rel-future"]);
+        assert!(receipt.visible_relation_ids.is_empty());
+        assert_eq!(receipt.pending_relation_ids, vec!["rel-future"]);
+        assert!(receipt.expired_relation_ids.is_empty());
+        assert!(receipt.active_relations.is_empty());
+    }
+
+    #[test]
+    fn many_to_many_predicates_allow_multiple_active_endpoint_pairs() {
+        let mut first = claim("rel-1", "crew-1", "collaborates_with", "crew-2", T08, 1);
+        let mut second = claim("rel-2", "crew-1", "collaborates_with", "crew-3", T08, 2);
+        let mut third = claim("rel-3", "crew-4", "collaborates_with", "crew-2", T08, 3);
+        for relation in [&mut first, &mut second, &mut third] {
+            relation.cardinality = TemporalRelationCardinalityV1::ManyToMany;
+        }
+
+        let receipt =
+            project_temporal_relationships(&[first, second, third], &[], &cut(T11, 3)).unwrap();
+        assert_eq!(receipt.active_relations.len(), 3);
+        assert!(receipt.conflicts.is_empty());
+    }
+
+    #[test]
+    fn one_to_many_and_many_to_one_enforce_the_correct_endpoint() {
+        let mut one_to_many_a =
+            claim("rel-otm-a", "crew-1", "has_assignment", "work-order-1", T08, 1);
+        let mut one_to_many_b =
+            claim("rel-otm-b", "crew-2", "has_assignment", "work-order-1", T08, 2);
+        one_to_many_a.cardinality = TemporalRelationCardinalityV1::OneToMany;
+        one_to_many_b.cardinality = TemporalRelationCardinalityV1::OneToMany;
+        let one_to_many =
+            project_temporal_relationships(&[one_to_many_a, one_to_many_b], &[], &cut(T11, 2))
+                .unwrap();
+        assert_eq!(one_to_many.conflicts.len(), 1);
+        assert_eq!(
+            one_to_many.conflicts[0].side,
+            TemporalRelationshipConflictSideV1::Object
+        );
+
+        let mut many_to_one_a =
+            claim("rel-mto-a", "asset-1", "member_of_zone", "zone-1", T08, 1);
+        let mut many_to_one_b =
+            claim("rel-mto-b", "asset-1", "member_of_zone", "zone-2", T08, 2);
+        many_to_one_a.cardinality = TemporalRelationCardinalityV1::ManyToOne;
+        many_to_one_b.cardinality = TemporalRelationCardinalityV1::ManyToOne;
+        let many_to_one =
+            project_temporal_relationships(&[many_to_one_a, many_to_one_b], &[], &cut(T11, 2))
+                .unwrap();
+        assert_eq!(many_to_one.conflicts.len(), 1);
+        assert_eq!(
+            many_to_one.conflicts[0].side,
+            TemporalRelationshipConflictSideV1::Subject
+        );
+    }
+
+    #[test]
+    fn conflicting_cardinality_policy_for_one_predicate_fails_closed() {
+        let one = claim("rel-one", "asset-1", "member_of_zone", "zone-1", T08, 1);
+        let mut many = claim("rel-many", "asset-2", "member_of_zone", "zone-2", T08, 2);
+        many.cardinality = TemporalRelationCardinalityV1::ManyToMany;
+
+        assert_eq!(
+            project_temporal_relationships(&[one, many], &[], &cut(T11, 2)),
+            Err(TemporalRelationshipErrorV1::CardinalityPolicyMismatch)
         );
     }
 
