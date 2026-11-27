@@ -17,7 +17,7 @@ mkdir -p "$OUT_DIR/crates"
 
 count=0
 declare -A seen_crates=()
-while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob expected_lib_blob; do
+while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob expected_lib_blob source_root; do
   [[ -z "${pr:-}" || "$pr" == \#* ]] && continue
   [[ -n "${branch:-}" && -n "${expected_commit:-}" && -n "${crate:-}" ]] || {
     printf 'Malformed source manifest row for PR %s\n' "${pr:-unknown}" >&2
@@ -38,8 +38,13 @@ while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob e
     exit 1
   fi
 
-  manifest_path="mycelix-workspace/mycelix-craft/crates/$crate/Cargo.toml"
-  source_path="mycelix-workspace/mycelix-craft/crates/$crate/src/lib.rs"
+  source_root="${source_root:-mycelix-workspace/mycelix-craft/crates/$crate}"
+  [[ "$source_root" != *".."* ]] || {
+    printf 'Unsafe source root for PR #%s\n' "$pr" >&2
+    exit 2
+  }
+  manifest_path="$source_root/Cargo.toml"
+  source_path="$source_root/src/lib.rs"
   actual_manifest_blob="$(git -C "$REPO_ROOT" rev-parse "$expected_commit:$manifest_path")"
   actual_lib_blob="$(git -C "$REPO_ROOT" rev-parse "$expected_commit:$source_path")"
   if [[ "$actual_manifest_blob" != "$expected_manifest_blob" ]]; then
@@ -64,13 +69,13 @@ while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob e
   count=$((count + 1))
 done < "$MANIFEST"
 
-if [[ "$count" -ne 6 ]]; then
-  printf 'Expected exactly six component cores, materialized %s\n' "$count" >&2
+if [[ "$count" -ne 7 ]]; then
+  printf 'Expected exactly seven component cores, materialized %s\n' "$count" >&2
   exit 1
 fi
 
 # The harness source belongs to the exact harness commit already checked out
-# by CI. Preserve it as a distinct workspace member, not as a seventh owner.
+# by CI. Preserve it as a distinct workspace member, not as an additional owner.
 HARNESS_SRC="$SCRIPT_DIR/harness"
 test -s "$HARNESS_SRC/Cargo.toml"
 test -s "$HARNESS_SRC/src/lib.rs"
