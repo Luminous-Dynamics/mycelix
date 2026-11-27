@@ -286,9 +286,8 @@ fn node_and_leaf_domains_are_separated() {
 
 #[test]
 fn consumes_shared_go_rust_interoperability_vectors() {
-    const VECTORS: &str = include_str!(
-        "../../../../tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
-    );
+    const VECTORS: &str =
+        include_str!("../../../../tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt");
     let mut leaves = std::collections::BTreeMap::<String, Hash>::new();
     let mut mth = std::collections::BTreeMap::<usize, Hash>::new();
     let mut inclusions = Vec::new();
@@ -307,12 +306,7 @@ fn consumes_shared_go_rust_interoperability_vectors() {
                     .expect("valid shared leaf hash hex")
                     .try_into()
                     .expect("32-byte shared leaf hash");
-                assert_eq!(
-                    leaf_hash(&payload),
-                    expected,
-                    "shared leaf vector at line {}",
-                    line_number + 1
-                );
+                assert_eq!(leaf_hash(&payload), expected, "shared leaf vector at line {}", line_number + 1);
                 leaves.insert(fields[1].to_owned(), expected);
             }
             Some("mth") if fields.len() == 3 => {
@@ -345,11 +339,7 @@ fn consumes_shared_go_rust_interoperability_vectors() {
                 };
                 inclusions.push((fields[1].to_owned(), index, size, root, path));
             }
-            other => panic!(
-                "invalid shared vector at line {}: {:?}",
-                line_number + 1,
-                other
-            ),
+            other => panic!("invalid shared vector at line {}: {:?}", line_number + 1, other),
         }
     }
 
