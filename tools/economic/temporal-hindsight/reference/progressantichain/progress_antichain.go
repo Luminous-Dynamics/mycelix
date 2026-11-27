@@ -12,6 +12,10 @@ import (
 )
 
 const (
+	maxProgressStringBytes = 4096
+	maxProgressOwners      = 100000
+	maxProgressPoints      = 4096
+
 	ProgressProvisional ProgressDispositionV1 = "Provisional"
 	ProgressStableRelativeToDeclared ProgressDispositionV1 = "StableRelativeToDeclaredProgress"
 	ProgressIndeterminate ProgressDispositionV1 = "Indeterminate"
@@ -145,20 +149,34 @@ func rawProgressCutDigestV1(scopeDigest string, cut ProgressCutV1) string {
 }
 
 func canonicalOwnersV1(scope ProgressScopeV1) ([]string, error) {
-	if strings.TrimSpace(scope.SourceRef) == "" ||
-		strings.TrimSpace(scope.RegistryRef) == "" ||
-		strings.TrimSpace(scope.RegistryEpoch) == "" ||
-		strings.TrimSpace(scope.ProfileRef) == "" {
-		return nil, errors.New("progress scope identity is incomplete")
+	identity := []struct{ name, value string }{
+		{"source reference", scope.SourceRef},
+		{"registry reference", scope.RegistryRef},
+		{"registry epoch", scope.RegistryEpoch},
+		{"profile reference", scope.ProfileRef},
+	}
+	for _, field := range identity {
+		if strings.TrimSpace(field.value) == "" {
+			return nil, errors.New("progress scope identity is incomplete")
+		}
+		if len(field.value) > maxProgressStringBytes {
+			return nil, fmt.Errorf("%s exceeds %d bytes", field.name, maxProgressStringBytes)
+		}
 	}
 	if !validDigestV1(scope.QueryScopeDigest) {
 		return nil, errors.New("query scope digest is malformed")
+	}
+	if len(scope.OwnerRefs) > maxProgressOwners {
+		return nil, fmt.Errorf("owner universe exceeds %d owners", maxProgressOwners)
 	}
 	owners := append([]string(nil), scope.OwnerRefs...)
 	sort.Strings(owners)
 	for i, owner := range owners {
 		if strings.TrimSpace(owner) == "" {
 			return nil, errors.New("progress scope contains an empty owner reference")
+		}
+		if len(owner) > maxProgressStringBytes {
+			return nil, fmt.Errorf("owner reference exceeds %d bytes", maxProgressStringBytes)
 		}
 		if i > 0 && owners[i-1] == owner {
 			return nil, errors.New("progress scope contains a duplicate owner reference")
@@ -196,6 +214,9 @@ func progressVectorV1(cut ProgressCutV1, owners []string) ([]uint64, error) {
 	for _, coordinate := range cut.Owners {
 		if strings.TrimSpace(coordinate.OwnerRef) == "" {
 			return nil, errors.New("progress cut contains an empty owner coordinate")
+		}
+		if len(coordinate.OwnerRef) > maxProgressStringBytes {
+			return nil, fmt.Errorf("progress cut owner reference exceeds %d bytes", maxProgressStringBytes)
 		}
 		if _, exists := coordinates[coordinate.OwnerRef]; exists {
 			return nil, errors.New("progress cut contains a duplicate owner coordinate")
@@ -241,6 +262,9 @@ func lessOrEqualV1(left, right []uint64) bool {
 }
 
 func validateProgressAntichainV1(antichain ProgressAntichainV1) (string, string, []pointVectorV1, error) {
+	if len(antichain.Points) > maxProgressPoints {
+		return rawProgressScopeDigestV1(antichain.Scope), "", nil, fmt.Errorf("progress antichain width exceeds %d points", maxProgressPoints)
+	}
 	owners, err := canonicalOwnersV1(antichain.Scope)
 	if err != nil {
 		return "", "", nil, err
