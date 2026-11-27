@@ -18,10 +18,11 @@ if ! jq -e '
   and .no_real_personal_data == true
   and .execution_status == "protocol-and-structural-validation-only"
   and .source_benchmark == "CRAFT-WATER-SERVICE-REPAIR-V1"
-  and .relation_count == 16
-  and .adversarial_operator_count == 30
-  and .negative_control_count == 16
-  and .scorecard_metric_count == 15
+  and .relation_count == 18
+  and .adversarial_operator_count == 34
+  and .negative_control_count == 20
+  and .scorecard_metric_count == 17
+  and .seed_count == 10
   and .comparator_count == 9
   and ((.prohibited_claims | type) == "array")
   and ((.prohibited_claims | length) >= 5)
@@ -35,13 +36,13 @@ if ! jq -e '
   and .schema_version == "1.0.0"
   and .synthetic_only == true
   and ((.seeds | type) == "array")
-  and ((.seeds | length) >= 8)
+  and ((.seeds | length) == 10)
   and (([.seeds[].seed_id] | unique | length) == (.seeds | length))
   and all(.seeds[];
     ((.seed_id | type) == "string")
-    and (.seed_id | test("^SEED-WSR-[0-9]{3}$"))
-    and (.source_benchmark == "CRAFT-WATER-SERVICE-REPAIR-V1")
-    and (.source_case_id | test("^WSR-[0-9]{3}$"))
+    and (.seed_id | test("^SEED-[A-Z0-9-]+$"))
+    and (["CRAFT-WATER-SERVICE-REPAIR-V1", "CRAFT-NEED-INTAKE-V1"] | index(.source_benchmark) != null)
+    and (.source_case_id | test("^(WSR-[0-9]{3}|NIV1-[A-Z0-9-]+)$"))
     and (.synthetic_only == true)
   )
 ' "$SEEDS" >/dev/null; then
@@ -54,8 +55,8 @@ if ! jq -e '
   and .schema_version == "1.0.0"
   and .synthetic_only == true
   and ((.relations | type) == "array")
-  and ((.relations | length) == 16)
-  and (([.relations[].relation_id] | unique | length) == 16)
+  and ((.relations | length) == 18)
+  and (([.relations[].relation_id] | unique | length) == 18)
   and all(.relations[];
     (.relation_id | type == "string" and test("^MR-[0-9]{3}$"))
     and (.name | type == "string" and length > 0)
@@ -98,8 +99,8 @@ if ! jq -e '
   .benchmark_id == "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1"
   and .schema_version == "1.0.0"
   and ((.metrics | type) == "array")
-  and ((.metrics | length) == 15)
-  and (([.metrics[].metric_id] | unique | length) == 15)
+  and ((.metrics | length) == 17)
+  and (([.metrics[].metric_id] | unique | length) == 17)
   and all(.metrics[];
     (.metric_id | type == "string" and test("^[A-Z]+-[0-9]{3}$"))
     and (.name | type == "string" and length > 0)
@@ -125,10 +126,10 @@ if ! jq -e '
   and .schema_version == "1.0.0"
   and .synthetic_only == true
   and ((.mutations | type) == "array")
-  and ((.mutations | length) == 46)
-  and (([.mutations[].mutation_id] | unique | length) == 46)
-  and (([.mutations[] | select(.kind == "adversarial")] | length) == 30)
-  and (([.mutations[] | select(.kind == "negative_control")] | length) == 16)
+  and ((.mutations | length) == 54)
+  and (([.mutations[].mutation_id] | unique | length) == 54)
+  and (([.mutations[] | select(.kind == "adversarial")] | length) == 34)
+  and (([.mutations[] | select(.kind == "negative_control")] | length) == 20)
   and all(.mutations[];
     (.mutation_id | type == "string")
     and (.mutation_id | test("^[MN]-[A-Z0-9-]+$"))
@@ -163,4 +164,4 @@ if ! jq -n -e --slurpfile seeds "$SEEDS" --slurpfile relations "$RELATIONS" --sl
   exit 1
 fi
 
-echo "Evidence Assurance Metamorphic V1: 16 relations, 30 adversarial operators, 16 negative controls, and 8 synthetic seed references valid."
+echo "Evidence Assurance Metamorphic V1: 18 relations, 34 adversarial operators, 20 negative controls, 17 metrics, 9 comparators, and 10 synthetic seed references valid."
