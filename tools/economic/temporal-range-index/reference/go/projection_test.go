@@ -31,10 +31,13 @@ func receiptDigestFixtureV1(entry []byte) string {
 
 func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBindingV1, AcceptedReceiptInventoryV1) {
 	assertionRef := "assertion:grant-42"
-	assertionDigest := intervalDigestV1(70)
+	assertionPayload := []byte(`{"profile":"MYCELIX-INTERVAL-ASSERTION-SYNTHETIC-V1","assertion_id":"assertion:grant-42","subject_ref":"grant:42","claim_id":"revoked","valid_from":"2026-11-20T10:00:00.125Z","valid_to":"2026-11-20T10:00:30.750Z"}`)
+	assertionDigest := receiptDigestFixtureV1(assertionPayload)
+	metadataPayload := []byte(`{"profile":"MYCELIX-METADATA-ASSERTION-SYNTHETIC-V1","assertion_id":"metadata:receipt-9","kind":"receipt-metadata"}`)
+	metadataDigest := receiptDigestFixtureV1(metadataPayload)
 	entry0 := canonicalReceiptFixtureV1(scope, "receipt:1", assertionRef, assertionDigest, "owner:grants", 1)
 	ordinaryOwnerEvent := []byte("MYCELIX-TEST-OWNER-LOG:owner:grants:4")
-	entry2 := canonicalReceiptFixtureV1(scope, "receipt:9", "metadata:receipt-9", intervalDigestV1(71), "owner:grants", 9)
+	entry2 := canonicalReceiptFixtureV1(scope, "receipt:9", "metadata:receipt-9", metadataDigest, "owner:grants", 9)
 
 	receiptDigest := receiptDigestFixtureV1(entry0)
 	record := IntervalRecordV1{
@@ -76,14 +79,14 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 		Receipts: []AcceptedReceiptProjectionV1{
 			{
 				ReceiptLogLeafIndex: 0, OwnerSequence: 1,
-				ReceiptDigest: receiptDigest, AssertionDigest: assertionDigest, CanonicalReceiptEntryBytes: entry0,
+				ReceiptDigest: receiptDigest, AssertionDigest: assertionDigest, AssertionPayloadBytes: assertionPayload, CanonicalReceiptEntryBytes: entry0,
 				AssertionID: assertionRef, Class: ReceiptProjectsIntervalAssertionV1,
 				AssertionRef: record.AssertionRef,
 				ValidFrom: record.ValidFrom, ValidTo: record.ValidTo,
 			},
 			{
 				ReceiptLogLeafIndex: 2, OwnerSequence: 9,
-				ReceiptDigest: receiptDigestFixtureV1(entry2), AssertionDigest: intervalDigestV1(71), CanonicalReceiptEntryBytes: entry2,
+				ReceiptDigest: receiptDigestFixtureV1(entry2), AssertionDigest: metadataDigest, AssertionPayloadBytes: metadataPayload, CanonicalReceiptEntryBytes: entry2,
 				AssertionID: "metadata:receipt-9", Class: ReceiptIsNonTemporalV1,
 			},
 		},
