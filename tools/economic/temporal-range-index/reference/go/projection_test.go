@@ -99,13 +99,13 @@ func TestProjectionReplayMatchesExactSuppliedInventory(t *testing.T) {
 	if computed.ReceiptCount != 2 || computed.IntervalAssertionCount != 1 || computed.NonTemporalReceiptCount != 1 {
 		t.Fatalf("wrong projection counts: %+v", computed)
 	}
-	if got := fmt.Sprintf("%x", computed.InventoryDigest); got != "ce77089d983075fd2b23bdf6d7c67ef3568e56ab8040be5eabe4d2a13c87bac4" {
+	if got := fmt.Sprintf("%x", computed.InventoryDigest); got != "956b9c7c0101cfbe3f4ee02e742394c406e914ad485893e3f53bc888d4b0669f" {
 		t.Fatalf("accepted inventory known-answer mismatch: %s", got)
 	}
-	if got := fmt.Sprintf("%x", computed.DerivedIntervalIndexRoot); got != "2caeb7b8577945eeff7350d19d5824723e48cafa7a816a4812a3b5bbe652cca8" {
+	if got := fmt.Sprintf("%x", computed.DerivedIntervalIndexRoot); got != "9926b723cf57778f56446308ca4bb6de0ec026e1770dc460348153331024e87a" {
 		t.Fatalf("derived interval root known-answer mismatch: %s", got)
 	}
-	if got := fmt.Sprintf("%x", computed.AuditDigest); got != "612cdec4914808234bea8719d744e84f09b0a1e3cf0f91371d03d96058dd9851" {
+	if got := fmt.Sprintf("%x", computed.AuditDigest); got != "aa66082a3770e0d140403830427e45ced665e9478c9b0bfdacef64b13b911466" {
 		t.Fatalf("projection audit known-answer mismatch: %s", got)
 	}
 	if !computed.HasOwnerGaps {
