@@ -107,7 +107,7 @@ func TestProjectionReplayMatchesCompleteMixedOwnerLogInventory(t *testing.T) {
 	if computed.ProjectionMappingAuthentication != ProjectionMappingAuthenticationNotEvaluatedV1 {
 		t.Fatalf("projection semantics were overclaimed: %s", computed.ProjectionMappingAuthentication)
 	}
-	if computed.ReceiptCount != 2 || computed.NonReceiptLogLeafCount != 1 ||
+	if computed.ReceiptCount != 2 || computed.NonKnowledgeReceiptLeafCount != 1 ||
 		computed.IntervalAssertionCount != 1 || computed.NonTemporalReceiptCount != 1 {
 		t.Fatalf("wrong projection counts: %+v", computed)
 	}
@@ -366,7 +366,7 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if allAudit.NonTemporalReceiptCount != 1 || allAudit.IntervalAssertionCount != 0 || allAudit.NonReceiptLogLeafCount != 0 {
+	if allAudit.NonTemporalReceiptCount != 1 || allAudit.IntervalAssertionCount != 0 || allAudit.NonKnowledgeReceiptLeafCount != 0 {
 		t.Fatalf("wrong all-non-temporal counts: %+v", allAudit)
 	}
 }
@@ -394,7 +394,7 @@ func TestProjectionReplayRecomputesReceiptDigestsAndFullRFC9162OwnerLogRoot(t *t
 	if !audit.OwnerLogRootMatches || audit.RecomputedOwnerLogRoot == ([32]byte{}) {
 		t.Fatalf("owner log root not recomputed: %+v", audit)
 	}
-	if audit.NonReceiptLogLeafCount != 1 {
+	if audit.NonKnowledgeReceiptLeafCount != 1 {
 		t.Fatalf("ordinary non-receipt log leaf was omitted: %+v", audit)
 	}
 
