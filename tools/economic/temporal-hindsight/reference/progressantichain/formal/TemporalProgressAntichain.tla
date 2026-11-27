@@ -17,6 +17,10 @@ IsAntichain(frontier) ==
 
 VARIABLES frontier, previousFrontier, queryCut, stable
 
+AllowedPoints == {Cut(0, 0), Cut(0, 1), Cut(0, 2),
+                  Cut(1, 0), Cut(1, 1), Cut(1, 2),
+                  Cut(2, 0), Cut(2, 1), Cut(2, 2)}
+
 vars == <<frontier, previousFrontier, queryCut, stable>>
 
 Init ==
@@ -63,10 +67,6 @@ TypeOK ==
     /\ previousFrontier \subseteq AllowedPoints
     /\ queryCut \in AllowedPoints
     /\ stable \in BOOLEAN
-
-AllowedPoints == {Cut(0, 0), Cut(0, 1), Cut(0, 2),
-                  Cut(1, 0), Cut(1, 1), Cut(1, 2),
-                  Cut(2, 0), Cut(2, 1), Cut(2, 2)}
 
 FrontierIsAntichain == IsAntichain(frontier)
 PreviousFrontierIsAntichain == IsAntichain(previousFrontier)
