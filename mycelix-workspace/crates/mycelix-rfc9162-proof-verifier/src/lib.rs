@@ -241,3 +241,6 @@ pub fn verify_consistency(
     }
     Ok(ConsistencyDisposition::ConsistencyValidRelativeToSuppliedRoots)
 }
+
+#[cfg(test)]
+mod tests;
