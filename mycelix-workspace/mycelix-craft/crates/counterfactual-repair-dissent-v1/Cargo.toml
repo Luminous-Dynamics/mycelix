@@ -7,3 +7,5 @@ description = "Read-only counterfactual repair certificates and attributed disse
 
 [lib]
 path = "src/lib.rs"
+[lints]
+workspace = true
