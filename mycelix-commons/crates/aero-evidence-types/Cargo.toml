@@ -1,0 +1,11 @@
+[package]
+name = "aero-evidence-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Typed evidence and provenance primitives for the Mycelix AeroCommons research stack"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
