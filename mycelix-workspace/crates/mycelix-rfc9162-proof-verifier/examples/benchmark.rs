@@ -1,6 +1,6 @@
 use mycelix_rfc9162_proof_verifier::{
-    Hash, leaf_hash, merkle_tree_hash_from_leaf_hashes, node_hash,
-    verify_consistency, verify_leaf_inclusion,
+    Hash, leaf_hash, merkle_tree_hash_from_leaf_hashes, node_hash, verify_consistency,
+    verify_leaf_inclusion,
 };
 use std::hint::black_box;
 use std::time::Instant;
@@ -69,11 +69,7 @@ fn percentile(sorted: &[u128], p: usize) -> u128 {
     sorted[index.min(sorted.len() - 1)]
 }
 
-fn measure(
-    operation: &str,
-    size: usize,
-    mut run: impl FnMut(),
-) {
+fn measure(operation: &str, size: usize, mut run: impl FnMut()) {
     run(); // warm-up
     let mut samples = Vec::with_capacity(TRIALS);
     for trial in 0..TRIALS {
@@ -129,13 +125,16 @@ fn main() {
             assert!(result.is_ok());
         });
         // Exercise the payload API as a separate sanity check, not a timed row.
-        assert!(verify_leaf_inclusion(
-            &leaf_hash(payload),
-            index as u64,
-            size as u64,
-            &root,
-            &inclusion
-        ).is_ok());
+        assert!(
+            verify_leaf_inclusion(
+                &leaf_hash(payload),
+                index as u64,
+                size as u64,
+                &root,
+                &inclusion
+            )
+            .is_ok()
+        );
     }
     let _ = node_hash(&leaf_hash(b"left"), &leaf_hash(b"right"));
 }
