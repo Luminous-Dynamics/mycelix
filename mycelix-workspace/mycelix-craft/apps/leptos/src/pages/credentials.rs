@@ -6,8 +6,8 @@
 //! history, guild endorsements, and epistemic classification.
 //!
 //! When connected to the Holochain conductor the page merges real credential
-//! data from `CraftCtx::credentials`.  Mock data is used as a fallback when
-//! the conductor signal is empty.
+//! data from `CraftCtx::credentials`. Synthetic examples are available only
+//! when the Holochain provider explicitly reports mock mode.
 
 use leptos::prelude::*;
 use mycelix_leptos_core::{
@@ -178,11 +178,14 @@ pub fn CredentialsPage() -> impl IntoView {
     let craft = use_craft();
     let hc = use_holochain();
     let toasts = use_toasts();
+    let mock_mode = hc.is_mock();
+    let craft_for_credentials = craft.clone();
 
-    // Use conductor credentials when available, else fall back to mock data.
+    // Synthetic records are only permitted when the provider itself is in
+    // mock mode. An empty live account must render as empty, never fabricated.
     let credentials = Memo::new(move |_| {
-        let conductor_creds = craft.credentials.get();
-        if conductor_creds.is_empty() {
+        let conductor_creds = craft_for_credentials.credentials.get();
+        if conductor_creds.is_empty() && mock_mode {
             mock_credentials()
         } else {
             conductor_creds.into_iter().map(CredentialView::from).collect()
@@ -248,6 +251,13 @@ pub fn CredentialsPage() -> impl IntoView {
                 "Credentials decay over time via the Ebbinghaus forgetting curve. "
                 "Pass retention checks to refresh vitality and prove ongoing mastery."
             </p>
+
+            {mock_mode.then(|| view! {
+                <div class="status-indicator mock" role="status">
+                    <strong>"DEMO DATA — "</strong>
+                    "Synthetic examples only; not issued credentials, verified experience, or capability assessments."
+                </div>
+            })}
 
             // Summary stats
             <div class="credentials-stats">

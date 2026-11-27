@@ -6,6 +6,7 @@
 //! Uses the same radar_points() pattern as Praxis's spore_sandbox.rs.
 
 use leptos::prelude::*;
+use mycelix_leptos_core::holochain_provider::use_holochain;
 use crate::context::{use_craft, PublishedCredentialView};
 
 /// The 8 skill domains for the radar axes.
@@ -74,16 +75,17 @@ fn radar_points(values: &[f64], radius: f64, center: f64) -> String {
 /// Skill Coherence Radar — SVG component.
 ///
 /// Reads credentials from CraftCtx and plots vitality across 8 domains.
-/// Uses mock credentials as fallback when conductor data is empty.
+/// Uses synthetic examples only when the provider explicitly reports mock mode.
 #[component]
 pub fn SkillRadar() -> impl IntoView {
     let craft = use_craft();
+    let demo_mode = use_holochain().is_mock();
 
     let domain_values = Memo::new(move |_| {
         let creds = craft.credentials.get();
 
-        // Use mock data if no conductor credentials
-        let source: Vec<PublishedCredentialView> = if creds.is_empty() {
+        // Synthetic examples are restricted to explicit mock-provider mode.
+        let source: Vec<PublishedCredentialView> = if creds.is_empty() && demo_mode {
             vec![
                 PublishedCredentialView {
                     credential_id: String::new(),
@@ -157,6 +159,9 @@ pub fn SkillRadar() -> impl IntoView {
     view! {
         <div class="skill-radar">
             <h3>"Skill Coherence"</h3>
+            {demo_mode.then(|| view! {
+                <span class="status-indicator mock">"Synthetic demo data — not a worker assessment"</span>
+            })}
             <svg
                 viewBox=format!("0 0 {} {}", size, size)
                 xmlns="http://www.w3.org/2000/svg"
