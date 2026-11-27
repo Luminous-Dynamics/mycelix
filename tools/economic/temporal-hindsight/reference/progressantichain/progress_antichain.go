@@ -290,7 +290,10 @@ func validateProgressAntichainV1(antichain ProgressAntichainV1) (string, string,
 	if exceedsProgressWorkBudget(maxProgressVectorCoordinates, width, dimension) {
 		return rawProgressScopeDigestV1(antichain.Scope), "", nil, errors.New("progress antichain vector-materialization budget exceeded")
 	}
-	pairCount := width * (width - 1) / 2
+	pairCount := uint64(0)
+	if width > 1 {
+		pairCount = width * (width - 1) / 2
+	}
 	if exceedsProgressWorkBudget(maxProgressCoordinateComparisons, pairCount, dimension) {
 		return rawProgressScopeDigestV1(antichain.Scope), "", nil, errors.New("progress antichain pairwise-comparison budget exceeded")
 	}
