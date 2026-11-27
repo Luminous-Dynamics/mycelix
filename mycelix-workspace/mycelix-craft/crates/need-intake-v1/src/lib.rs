@@ -1230,7 +1230,7 @@ mod tests {
                 max_status_age_seconds: 60,
                 statement: "Qualified electrical inspection before energizing".to_owned(),
                 kind: RequirementKindV1::SafetyCritical,
-                traceability: trace,
+                traceability: trace.clone(),
             }],
             work_packages: vec![
                 ProposedWorkPackageV1 {
