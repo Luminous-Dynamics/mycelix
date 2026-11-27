@@ -1061,7 +1061,10 @@ mod tests {
             responsible_role: "municipal-water-maintainer".to_owned(),
             required_qualification_refs: vec!["qualification:current".to_owned()],
             required_permit_refs: vec!["permit:current".to_owned()],
-            prerequisite_action_ids: prerequisites.iter().map(|value| (*value).to_owned()).collect(),
+            prerequisite_action_ids: prerequisites
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect(),
             evidence_profile_ref: "water-service-action-evidence-v1".to_owned(),
             evidence_profile_digest: [0xa1; 32],
             minimum_independent_groups: 1,
@@ -1342,15 +1345,13 @@ mod tests {
 
     #[test]
     fn wsr010_action_coverage_uses_the_canonical_immutable_denominator_owner() {
-        let plan = action_denominator::AuthorizedActionPlanV1::seal(
-            wsr_action_denominator_draft(
-                1,
-                None,
-                "authority-decision:wsr010:p1",
-                [0x81; 32],
-                &["isolate", "repair", "pressure-check", "quality-sample"],
-            ),
-        )
+        let plan = action_denominator::AuthorizedActionPlanV1::seal(wsr_action_denominator_draft(
+            1,
+            None,
+            "authority-decision:wsr010:p1",
+            [0x81; 32],
+            &["isolate", "repair", "pressure-check", "quality-sample"],
+        ))
         .expect("the initial four-action denominator is canonical and valid");
 
         let isolate = wsr_action_denominator_observation(
@@ -1372,9 +1373,8 @@ mod tests {
             "independent:field-crew",
         );
         let observations = vec![isolate, repair.clone(), repair, extra];
-        let receipt =
-            action_denominator::evaluate_action_coverage_v1(&plan, &observations, 200)
-                .expect("owner evaluates a plan-bound observation set");
+        let receipt = action_denominator::evaluate_action_coverage_v1(&plan, &observations, 200)
+            .expect("owner evaluates a plan-bound observation set");
         assert_eq!(receipt.denominator_count, 4);
         assert_eq!(receipt.covered_count, 2);
         assert_eq!(receipt.coverage_basis_points, 5_000);
@@ -1404,16 +1404,15 @@ mod tests {
 
     #[test]
     fn wsr010_denominator_revision_cannot_reuse_observations_from_prior_authority() {
-        let original = action_denominator::AuthorizedActionPlanV1::seal(
-            wsr_action_denominator_draft(
+        let original =
+            action_denominator::AuthorizedActionPlanV1::seal(wsr_action_denominator_draft(
                 1,
                 None,
                 "authority-decision:wsr010:p1",
                 [0x82; 32],
                 &["isolate", "repair", "pressure-check", "quality-sample"],
-            ),
-        )
-        .unwrap();
+            ))
+            .unwrap();
         let original_observations = vec![
             wsr_action_denominator_observation(
                 &original,
@@ -1460,9 +1459,12 @@ mod tests {
                 .unwrap();
         assert_eq!(prior_on_amended.covered_count, 0);
         assert_eq!(prior_on_amended.denominator_count, 5);
-        assert!(prior_on_amended.rejected_observations.iter().all(|rejected| {
-            rejected.reason == action_denominator::RejectionReasonV1::WrongPlan
-        }));
+        assert!(prior_on_amended
+            .rejected_observations
+            .iter()
+            .all(|rejected| {
+                rejected.reason == action_denominator::RejectionReasonV1::WrongPlan
+            }));
 
         let revised_observations = vec![
             wsr_action_denominator_observation(
@@ -1488,15 +1490,13 @@ mod tests {
 
     #[test]
     fn wsr010_complete_action_coverage_does_not_auto_close_the_service_episode() {
-        let plan = action_denominator::AuthorizedActionPlanV1::seal(
-            wsr_action_denominator_draft(
-                1,
-                None,
-                "authority-decision:wsr010:complete",
-                [0x84; 32],
-                &["isolate", "repair", "pressure-check", "quality-sample"],
-            ),
-        )
+        let plan = action_denominator::AuthorizedActionPlanV1::seal(wsr_action_denominator_draft(
+            1,
+            None,
+            "authority-decision:wsr010:complete",
+            [0x84; 32],
+            &["isolate", "repair", "pressure-check", "quality-sample"],
+        ))
         .unwrap();
         let observations: Vec<_> = plan
             .actions()
