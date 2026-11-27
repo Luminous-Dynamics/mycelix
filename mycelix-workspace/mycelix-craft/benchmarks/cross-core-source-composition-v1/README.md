@@ -41,14 +41,14 @@ set -euo pipefail
 OUT_DIR="$(mktemp -d)"
 trap 'rm -rf "$OUT_DIR"' EXIT
 python3 -m venv "$OUT_DIR/pm4py-venv"
-"$OUT_DIR/pm4py-venv/bin/python" -m pip install 'pm4py[stable]==2.7.23.15'
+"$OUT_DIR/pm4py-venv/bin/python" -m pip install 'pm4py[stable,ocel]==2.7.23.15'
 "$OUT_DIR/pm4py-venv/bin/python" \
   mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/pm4py_ocel2_roundtrip.py \
   --source mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/ocel/ocel-water-service-v1.json \
   --roundtrip "$OUT_DIR/pm4py-roundtrip.json"
 ```
 
-PM4Py 2.7.23.15's `stable` extra pins the project's tested baseline dependency versions. The exact PM4Py wheel SHA-256 is `6bc2a053dab98e555b33b6d2ba966972bfcadace7b75bb7afaf788a846ff7139` (PyPI, uploaded 2026-11-24). This still does not provide a full hash-locked environment receipt for every transitive wheel or the Python interpreter. Treat it as an executable exploratory oracle, not an exact-head CI qualification, until the independent-oracle workflow has a reviewed lock/constraints file and emits its own reproducible environment receipt. Python and PM4Py remain outside the Rust production dependency graph.
+PM4Py 2.7.23.15's `stable` extra pins the project's tested baseline dependency versions; the `ocel` extra adds `jsonschema` and `pyarrow` for object-centric support. Those two extra packages are not pinned by the direct `ocel` extra. The exact PM4Py wheel SHA-256 is `6bc2a053dab98e555b33b6d2ba966972bfcadace7b75bb7afaf788a846ff7139` (PyPI, uploaded 2026-11-24). This still does not provide a full hash-locked environment receipt for every transitive wheel or the Python interpreter. Treat it as an executable exploratory oracle, not an exact-head CI qualification, until the independent-oracle workflow has a reviewed lock/constraints file and emits its own reproducible environment receipt. Python and PM4Py remain outside the Rust production dependency graph.
 
 ### Rust OCEL scale probe
 
