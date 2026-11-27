@@ -1,0 +1,22 @@
+name: Craft Evidence Assurance Metamorphic Benchmark
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-craft/benchmarks/evidence-assurance-metamorphic-v1/**"
+      - ".github/workflows/craft-evidence-assurance-metamorphic.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+      - name: Validate benchmark structure
+        run: bash mycelix-workspace/mycelix-craft/benchmarks/evidence-assurance-metamorphic-v1/validate.sh
