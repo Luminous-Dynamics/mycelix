@@ -1043,6 +1043,33 @@ mod tests {
     }
 
     #[test]
+    fn cyclic_action_prerequisites_are_rejected_when_plan_is_sealed() {
+        let result = AuthorizedActionPlanV1::seal(draft(vec![
+            action("action:a", vec!["action:b"], 1),
+            action("action:b", vec!["action:a"], 1),
+        ]));
+        assert_eq!(result, Err(PlanErrorV1::DependencyCycle));
+    }
+
+    #[test]
+    fn duplicate_action_ids_are_rejected_when_plan_is_sealed() {
+        let result = AuthorizedActionPlanV1::seal(draft(vec![
+            action("action:a", vec![], 1),
+            action("action:a", vec![], 1),
+        ]));
+        assert_eq!(result, Err(PlanErrorV1::DuplicateActionId));
+    }
+
+    #[test]
+    fn plan_is_indeterminate_outside_its_authorized_lifetime() {
+        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let before_issue = evaluate_action_coverage_v1(&plan, &[], 9).unwrap();
+        let after_expiry = evaluate_action_coverage_v1(&plan, &[], 1000).unwrap();
+        assert_eq!(before_issue.disposition, CoverageDispositionV1::Indeterminate);
+        assert_eq!(after_expiry.disposition, CoverageDispositionV1::Indeterminate);
+    }
+
+    #[test]
     fn same_count_with_different_actions_has_different_denominator_digest() {
         let first = AuthorizedActionPlanV1::seal(draft(vec![
             action("repair:valve", vec![], 1),
