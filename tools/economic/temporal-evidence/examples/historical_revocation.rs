@@ -19,6 +19,7 @@ fn main() {
                 evidence_ref: "source:revocation-effective-time".into(),
                 content_digest:
                     "sha256:df712b09b28ea02dd0b9dcf0c4b4e37db262a98c964885067c530f14f9fdb7a0".into(),
+                validity_interval_ref: Some("grant-revocation:episode-1".into()),
                 assertion_ref: None,
                 verifier_ref: None,
                 knowledge_frontier_ref: None,
@@ -38,6 +39,7 @@ fn main() {
                 evidence_ref: "source:revocation-verifier-receipt".into(),
                 content_digest:
                     "sha256:cfd66f3484835f962ed1ea0050718840ebd13688bdd8b5c782c600dc2db8a942".into(),
+                validity_interval_ref: None,
                 assertion_ref: Some("grant-revoked-valid-from".into()),
                 verifier_ref: Some("did:mycelix:verifier:finance-v1".into()),
                 knowledge_frontier_ref: Some("checkpoint:finance-verifier-frontier-001".into()),
