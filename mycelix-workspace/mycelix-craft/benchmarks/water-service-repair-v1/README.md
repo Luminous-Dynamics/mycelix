@@ -20,7 +20,7 @@ These are benchmark fixtures, not production safety rules. A field pilot require
 
 The City of Johannesburg's FY2024/25 report recorded 23,521 bursts restored within 48 hours (70.35%, against an 85% target). Johannesburg Water's 29 October 2026 public statement described low pressure, intermittent supply and prolonged outages in constrained systems. These periods and measures must remain distinct; the published 2024/25 metric is not live status or a causal baseline for an intervention.
 
-See issue #6771 for the pilot protocol and limitations. The metamorphic validator confirms only vector structure and seed references; it does not execute the mutations against the Rust reference cores. That requires the cross-core adapters and independent replay oracle. Do not treat structural fixture validation as end-to-end qualification.
+See issue #6771 for the pilot protocol and limitations. The adjacent scarcity/continuity research is tracked in [#6791](https://github.com/Luminous-Dynamics/mycelix/issues/6791); it reuses NRVCA's shared-budget arbitration (#5427), Pareto/constraint analysis (#5419) and correlated stress tests (#5409), and is not implemented by this fixture corpus. The metamorphic validator confirms only vector structure and seed references; it does not execute the mutations against the Rust reference cores. That requires the cross-core adapters and independent replay oracle. Do not treat structural fixture validation as end-to-end qualification.
 
 Run the dependency-free structural fixture validation locally with:
 
