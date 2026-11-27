@@ -50,7 +50,7 @@ jobs:
       - name: Check out owner-universe source revision
         uses: actions/checkout@v7
         with:
-          ref: 54dc4f4fbdde8984d1de891a2c2517d8e763f8ab
+          ref: e019219f20934678f569b29ddbcf6e6aff1309a9
           path: source-scope-closure
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C source-hindsight rev-parse HEAD)" = "152aa6966e1cd96750ba68aca7cb2d65ba574d15"
-          test "$(git -C source-scope-closure rev-parse HEAD)" = "54dc4f4fbdde8984d1de891a2c2517d8e763f8ab"
+          test "$(git -C source-scope-closure rev-parse HEAD)" = "e019219f20934678f569b29ddbcf6e6aff1309a9"
           test "$(git -C source-temporal-ads rev-parse HEAD)" = "6d4dde1bdaaa6a118fd6787e7eb78f174c103e1a"
 
       - name: Assert all pinned source artifacts are present
