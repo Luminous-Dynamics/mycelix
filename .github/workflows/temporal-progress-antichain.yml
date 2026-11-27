@@ -37,6 +37,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f tools/economic/temporal-hindsight/reference/progressantichain/formal/TemporalProgressAntichain.tla
+          test -f tools/economic/temporal-hindsight/reference/progressantichain/formal/TemporalProgressAntichain.cfg
+          test -f tools/economic/temporal-hindsight/reference/progressantichain/formal/TemporalProgressAntichain-Mutant.cfg
 
       - name: Set up Go reference toolchain
         uses: actions/setup-go@v7
@@ -44,6 +47,24 @@ jobs:
           go-version: "1.23.2"
           cache: false
 
+      - name: Set up pinned Java toolchain
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download and verify pinned TLA+ tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          curl --fail --location --silent --show-error --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$jar"
+          printf '%s  %s\n' \
+            "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88" \
+            "$jar" | sha256sum --check --status
+          jar tf "$jar" | grep -q "^tlc2/TLC.class$"
       - name: Run progress antichain tests
         id: progress_tests
         working-directory: tools/economic/temporal-hindsight/reference/progressantichain
@@ -78,6 +99,43 @@ jobs:
           set -euo pipefail
           go test -run 'Test(Incomparable|AnyPredecessor|SingleOwner|EmptyAntichain|Dominated|Duplicate|MissingAndForeign|ScopeAndEpoch|ProgressAdvance|ProgressDigests|Malformed)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
 
+      - name: Check bounded progress antichain model
+        id: progress_tlc
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/progress-antichain"
+          log="$RUNNER_TEMP/progress-antichain/tlc-progress-correct.log"
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-progress-correct" \
+            -config TemporalProgressAntichain.cfg \
+            TemporalProgressAntichain.tla >"$log" 2>&1
+          cat "$log"
+
+      - name: Require premature-finalization mutant counterexample
+        id: progress_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/progress-antichain"
+          log="$RUNNER_TEMP/progress-antichain/tlc-progress-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-progress-mutant" \
+            -config TemporalProgressAntichain-Mutant.cfg \
+            TemporalProgressAntichain.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Premature-finalization mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant StableSound is violated." "$log"
+          echo "Expected premature-finalization counterexample observed."
+
       - name: Benchmark progress antichain smoke
         id: progress_benchmark
         working-directory: tools/economic/temporal-hindsight/reference/progressantichain
@@ -95,6 +153,8 @@ jobs:
           VET: ${{ steps.progress_vet.outcome }}
           REPEAT: ${{ steps.progress_repeat.outcome }}
           BENCHMARK: ${{ steps.progress_benchmark.outcome }}
+          TLC: ${{ steps.progress_tlc.outcome }}
+          MUTANT: ${{ steps.progress_mutant.outcome }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/progress-antichain"
@@ -126,6 +186,8 @@ jobs:
                 vet:$vet,
                 repeated_adversarial:$repeat,
                 benchmark_smoke:$benchmark
+                correct_tlc:$TLC,
+                premature_finalization_mutant:$MUTANT
               },
               claims:{
                 progress_algebra_only:true,
@@ -135,6 +197,7 @@ jobs:
                 unbounded_proof:false
               }
             }' > "$dir/qualification.json"
+          grep -hE 'states generated|distinct states found|depth of the complete state graph|Invariant .* is violated' "$dir"/tlc-*.log > "$dir/tlc-model-summary.txt" || true
           (
             cd "$dir"
             find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
