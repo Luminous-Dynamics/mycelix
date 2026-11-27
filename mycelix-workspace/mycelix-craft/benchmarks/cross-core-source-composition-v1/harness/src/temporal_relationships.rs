@@ -16,12 +16,28 @@
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TemporalRelationCardinalityV1 {
+    OneToOne,
+    OneToMany,
+    ManyToOne,
+    ManyToMany,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TemporalRelationshipConflictSideV1 {
+    Subject,
+    Object,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TemporalRelationClaimV1 {
     pub relation_id: String,
     pub subject_id: String,
     pub predicate: String,
     pub object_id: String,
+    /// Explicit endpoint cardinality policy for this predicate.
+    pub cardinality: TemporalRelationCardinalityV1,
     pub valid_from: String,
     pub valid_to: Option<String>,
     pub source_recorded_at: String,
@@ -64,9 +80,11 @@ pub struct TemporalRelationshipCutV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TemporalRelationshipConflictV1 {
-    pub subject_id: String,
+    pub side: TemporalRelationshipConflictSideV1,
+    pub endpoint_id: String,
     pub predicate: String,
     pub relation_ids: Vec<String>,
+    pub subject_ids: Vec<String>,
     pub object_ids: Vec<String>,
 }
 
@@ -74,7 +92,10 @@ pub struct TemporalRelationshipConflictV1 {
 pub struct TemporalRelationshipReceiptV1 {
     pub valid_at: String,
     pub known_through_sequence: u64,
+    pub known_relation_ids: Vec<String>,
     pub visible_relation_ids: Vec<String>,
+    pub pending_relation_ids: Vec<String>,
+    pub expired_relation_ids: Vec<String>,
     pub active_relations: Vec<TemporalRelationClaimV1>,
     pub conflicts: Vec<TemporalRelationshipConflictV1>,
     pub known_mutation_ids: Vec<String>,
@@ -102,6 +123,7 @@ pub enum TemporalRelationshipErrorV1 {
     MutationScopeMismatch,
     InvalidReplacement,
     ConflictingMutations,
+    CardinalityPolicyMismatch,
 }
 
 fn non_empty(value: &str) -> bool {
@@ -237,6 +259,12 @@ pub fn temporal_relation_claim_digest(claim: &TemporalRelationClaimV1) -> [u8; 3
     hash_field(&mut hasher, &claim.subject_id);
     hash_field(&mut hasher, &claim.predicate);
     hash_field(&mut hasher, &claim.object_id);
+    hasher.update([match claim.cardinality {
+        TemporalRelationCardinalityV1::OneToOne => 1,
+        TemporalRelationCardinalityV1::OneToMany => 2,
+        TemporalRelationCardinalityV1::ManyToOne => 3,
+        TemporalRelationCardinalityV1::ManyToMany => 4,
+    }]);
     hash_field(&mut hasher, &claim.valid_from);
     match claim.valid_to.as_deref() {
         Some(value) => {
@@ -272,7 +300,10 @@ fn digest_hex(digest: &[u8; 32]) -> String {
 
 fn snapshot_digest(
     cut: &TemporalRelationshipCutV1,
+    known_relation_ids: &[String],
     visible_relation_ids: &[String],
+    pending_relation_ids: &[String],
+    expired_relation_ids: &[String],
     active: &[TemporalRelationClaimV1],
     conflicts: &[TemporalRelationshipConflictV1],
     known_mutations: &[&TemporalRelationMutationV1],
@@ -284,8 +315,20 @@ fn snapshot_digest(
     hash_field(&mut hasher, &cut.valid_at);
     hasher.update(cut.known_through_sequence.to_be_bytes());
 
+    hasher.update((known_relation_ids.len() as u64).to_be_bytes());
+    for id in known_relation_ids {
+        hash_field(&mut hasher, id);
+    }
     hasher.update((visible_relation_ids.len() as u64).to_be_bytes());
     for id in visible_relation_ids {
+        hash_field(&mut hasher, id);
+    }
+    hasher.update((pending_relation_ids.len() as u64).to_be_bytes());
+    for id in pending_relation_ids {
+        hash_field(&mut hasher, id);
+    }
+    hasher.update((expired_relation_ids.len() as u64).to_be_bytes());
+    for id in expired_relation_ids {
         hash_field(&mut hasher, id);
     }
     hasher.update((active.len() as u64).to_be_bytes());
@@ -294,8 +337,16 @@ fn snapshot_digest(
     }
     hasher.update((conflicts.len() as u64).to_be_bytes());
     for conflict in conflicts {
-        hash_field(&mut hasher, &conflict.subject_id);
+        hasher.update([match conflict.side {
+            TemporalRelationshipConflictSideV1::Subject => 1,
+            TemporalRelationshipConflictSideV1::Object => 2,
+        }]);
+        hash_field(&mut hasher, &conflict.endpoint_id);
         hash_field(&mut hasher, &conflict.predicate);
+        hasher.update((conflict.subject_ids.len() as u64).to_be_bytes());
+        for subject_id in &conflict.subject_ids {
+            hash_field(&mut hasher, subject_id);
+        }
         hasher.update((conflict.relation_ids.len() as u64).to_be_bytes());
         for relation_id in &conflict.relation_ids {
             hash_field(&mut hasher, relation_id);
