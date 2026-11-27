@@ -1111,6 +1111,46 @@ mod tests {
     }
 
     #[test]
+    fn wsr006_wrong_zone_scope_qualifier_cannot_become_direct_support() {
+        use claim_support::{
+            ClaimSupportDispositionV1, QualifierRelationV1, ReviewDecisionV1,
+            SemanticDimensionV1,
+        };
+
+        let mut packet = claim_packet("water:pressure-restoration");
+        let scope = packet.assessments[0]
+            .qualifiers
+            .iter_mut()
+            .find(|qualifier| qualifier.dimension == SemanticDimensionV1::Scope)
+            .expect("scope is a required semantic dimension");
+        // The target claim is scoped to ZONE-SYN-F, while the observation is
+        // sourced from another zone. The two opaque fixture digests intentionally
+        // differ; the core must not promote the assessment to direct support.
+        scope.claim_value_digest = Some([0xf1; 32]);
+        scope.source_value_digest = Some([0x66; 32]);
+        scope.relation = QualifierRelationV1::Contradicted;
+        packet.reviews.push(claim_support_helpers::review(
+            ReviewDecisionV1::ConfirmDirectSupport,
+        ));
+
+        let result = claim_support::evaluate_claim_support_result(
+            &packet,
+            100,
+            "result:wrong-zone-pressure",
+            [74; 32],
+        )
+        .expect("wrong-zone packet is structurally valid but semantically unsupported");
+        assert_eq!(
+            result.disposition,
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
+        assert_ne!(
+            result.disposition,
+            ClaimSupportDispositionV1::Supported
+        );
+    }
+
+    #[test]
     fn wsr009_expired_permit_and_revoked_crew_block_safety_critical_work() {
         use evidence_lineage::{
             ArtifactKindV1, ArtifactStateV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1,
