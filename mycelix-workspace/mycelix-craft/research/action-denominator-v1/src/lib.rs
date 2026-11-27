@@ -30,10 +30,11 @@ pub struct ServiceScopeV1 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(u8)]
 pub enum ActionRiskV1 {
-    Routine,
-    Consequential,
-    SafetyCritical,
+    Routine = 0,
+    Consequential = 1,
+    SafetyCritical = 2,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,8 +73,45 @@ pub struct AuthorizedActionPlanV1 {
 }
 
 impl AuthorizedActionPlanV1 {
-    /// Canonicalizes the action set and seals the immutable denominator.
-    pub fn seal(mut draft: ActionPlanDraftV1) -> Result<Self, PlanErrorV1> {
+    /// Seal an initial plan. Later revisions must use seal_amendment so that
+    /// the previous digest and the new authority decision are checked first.
+    pub fn seal(draft: ActionPlanDraftV1) -> Result<Self, PlanErrorV1> {
+        if draft.plan_revision != 1 || draft.supersedes_plan_digest.is_some() {
+            return Err(PlanErrorV1::AmendmentMustUseAuthorizedTransition);
+        }
+        Self::seal_canonical(draft)
+    }
+
+    /// Seal a new immutable plan revision against one exact previous plan.
+    /// This makes authority-bound supersession a construction-time invariant,
+    /// not an optional validation step a caller can forget.
+    pub fn seal_amendment(
+        previous: &AuthorizedActionPlanV1,
+        draft: ActionPlanDraftV1,
+    ) -> Result<Self, PlanErrorV1> {
+        previous.validate_integrity()?;
+        if previous.draft.plan_ref != draft.plan_ref
+            || previous.draft.episode_ref != draft.episode_ref
+        {
+            return Err(PlanErrorV1::AmendmentIdentityMismatch);
+        }
+        if previous.draft.plan_revision.checked_add(1) != Some(draft.plan_revision) {
+            return Err(PlanErrorV1::NonSequentialRevision);
+        }
+        if draft.supersedes_plan_digest != Some(previous.digest) {
+            return Err(PlanErrorV1::MissingSupersessionBinding);
+        }
+        if draft.authority.decision_digest == previous.draft.authority.decision_digest
+            || draft.authority.decision_ref == previous.draft.authority.decision_ref
+        {
+            return Err(PlanErrorV1::AmendmentNeedsNewAuthorityDecision);
+        }
+        let next = Self::seal_canonical(draft)?;
+        validate_plan_amendment_v1(previous, &next)?;
+        Ok(next)
+    }
+
+    fn seal_canonical(mut draft: ActionPlanDraftV1) -> Result<Self, PlanErrorV1> {
         validate_plan_header(&draft)?;
         draft.actions.sort_by(|a, b| a.action_id.cmp(&b.action_id));
         for action in &mut draft.actions {
@@ -155,13 +193,14 @@ pub fn validate_plan_amendment_v1(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(u8)]
 pub enum ObservationStatusV1 {
-    VerifiedComplete,
-    Attempted,
-    NotComplete,
-    Expired,
-    Revoked,
-    Disputed,
+    VerifiedComplete = 0,
+    Attempted = 1,
+    NotComplete = 2,
+    Expired = 3,
+    Revoked = 4,
+    Disputed = 5,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -176,6 +215,8 @@ pub struct ActionObservationV1 {
     pub source_ref: String,
     pub source_revision: u64,
     pub evidence_digest: DigestV1,
+    /// Digest of the exact action-specific evidence predicate/profile.
+    pub evidence_profile_digest: DigestV1,
     pub independence_group: String,
     pub verifier_ref: String,
     pub observed_at: u64,
@@ -196,6 +237,7 @@ impl ActionObservationV1 {
         e.string(&self.source_ref);
         e.u64(self.source_revision);
         e.digest(&self.evidence_digest);
+        e.digest(&self.evidence_profile_digest);
         e.string(&self.independence_group);
         e.string(&self.verifier_ref);
         e.u64(self.observed_at);
@@ -212,6 +254,7 @@ pub enum RejectionReasonV1 {
     WrongZone,
     WrongJurisdiction,
     WrongContext,
+    WrongEvidenceProfile,
     UnknownAction,
     MalformedObservation,
     NotYetObserved,
@@ -289,6 +332,7 @@ pub enum PlanErrorV1 {
     NonSequentialRevision,
     MissingSupersessionBinding,
     AmendmentNeedsNewAuthorityDecision,
+    AmendmentMustUseAuthorizedTransition,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -310,10 +354,10 @@ pub fn evaluate_action_coverage_v1(
         return Ok(empty_report(plan, CoverageDispositionV1::Indeterminate));
     }
 
-    let action_ids: BTreeSet<&str> = plan
+    let action_by_id: BTreeMap<&str, &AuthorizedActionV1> = plan
         .actions()
         .iter()
-        .map(|a| a.action_id.as_str())
+        .map(|action| (action.action_id.as_str(), action))
         .collect();
     let mut seen_observation_ids = BTreeMap::<&str, DigestV1>::new();
     let mut duplicates_ignored = 0_u64;
@@ -342,6 +386,7 @@ pub fn evaluate_action_coverage_v1(
             || observation.verifier_ref.trim().is_empty()
             || observation.source_revision == 0
             || observation.evidence_digest == [0; 32]
+            || observation.evidence_profile_digest == [0; 32]
             || observation.plan_digest == [0; 32]
             || observation.context_digest == [0; 32]
             || observation.valid_until <= observation.observed_at
@@ -357,18 +402,22 @@ pub fn evaluate_action_coverage_v1(
             Some(RejectionReasonV1::WrongJurisdiction)
         } else if observation.context_digest != plan.scope().context_digest {
             Some(RejectionReasonV1::WrongContext)
-        } else if !action_ids.contains(observation.action_id.as_str()) {
+        } else if !action_by_id.contains_key(observation.action_id.as_str()) {
             Some(RejectionReasonV1::UnknownAction)
+        } else if observation.evidence_profile_digest
+            != action_by_id[observation.action_id.as_str()].evidence_profile_digest
+        {
+            Some(RejectionReasonV1::WrongEvidenceProfile)
         } else if observation.observed_at > now {
             Some(RejectionReasonV1::NotYetObserved)
-        } else if observation.valid_until <= now {
-            Some(RejectionReasonV1::ExpiredObservation)
         } else if observation.status == ObservationStatusV1::Revoked {
             Some(RejectionReasonV1::ExplicitRevocation)
         } else if observation.status == ObservationStatusV1::Expired {
             Some(RejectionReasonV1::ExplicitExpiry)
         } else if observation.status == ObservationStatusV1::Disputed {
             Some(RejectionReasonV1::ExplicitDispute)
+        } else if observation.valid_until <= now {
+            Some(RejectionReasonV1::ExpiredObservation)
         } else if observation.status != ObservationStatusV1::VerifiedComplete {
             Some(RejectionReasonV1::NonCompletionStatus)
         } else {
@@ -840,6 +889,7 @@ mod tests {
             source_ref: format!("source:{group}"),
             source_revision: 1,
             evidence_digest: digest(group.as_bytes()[0]),
+            evidence_profile_digest: plan.actions()[0].evidence_profile_digest,
             independence_group: group.to_owned(),
             verifier_ref: "verifier:water-review".to_owned(),
             observed_at,
@@ -940,6 +990,26 @@ mod tests {
         assert_eq!(
             report.action_results[0].status,
             ActionCoverageStatusV1::InsufficientIndependentGroups
+        );
+    }
+
+    #[test]
+    fn wrong_evidence_profile_is_rejected_and_not_counted() {
+        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let mut item = observation(
+            &plan,
+            "obs:wrong-profile",
+            "action:1",
+            "independent:1",
+            100,
+            900,
+        );
+        item.evidence_profile_digest = digest(91);
+        let report = evaluate_action_coverage_v1(&plan, &[item], 200).unwrap();
+        assert_eq!(report.covered_count, 0);
+        assert_eq!(
+            report.rejected_observations[0].reason,
+            RejectionReasonV1::WrongEvidenceProfile
         );
     }
 
@@ -1063,8 +1133,8 @@ mod tests {
         amended_draft.supersedes_plan_digest = Some(previous.digest());
         amended_draft.authority.decision_ref = "authority-decision:2".to_owned();
         amended_draft.authority.decision_digest = digest(4);
-        let amended = AuthorizedActionPlanV1::seal(amended_draft).unwrap();
-        validate_plan_amendment_v1(&previous, &amended).unwrap();
+        let amended =
+            AuthorizedActionPlanV1::seal_amendment(&previous, amended_draft).unwrap();
 
         let prior_observation =
             observation(&previous, "obs:1", "action:1", "independent:1", 100, 900);
@@ -1074,16 +1144,27 @@ mod tests {
         assert_eq!(prior_report.denominator_count, 2);
         assert_eq!(prior_report.covered_count, 1);
 
-        let attempted_new_plan = AuthorizedActionPlanV1::seal({
+        let attempted_draft = {
             let mut draft = draft(vec![action("action:1", vec![], 1)]);
             draft.plan_revision = 2;
             draft.supersedes_plan_digest = Some(previous.digest());
             draft
-        })
-        .unwrap();
+        };
         assert_eq!(
-            validate_plan_amendment_v1(&previous, &attempted_new_plan),
+            AuthorizedActionPlanV1::seal_amendment(&previous, attempted_draft),
             Err(PlanErrorV1::AmendmentNeedsNewAuthorityDecision)
+        );
+        let bypass_draft = {
+            let mut draft = draft(vec![action("action:1", vec![], 1)]);
+            draft.plan_revision = 2;
+            draft.supersedes_plan_digest = Some(previous.digest());
+            draft.authority.decision_ref = "authority-decision:2".to_owned();
+            draft.authority.decision_digest = digest(5);
+            draft
+        };
+        assert_eq!(
+            AuthorizedActionPlanV1::seal(bypass_draft),
+            Err(PlanErrorV1::AmendmentMustUseAuthorizedTransition)
         );
         let replay =
             evaluate_action_coverage_v1(&previous, std::slice::from_ref(&prior_observation), 200)
