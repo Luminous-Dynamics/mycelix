@@ -230,10 +230,10 @@ jobs:
         run: |
           set -euo pipefail
           jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \\
-            -workers 1 -seed 1 \\
-            -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-correct" \\
-            -config TemporalEnumerationContinuity.cfg \\
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-correct" \
+            -config TemporalEnumerationContinuity.cfg \
             TemporalEnumerationContinuity.tla
 
       - name: Require truncated enumeration mutant counterexample
@@ -244,10 +244,10 @@ jobs:
           jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
           log="$RUNNER_TEMP/tlc-enumeration-continuity-mutant.log"
           status=0
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \\
-            -workers 1 -seed 1 \\
-            -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-mutant" \\
-            -config TemporalEnumerationContinuity-Mutant.cfg \\
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-mutant" \
+            -config TemporalEnumerationContinuity-Mutant.cfg \
             TemporalEnumerationContinuity.tla >"$log" 2>&1 || status=$?
           cat "$log"
           if [ "$status" -eq 0 ]; then
