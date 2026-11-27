@@ -24,24 +24,24 @@ func BenchmarkOwnerProjectionReplayV1(b *testing.B) {
 			entry := canonicalReceiptFixtureV1(scope, fmt.Sprintf("receipt:%08d", i), assertionID, assertionDigest, owner, sequence)
 			receiptDigest := receiptDigestFixtureV1(entry)
 			record := IntervalRecordV1{
-				AssertionRef: assertionID,
-				ValidFrom: intervalPointV1(int64(i), 0),
-				ValidTo: intervalFiniteV1(int64(i+100), 0),
+				AssertionRef:  assertionID,
+				ValidFrom:     intervalPointV1(int64(i), 0),
+				ValidTo:       intervalFiniteV1(int64(i+100), 0),
 				ReceiptDigest: receiptDigest,
 			}
 			records[i] = record
 			receipts[i] = AcceptedReceiptProjectionV1{
-				ReceiptLogLeafIndex: sequence - 1,
-				OwnerSequence: sequence,
-				ReceiptDigest: receiptDigest,
-				AssertionDigest: assertionDigest,
-				AssertionPayloadBytes: assertionPayload,
+				ReceiptLogLeafIndex:        sequence - 1,
+				OwnerSequence:              sequence,
+				ReceiptDigest:              receiptDigest,
+				AssertionDigest:            assertionDigest,
+				AssertionPayloadBytes:      assertionPayload,
 				CanonicalReceiptEntryBytes: entry,
-				AssertionID: assertionID,
-				Class: ReceiptProjectsIntervalAssertionV1,
-				AssertionRef: assertionID,
-				ValidFrom: record.ValidFrom,
-				ValidTo: record.ValidTo,
+				AssertionID:                assertionID,
+				Class:                      ReceiptProjectsIntervalAssertionV1,
+				AssertionRef:               assertionID,
+				ValidFrom:                  record.ValidFrom,
+				ValidTo:                    record.ValidTo,
 			}
 			leaves[i] = OwnerLogLeafV1{LeafIndex: sequence - 1, OwnerSequence: sequence, EntryBytes: entry}
 			logEntries[i] = entry
@@ -51,22 +51,22 @@ func BenchmarkOwnerProjectionReplayV1(b *testing.B) {
 			b.Fatal(err)
 		}
 		binding := OwnerIntervalIndexBindingV1{
-			OwnerRef: owner,
-			OwnerHistoryRef: history,
-			OwnerSequence: uint64(size),
-			TreeSize: uint64(size),
-			OwnerLogRootDigest: fmt.Sprintf("sha256:%x", rfc9162TreeHashV1(logEntries)),
-			IntervalIndexRoot: tree.RootHash(),
+			OwnerRef:              owner,
+			OwnerHistoryRef:       history,
+			OwnerSequence:         uint64(size),
+			TreeSize:              uint64(size),
+			OwnerLogRootDigest:    fmt.Sprintf("sha256:%x", rfc9162TreeHashV1(logEntries)),
+			IntervalIndexRoot:     tree.RootHash(),
 			ProjectionAuditDigest: "",
 		}
 		inventory := AcceptedReceiptInventoryV1{
-			OwnerRef: owner,
-			OwnerHistoryRef: history,
-			OwnerSequenceCut: uint64(size),
-			TreeSize: uint64(size),
+			OwnerRef:           owner,
+			OwnerHistoryRef:    history,
+			OwnerSequenceCut:   uint64(size),
+			TreeSize:           uint64(size),
 			OwnerLogRootDigest: binding.OwnerLogRootDigest,
-			LogLeaves: leaves,
-			Receipts: receipts,
+			LogLeaves:          leaves,
+			Receipts:           receipts,
 		}
 
 		b.Run(fmt.Sprintf("replay/%d_receipts", size), func(b *testing.B) {

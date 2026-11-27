@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	intervalProofWireMagicV1 = "MYCITPQ1"
+	intervalProofWireMagicV1    = "MYCITPQ1"
 	maxIntervalProofWireBytesV1 = 64 * 1024 * 1024
 	maxIntervalProofWireNodesV1 = 2_000_001
 	maxIntervalProofWireDepthV1 = 64
-	maxIntervalProofEntriesV1 = 1_000_000
+	maxIntervalProofEntriesV1   = 1_000_000
 )
 
 var ErrIntervalProofEncoding = errors.New("invalid canonical interval proof encoding")

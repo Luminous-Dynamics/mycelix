@@ -12,12 +12,12 @@ func TestFrontierProjectionReplayRequiresEveryOwnerAndCommittedAudit(t *testing.
 	binding.ProjectionAuditDigest = "sha256:" + fmtHexV1(audit.AuditDigest)
 
 	manifest := TemporalFrontierIndexManifestV1{
-		VerifierRef: scope.VerifierRef,
-		PolicyEpochRef: scope.PolicyEpochRef,
-		FrontierDigest: scope.SourceFrontierDigest,
+		VerifierRef:     scope.VerifierRef,
+		PolicyEpochRef:  scope.PolicyEpochRef,
+		FrontierDigest:  scope.SourceFrontierDigest,
 		IntervalProfile: intervalProfileV1,
-		QueryScope: scope,
-		Owners: []OwnerIntervalIndexBindingV1{binding},
+		QueryScope:      scope,
+		Owners:          []OwnerIntervalIndexBindingV1{binding},
 	}
 	root, err := TemporalFrontierForestRootV1(manifest)
 	if err != nil {

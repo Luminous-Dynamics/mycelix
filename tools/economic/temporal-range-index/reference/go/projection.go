@@ -17,18 +17,18 @@ const canonicalKnowledgeReceiptMagicV1 = "MYCELIX-KNOWLEDGE-RECEIPT-V1\x00"
 const canonicalKnowledgeReceiptStemV1 = "MYCELIX-KNOWLEDGE-RECEIPT-V1"
 
 const (
-	maxProjectionReceiptsV1 = 100_000
-	maxProjectionReceiptBytesV1 = 64 * 1024 * 1024
-	maxProjectionAssertionPayloadBytesV1 = 1 * 1024 * 1024
+	maxProjectionReceiptsV1                   = 100_000
+	maxProjectionReceiptBytesV1               = 64 * 1024 * 1024
+	maxProjectionAssertionPayloadBytesV1      = 1 * 1024 * 1024
 	maxProjectionAssertionPayloadTotalBytesV1 = 64 * 1024 * 1024
-	maxProjectionDependenciesV1 = 10_000
+	maxProjectionDependenciesV1               = 10_000
 )
 
 type ReceiptProjectionClassV1 uint8
 
 const (
 	ReceiptProjectsIntervalAssertionV1 ReceiptProjectionClassV1 = 1
-	ReceiptIsNonTemporalV1              ReceiptProjectionClassV1 = 2
+	ReceiptIsNonTemporalV1             ReceiptProjectionClassV1 = 2
 )
 
 // AcceptedReceiptProjectionV1 is the claimed semantic projection of one canonical knowledge
@@ -72,9 +72,9 @@ type ProjectionReplayDispositionV1 string
 type ReceiptInventoryAuthenticationV1 string
 
 const (
-	ProjectionMatchesSuppliedAcceptedInventoryV1 ProjectionReplayDispositionV1 = "ProjectionMatchesSuppliedAcceptedInventory"
+	ProjectionMatchesSuppliedAcceptedInventoryV1 ProjectionReplayDispositionV1    = "ProjectionMatchesSuppliedAcceptedInventory"
 	ReceiptInventoryAuthenticationNotEvaluatedV1 ReceiptInventoryAuthenticationV1 = "NotEvaluated"
-	ReceiptLogRootRecomputedButTrustExternalV1 ReceiptInventoryAuthenticationV1 = "LogRootRecomputedButTrustExternal"
+	ReceiptLogRootRecomputedButTrustExternalV1   ReceiptInventoryAuthenticationV1 = "LogRootRecomputedButTrustExternal"
 )
 
 type ProjectionMappingAuthenticationV1 string
@@ -82,33 +82,33 @@ type ProjectionMappingAuthenticationV1 string
 const ProjectionMappingAuthenticationNotEvaluatedV1 ProjectionMappingAuthenticationV1 = "NotEvaluated"
 
 type OwnerProjectionReplayAuditV1 struct {
-	Disposition                    ProjectionReplayDispositionV1
-	ReceiptInventoryAuthentication ReceiptInventoryAuthenticationV1
+	Disposition                     ProjectionReplayDispositionV1
+	ReceiptInventoryAuthentication  ReceiptInventoryAuthenticationV1
 	ProjectionMappingAuthentication ProjectionMappingAuthenticationV1
-	OwnerRef                      string
-	OwnerHistoryRef               string
-	OwnerSequenceCut              uint64
-	TreeSize                      uint64
-	ReceiptCount                  uint64
-	NonKnowledgeReceiptLeafCount  uint64
-	IntervalAssertionCount        uint64
-	NonTemporalReceiptCount       uint64
-	InventoryDigest               [32]byte
-	DerivedIntervalIndexRoot      [32]byte
-	AuditDigest                   [32]byte
-	RecomputedOwnerLogRoot        [32]byte
-	OwnerLogRootMatches           bool
-	HasOwnerGaps                  bool
+	OwnerRef                        string
+	OwnerHistoryRef                 string
+	OwnerSequenceCut                uint64
+	TreeSize                        uint64
+	ReceiptCount                    uint64
+	NonKnowledgeReceiptLeafCount    uint64
+	IntervalAssertionCount          uint64
+	NonTemporalReceiptCount         uint64
+	InventoryDigest                 [32]byte
+	DerivedIntervalIndexRoot        [32]byte
+	AuditDigest                     [32]byte
+	RecomputedOwnerLogRoot          [32]byte
+	OwnerLogRootMatches             bool
+	HasOwnerGaps                    bool
 }
 
 var (
 	ErrProjectionInventoryMismatch = errors.New("accepted receipt inventory does not match owner binding")
-	ErrProjectionLeafCoverage       = errors.New("receipt log leaf positions are incomplete or non-canonical")
-	ErrProjectionSequenceOrder      = errors.New("owner receipt sequences are not strictly increasing within the cut")
-	ErrProjectionReceiptClass       = errors.New("unsupported or malformed receipt projection class")
-	ErrProjectionIndexRootMismatch  = errors.New("replayed temporal index root does not match owner binding")
-	ErrProjectionAuditMismatch      = errors.New("projection audit digest does not match owner binding")
-	ErrProjectionReceiptOmitted     = errors.New("canonical knowledge receipt leaf has no temporal projection disposition")
+	ErrProjectionLeafCoverage      = errors.New("receipt log leaf positions are incomplete or non-canonical")
+	ErrProjectionSequenceOrder     = errors.New("owner receipt sequences are not strictly increasing within the cut")
+	ErrProjectionReceiptClass      = errors.New("unsupported or malformed receipt projection class")
+	ErrProjectionIndexRootMismatch = errors.New("replayed temporal index root does not match owner binding")
+	ErrProjectionAuditMismatch     = errors.New("projection audit digest does not match owner binding")
+	ErrProjectionReceiptOmitted    = errors.New("canonical knowledge receipt leaf has no temporal projection disposition")
 )
 
 // ComputeOwnerProjectionReplayAuditV1 independently rebuilds the interval index from the
@@ -236,9 +236,9 @@ func ComputeOwnerProjectionReplayAuditV1(
 		}
 		if projection.Class == ReceiptProjectsIntervalAssertionV1 {
 			record := IntervalRecordV1{
-				AssertionRef: projection.AssertionRef,
-				ValidFrom: projection.ValidFrom,
-				ValidTo: projection.ValidTo,
+				AssertionRef:  projection.AssertionRef,
+				ValidFrom:     projection.ValidFrom,
+				ValidTo:       projection.ValidTo,
 				ReceiptDigest: projection.ReceiptDigest,
 			}
 			if projection.AssertionRef == "" || projection.AssertionRef != canonical.AssertionID ||
@@ -282,23 +282,23 @@ func ComputeOwnerProjectionReplayAuditV1(
 	)
 	hasGaps := len(binding.Gaps) > 0
 	return OwnerProjectionReplayAuditV1{
-		Disposition: ProjectionMatchesSuppliedAcceptedInventoryV1,
-		ReceiptInventoryAuthentication: ReceiptLogRootRecomputedButTrustExternalV1,
+		Disposition:                     ProjectionMatchesSuppliedAcceptedInventoryV1,
+		ReceiptInventoryAuthentication:  ReceiptLogRootRecomputedButTrustExternalV1,
 		ProjectionMappingAuthentication: ProjectionMappingAuthenticationNotEvaluatedV1,
-		OwnerRef: binding.OwnerRef,
-		OwnerHistoryRef: binding.OwnerHistoryRef,
-		OwnerSequenceCut: binding.OwnerSequence,
-		TreeSize: binding.TreeSize,
-		ReceiptCount: uint64(len(inventory.Receipts)),
-		NonKnowledgeReceiptLeafCount: nonKnowledgeReceiptLeaves,
-		IntervalAssertionCount: uint64(len(records)),
-		NonTemporalReceiptCount: nonTemporal,
-		InventoryDigest: inventoryDigest,
-		DerivedIntervalIndexRoot: tree.RootHash(),
-		AuditDigest: auditDigest,
-		RecomputedOwnerLogRoot: recomputedLogRoot,
-		OwnerLogRootMatches: true,
-		HasOwnerGaps: hasGaps,
+		OwnerRef:                        binding.OwnerRef,
+		OwnerHistoryRef:                 binding.OwnerHistoryRef,
+		OwnerSequenceCut:                binding.OwnerSequence,
+		TreeSize:                        binding.TreeSize,
+		ReceiptCount:                    uint64(len(inventory.Receipts)),
+		NonKnowledgeReceiptLeafCount:    nonKnowledgeReceiptLeaves,
+		IntervalAssertionCount:          uint64(len(records)),
+		NonTemporalReceiptCount:         nonTemporal,
+		InventoryDigest:                 inventoryDigest,
+		DerivedIntervalIndexRoot:        tree.RootHash(),
+		AuditDigest:                     auditDigest,
+		RecomputedOwnerLogRoot:          recomputedLogRoot,
+		OwnerLogRootMatches:             true,
+		HasOwnerGaps:                    hasGaps,
 	}, nil
 }
 
@@ -371,9 +371,9 @@ func hashAcceptedReceiptInventoryV1(
 		preimage.WriteByte(byte(receipt.Class))
 		if receipt.Class == ReceiptProjectsIntervalAssertionV1 {
 			record := IntervalRecordV1{
-				AssertionRef: receipt.AssertionRef,
-				ValidFrom: receipt.ValidFrom,
-				ValidTo: receipt.ValidTo,
+				AssertionRef:  receipt.AssertionRef,
+				ValidFrom:     receipt.ValidFrom,
+				ValidTo:       receipt.ValidTo,
 				ReceiptDigest: receipt.ReceiptDigest,
 			}
 			appendIntervalRecordBytesV1(&preimage, record)
@@ -437,16 +437,15 @@ func appendIntervalRecordBytesV1(dst *bytes.Buffer, record IntervalRecordV1) {
 	_ = binary.Write(dst, binary.BigEndian, record.ValidTo.At.Nanos)
 }
 
-
 type canonicalKnowledgeReceiptFieldsV1 struct {
-	ReceiptID      string
-	VerifierRef    string
-	PolicyEpochRef string
-	AssertionID    string
+	ReceiptID       string
+	VerifierRef     string
+	PolicyEpochRef  string
+	AssertionID     string
 	AssertionDigest string
-	OwnerRef       string
-	OwnerSequence  uint64
-	ReceiptDigest  string
+	OwnerRef        string
+	OwnerSequence   uint64
+	ReceiptDigest   string
 }
 
 func decodeCanonicalKnowledgeReceiptEntryV1(entry []byte) (canonicalKnowledgeReceiptFieldsV1, error) {

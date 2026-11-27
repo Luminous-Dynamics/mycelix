@@ -12,16 +12,16 @@ const (
 )
 
 type TemporalFrontierProjectionReplayResultV1 struct {
-	Disposition                    TemporalFrontierProjectionDispositionV1
-	ReceiptInventoryAuthentication ReceiptInventoryAuthenticationV1
+	Disposition                     TemporalFrontierProjectionDispositionV1
+	ReceiptInventoryAuthentication  ReceiptInventoryAuthenticationV1
 	ProjectionMappingAuthentication ProjectionMappingAuthenticationV1
-	OwnerCount                     int
-	HasOwnerGaps                   bool
-	OwnerAudits                    []OwnerProjectionReplayAuditV1
+	OwnerCount                      int
+	HasOwnerGaps                    bool
+	OwnerAudits                     []OwnerProjectionReplayAuditV1
 }
 
 var (
-	ErrForestProjectionOwnerSetMismatch = errors.New("projection inventory owner set does not match accepted frontier")
+	ErrForestProjectionOwnerSetMismatch  = errors.New("projection inventory owner set does not match accepted frontier")
 	ErrForestProjectionInventoryMismatch = errors.New("projection inventories do not match forest owner bindings")
 )
 
@@ -83,11 +83,11 @@ func VerifyTemporalFrontierProjectionReplayV1(
 	}
 
 	result := TemporalFrontierProjectionReplayResultV1{
-		Disposition: ProjectionMatchesAllSuppliedOwnerInventoriesV1,
-		ReceiptInventoryAuthentication: ReceiptLogRootRecomputedButTrustExternalV1,
+		Disposition:                     ProjectionMatchesAllSuppliedOwnerInventoriesV1,
+		ReceiptInventoryAuthentication:  ReceiptLogRootRecomputedButTrustExternalV1,
 		ProjectionMappingAuthentication: ProjectionMappingAuthenticationNotEvaluatedV1,
-		OwnerCount: len(manifest.Owners),
-		OwnerAudits: make([]OwnerProjectionReplayAuditV1, 0, len(manifest.Owners)),
+		OwnerCount:                      len(manifest.Owners),
+		OwnerAudits:                     make([]OwnerProjectionReplayAuditV1, 0, len(manifest.Owners)),
 	}
 	for i, binding := range manifest.Owners {
 		if inventories[i].OwnerRef != binding.OwnerRef {

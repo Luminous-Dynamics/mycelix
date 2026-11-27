@@ -49,9 +49,9 @@ func intervalBenchmarkWorkloadV1(name string, size int) ([]IntervalRecordV1, Int
 			endBound = intervalOpenV1()
 		}
 		records[i] = IntervalRecordV1{
-			AssertionRef: fmt.Sprintf("assertion:%s:%08d", name, i),
-			ValidFrom: intervalPointV1(start, 0),
-			ValidTo: endBound,
+			AssertionRef:  fmt.Sprintf("assertion:%s:%08d", name, i),
+			ValidFrom:     intervalPointV1(start, 0),
+			ValidTo:       endBound,
 			ReceiptDigest: fmt.Sprintf("sha256:%064x", uint64(i+1)),
 		}
 	}

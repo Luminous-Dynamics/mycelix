@@ -19,18 +19,18 @@ func makeFrontierForestBenchmarkFixtureV1(ownerCount int) frontierForestBenchmar
 	scope := intervalScopeFixtureV1()
 	query := intervalPointV1(50, 0)
 	fixture := frontierForestBenchmarkFixtureV1{
-		scope: scope,
+		scope:  scope,
 		owners: make([]string, 0, ownerCount),
 		manifest: TemporalFrontierIndexManifestV1{
-			VerifierRef: scope.VerifierRef,
-			PolicyEpochRef: scope.PolicyEpochRef,
-			FrontierDigest: scope.SourceFrontierDigest,
+			VerifierRef:     scope.VerifierRef,
+			PolicyEpochRef:  scope.PolicyEpochRef,
+			FrontierDigest:  scope.SourceFrontierDigest,
 			IntervalProfile: intervalProfileV1,
-			QueryScope: scope,
-			Owners: make([]OwnerIntervalIndexBindingV1, 0, ownerCount),
+			QueryScope:      scope,
+			Owners:          make([]OwnerIntervalIndexBindingV1, 0, ownerCount),
 		},
 		proof: TemporalFrontierQueryProofV1{
-			Query: query,
+			Query:       query,
 			OwnerProofs: make([]OwnerIntervalQueryProofV1, 0, ownerCount),
 		},
 		recordCount: ownerCount,
@@ -39,22 +39,22 @@ func makeFrontierForestBenchmarkFixtureV1(ownerCount int) frontierForestBenchmar
 		ownerRef := fmt.Sprintf("owner:%08d", i)
 		historyRef := fmt.Sprintf("history:%08d", i)
 		record := IntervalRecordV1{
-			AssertionRef: fmt.Sprintf("assertion:%08d", i),
-			ValidFrom: intervalPointV1(0, 0),
-			ValidTo: intervalFiniteV1(100, 0),
-			ReceiptDigest: intervalDigestV1(byte((i%250)+1)),
+			AssertionRef:  fmt.Sprintf("assertion:%08d", i),
+			ValidFrom:     intervalPointV1(0, 0),
+			ValidTo:       intervalFiniteV1(100, 0),
+			ReceiptDigest: intervalDigestV1(byte((i % 250) + 1)),
 		}
 		tree, err := NewIntervalTreeV1(scope, []IntervalRecordV1{record})
 		if err != nil {
 			panic(err)
 		}
 		binding := OwnerIntervalIndexBindingV1{
-			OwnerRef: ownerRef,
-			OwnerHistoryRef: historyRef,
-			OwnerSequence: 1,
-			TreeSize: 1,
-			OwnerLogRootDigest: fmt.Sprintf("sha256:%064x", uint64(i+1)),
-			IntervalIndexRoot: tree.RootHash(),
+			OwnerRef:              ownerRef,
+			OwnerHistoryRef:       historyRef,
+			OwnerSequence:         1,
+			TreeSize:              1,
+			OwnerLogRootDigest:    fmt.Sprintf("sha256:%064x", uint64(i+1)),
+			IntervalIndexRoot:     tree.RootHash(),
 			ProjectionAuditDigest: fmt.Sprintf("sha256:%064x", uint64(i+1001)),
 		}
 		proof, err := tree.ProvePointQueryV1(query)
@@ -70,7 +70,7 @@ func makeFrontierForestBenchmarkFixtureV1(ownerCount int) frontierForestBenchmar
 		fixture.manifest.Owners = append(fixture.manifest.Owners, binding)
 		fixture.proof.OwnerProofs = append(fixture.proof.OwnerProofs, OwnerIntervalQueryProofV1{
 			OwnerRef: ownerRef,
-			Proof: proof,
+			Proof:    proof,
 		})
 	}
 	fixture.proof.Manifest = fixture.manifest

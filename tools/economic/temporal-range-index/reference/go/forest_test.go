@@ -267,7 +267,6 @@ func TestFrontierForestRejectsFrontierAndRootSubstitution(t *testing.T) {
 	}
 }
 
-
 func TestFrontierForestMatchesCanonicalKnownAnswer(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	manifest := TemporalFrontierIndexManifestV1{
@@ -312,7 +311,6 @@ func TestFrontierForestRejectsInvalidUTF8AndNonCanonicalOwnerOrder(t *testing.T)
 		t.Fatal("invalid UTF-8 owner reference passed")
 	}
 }
-
 
 func TestFrontierForestRejectsUnsupportedIntervalProfile(t *testing.T) {
 	scope := intervalScopeFixtureV1()

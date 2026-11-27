@@ -41,9 +41,9 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 
 	receiptDigest := receiptDigestFixtureV1(entry0)
 	record := IntervalRecordV1{
-		AssertionRef: assertionRef,
-		ValidFrom: intervalPointV1(10, 125_000_000),
-		ValidTo: intervalFiniteV1(30, 750_000_000),
+		AssertionRef:  assertionRef,
+		ValidFrom:     intervalPointV1(10, 125_000_000),
+		ValidTo:       intervalFiniteV1(30, 750_000_000),
 		ReceiptDigest: receiptDigest,
 	}
 	tree, err := NewIntervalTreeV1(scope, []IntervalRecordV1{record})
@@ -57,19 +57,19 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 	// leaving 3 authenticated owner-log leaves at sequences 1, 4 and 9.
 	gaps := []OwnerGapRangeV1{{First: 2, Last: 3}, {First: 5, Last: 8}}
 	binding := OwnerIntervalIndexBindingV1{
-		OwnerRef: "owner:grants",
-		OwnerHistoryRef: "history:grants:v1",
-		OwnerSequence: 9,
-		TreeSize: 3,
+		OwnerRef:           "owner:grants",
+		OwnerHistoryRef:    "history:grants:v1",
+		OwnerSequence:      9,
+		TreeSize:           3,
 		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", logRoot),
-		IntervalIndexRoot: tree.RootHash(),
-		Gaps: gaps,
+		IntervalIndexRoot:  tree.RootHash(),
+		Gaps:               gaps,
 	}
 	inventory := AcceptedReceiptInventoryV1{
-		OwnerRef: binding.OwnerRef,
-		OwnerHistoryRef: binding.OwnerHistoryRef,
-		OwnerSequenceCut: binding.OwnerSequence,
-		TreeSize: binding.TreeSize,
+		OwnerRef:           binding.OwnerRef,
+		OwnerHistoryRef:    binding.OwnerHistoryRef,
+		OwnerSequenceCut:   binding.OwnerSequence,
+		TreeSize:           binding.TreeSize,
 		OwnerLogRootDigest: binding.OwnerLogRootDigest,
 		LogLeaves: []OwnerLogLeafV1{
 			{LeafIndex: 0, OwnerSequence: 1, EntryBytes: entry0},
@@ -82,7 +82,7 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 				ReceiptDigest: receiptDigest, AssertionDigest: assertionDigest, AssertionPayloadBytes: assertionPayload, CanonicalReceiptEntryBytes: entry0,
 				AssertionID: assertionRef, Class: ReceiptProjectsIntervalAssertionV1,
 				AssertionRef: record.AssertionRef,
-				ValidFrom: record.ValidFrom, ValidTo: record.ValidTo,
+				ValidFrom:    record.ValidFrom, ValidTo: record.ValidTo,
 			},
 			{
 				ReceiptLogLeafIndex: 2, OwnerSequence: 9,
@@ -268,17 +268,17 @@ func TestProjectionReplayRejectsNonTemporalSmugglingAndDuplicateAssertions(t *te
 	)
 	duplicate.LogLeaves[2].EntryBytes = duplicateBytes
 	duplicate.Receipts[1] = AcceptedReceiptProjectionV1{
-		ReceiptLogLeafIndex: 2,
-		OwnerSequence: 9,
-		ReceiptDigest: receiptDigestFixtureV1(duplicateBytes),
-		AssertionDigest: duplicateAssertionDigest,
-		AssertionPayloadBytes: duplicatePayload,
+		ReceiptLogLeafIndex:        2,
+		OwnerSequence:              9,
+		ReceiptDigest:              receiptDigestFixtureV1(duplicateBytes),
+		AssertionDigest:            duplicateAssertionDigest,
+		AssertionPayloadBytes:      duplicatePayload,
 		CanonicalReceiptEntryBytes: duplicateBytes,
-		AssertionID: "assertion:grant-42",
-		Class: ReceiptProjectsIntervalAssertionV1,
-		AssertionRef: "assertion:grant-42",
-		ValidFrom: intervalPointV1(11, 0),
-		ValidTo: intervalFiniteV1(40, 0),
+		AssertionID:                "assertion:grant-42",
+		Class:                      ReceiptProjectsIntervalAssertionV1,
+		AssertionRef:               "assertion:grant-42",
+		ValidFrom:                  intervalPointV1(11, 0),
+		ValidTo:                    intervalFiniteV1(40, 0),
 	}
 	newRoot := rfc9162TreeHashV1([][]byte{
 		duplicate.LogLeaves[0].EntryBytes,
@@ -317,16 +317,16 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	}
 	emptyLogRoot := fmt.Sprintf("sha256:%x", sha256.Sum256(nil))
 	emptyBinding := OwnerIntervalIndexBindingV1{
-		OwnerRef: "owner:empty",
-		OwnerHistoryRef: "history:empty",
-		OwnerSequence: 0,
-		TreeSize: 0,
+		OwnerRef:           "owner:empty",
+		OwnerHistoryRef:    "history:empty",
+		OwnerSequence:      0,
+		TreeSize:           0,
 		OwnerLogRootDigest: emptyLogRoot,
-		IntervalIndexRoot: emptyTree.RootHash(),
+		IntervalIndexRoot:  emptyTree.RootHash(),
 	}
 	emptyInventory := AcceptedReceiptInventoryV1{
-		OwnerRef: emptyBinding.OwnerRef,
-		OwnerHistoryRef: emptyBinding.OwnerHistoryRef,
+		OwnerRef:           emptyBinding.OwnerRef,
+		OwnerHistoryRef:    emptyBinding.OwnerHistoryRef,
 		OwnerLogRootDigest: emptyBinding.OwnerLogRootDigest,
 	}
 	emptyAudit, err := ComputeOwnerProjectionReplayAuditV1(scope, emptyBinding, emptyInventory)
@@ -348,29 +348,29 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 		scope, "receipt:1", "metadata:1", allAssertionDigest, "owner:metadata", 1,
 	)
 	allBinding := OwnerIntervalIndexBindingV1{
-		OwnerRef: "owner:metadata",
-		OwnerHistoryRef: "history:metadata",
-		OwnerSequence: 1,
-		TreeSize: 1,
+		OwnerRef:           "owner:metadata",
+		OwnerHistoryRef:    "history:metadata",
+		OwnerSequence:      1,
+		TreeSize:           1,
 		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", rfc9162TreeHashV1([][]byte{allBytes})),
-		IntervalIndexRoot: allNonTemporalTree.RootHash(),
+		IntervalIndexRoot:  allNonTemporalTree.RootHash(),
 	}
 	allInventory := AcceptedReceiptInventoryV1{
-		OwnerRef: allBinding.OwnerRef,
-		OwnerHistoryRef: allBinding.OwnerHistoryRef,
-		OwnerSequenceCut: 1,
-		TreeSize: 1,
+		OwnerRef:           allBinding.OwnerRef,
+		OwnerHistoryRef:    allBinding.OwnerHistoryRef,
+		OwnerSequenceCut:   1,
+		TreeSize:           1,
 		OwnerLogRootDigest: allBinding.OwnerLogRootDigest,
-		LogLeaves: []OwnerLogLeafV1{{LeafIndex: 0, OwnerSequence: 1, EntryBytes: allBytes}},
+		LogLeaves:          []OwnerLogLeafV1{{LeafIndex: 0, OwnerSequence: 1, EntryBytes: allBytes}},
 		Receipts: []AcceptedReceiptProjectionV1{{
-			ReceiptLogLeafIndex: 0,
-			OwnerSequence: 1,
-			ReceiptDigest: receiptDigestFixtureV1(allBytes),
-			AssertionDigest: allAssertionDigest,
-			AssertionPayloadBytes: allPayload,
+			ReceiptLogLeafIndex:        0,
+			OwnerSequence:              1,
+			ReceiptDigest:              receiptDigestFixtureV1(allBytes),
+			AssertionDigest:            allAssertionDigest,
+			AssertionPayloadBytes:      allPayload,
 			CanonicalReceiptEntryBytes: allBytes,
-			AssertionID: "metadata:1",
-			Class: ReceiptIsNonTemporalV1,
+			AssertionID:                "metadata:1",
+			Class:                      ReceiptIsNonTemporalV1,
 		}},
 	}
 	allAudit, err := ComputeOwnerProjectionReplayAuditV1(scope, allBinding, allInventory)
@@ -426,7 +426,6 @@ func TestProjectionReplayRecomputesReceiptDigestsAndFullRFC9162OwnerLogRoot(t *t
 		t.Fatalf("mutated non-receipt log leaf escaped full root check: %v", err)
 	}
 }
-
 
 func TestProjectionReplayRejectsMissingOrTamperedAssertionPayloadBytes(t *testing.T) {
 	scope := intervalScopeFixtureV1()

@@ -15,7 +15,7 @@ const intervalProfileV1 = "MYCELIX-INTERVAL-TREE-V0.1"
 
 const (
 	maxForestOwnersV1 = 100_000
-	maxOwnerGapsV1 = 100_000
+	maxOwnerGapsV1    = 100_000
 )
 
 type OwnerGapRangeV1 struct {
