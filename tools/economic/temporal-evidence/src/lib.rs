@@ -81,6 +81,9 @@ pub struct TemporalAssertionV1 {
     pub evidence_ref: String,
     /// SHA-256 digest of the canonical evidence payload, lower-case hex.
     pub content_digest: String,
+    /// Stable validity-episode identity. Required by temporal evidence envelope v1.1
+    /// for VALID_FROM and VALID_TO; None is retained only for legacy v1.0 input.
+    pub validity_interval_ref: Option<String>,
     /// For record/observation/knowledge metadata, the exact fact assertion
     /// whose time/evidence lifecycle this metadata qualifies.
     pub assertion_ref: Option<String>,
@@ -159,6 +162,8 @@ pub enum TemporalKernelErrorV1 {
     MetadataReferencesMetadata,
     SupersessionOnMetadata,
     InvalidSupersessionTarget,
+    ValidityIntervalRefOnNonEndpoint,
+    ValidityIntervalIdentityMismatch,
     SupersessionCycle,
 }
 
@@ -228,6 +233,20 @@ impl TemporalEvidenceSetV1 {
             validate_identifier(&assertion.evidence_ref)
                 .map_err(|_| TemporalKernelErrorV1::MissingEvidenceReference)?;
             validate_content_digest(&assertion.content_digest)?;
+
+            match (assertion.dimension, assertion.validity_interval_ref.as_deref()) {
+                (TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo, Some(interval_ref)) => {
+                    validate_identifier(interval_ref)?;
+                }
+                (TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo, None) => {
+                    // Legacy v1.0 assertions remain parseable, but the interval
+                    // query API below will not promote them to episode-complete.
+                }
+                (_, Some(_)) => {
+                    return Err(TemporalKernelErrorV1::ValidityIntervalRefOnNonEndpoint);
+                }
+                (_, None) => {}
+            }
 
             if by_id
                 .insert(assertion.assertion_id.as_str(), assertion)
@@ -313,6 +332,13 @@ impl TemporalEvidenceSetV1 {
                     || previous.dimension != assertion.dimension
                 {
                     return Err(TemporalKernelErrorV1::InvalidSupersessionTarget);
+                }
+                if matches!(
+                    assertion.dimension,
+                    TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo
+                ) && previous.validity_interval_ref != assertion.validity_interval_ref
+                {
+                    return Err(TemporalKernelErrorV1::ValidityIntervalIdentityMismatch);
                 }
             }
         }
