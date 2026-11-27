@@ -22,7 +22,7 @@ The Johannesburg Water FY2024/25 Annual Report separately reports 70.35% of burs
 
 References:
 - Johannesburg Water, Business Plan 2025/26, printed pp. 83-84 and 95-96: https://www.johannesburgwater.co.za/wp-content/uploads/2025/07/JHB-Water_Business-Plan-2025_For-Upload_FINAL_070725.pdf
-- Johannesburg Water, Integrated Annual Report 2024/25: https://www.johannesburgwater.co.za/wp-content/uploads/2026/05/Annual-Report-2425.pdf
+- Johannesburg Water, Integrated Annual Report 2024/25: https://joburg.org.za/work_/Documents/Annual-Integrated-Report-2025/City-of-Johannesburg-Annual-Intergrated-Report-2025.pdf
 
 Every reported KPI must carry a versioned measurement definition containing:
 - event start and stop semantics;
@@ -103,7 +103,7 @@ The revised Compulsory National Water and Sanitation Services Standards, Governm
 - ISO 17025-accredited laboratory methods or a credible proficiency-tested alternative;
 - notification to the DWS regional office and provincial Health Department district office within 12 hours after confirmation of a health-risk incident, with applicable drinking-water quality advisory communication.
 
-Official source: https://www.gov.za/documents/notices/water-services-act-compulsory-national-water-and-sanitation-services-standards
+Official source: https://www.gov.za/sites/default/files/gcis_document/202506/52814gon6292.pdf
 
 These are scenario anchors for qualified human/professional interpretation. Synthetic conformance results are **not legal-compliance determinations**. The benchmark must pin the exact applicable instrument and revision; no general-purpose rule engine may infer jurisdiction or applicability from a label.
 
