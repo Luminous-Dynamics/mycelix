@@ -548,7 +548,7 @@ pub fn parse_temporal_relationships_ocel20(
     let root: Value =
         serde_json::from_str(input).map_err(|_| TemporalRelationshipErrorV1::InvalidOcel20)?;
     for key in ["objectTypes", "eventTypes"] {
-        if !root.get(key).and_then(Value::as_array).is_some() {
+        if root.get(key).and_then(Value::as_array).is_none() {
             return Err(TemporalRelationshipErrorV1::InvalidOcel20);
         }
     }
@@ -1004,10 +1004,17 @@ mod tests {
     }
 
 
-    fn fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+    fn object_object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
         serde_json::json!({
             "name": name,
             "time": T08,
+            "value": value
+        })
+    }
+
+    fn event_object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "name": name,
             "value": value
         })
     }
@@ -1055,15 +1062,15 @@ mod tests {
                     "id": "rel-asset-zone",
                     "type": "temporal_relation_claim",
                     "attributes": [
-                        fixture_attribute("predicate", "member_of_zone"),
-                        fixture_attribute("cardinality", "many_to_one"),
-                        fixture_attribute("valid_from", T08),
-                        fixture_attribute("source_recorded_at", T08),
-                        fixture_attribute("accepted_sequence", 1),
-                        fixture_attribute("source_ref", "source:asset-zone"),
-                        fixture_attribute("source_digest", source_digest),
-                        fixture_attribute("asserting_principal", "principal:operator"),
-                        fixture_attribute("authority_scope", "scope:zone-A")
+                        object_fixture_attribute("predicate", "member_of_zone"),
+                        object_fixture_attribute("cardinality", "many_to_one"),
+                        object_fixture_attribute("valid_from", T08),
+                        object_fixture_attribute("source_recorded_at", T08),
+                        object_fixture_attribute("accepted_sequence", 1),
+                        object_fixture_attribute("source_ref", "source:asset-zone"),
+                        object_fixture_attribute("source_digest", source_digest),
+                        object_fixture_attribute("asserting_principal", "principal:operator"),
+                        object_fixture_attribute("authority_scope", "scope:zone-A")
                     ],
                     "relationships": [
                         {"objectId": "asset-1", "qualifier": "subject"},
@@ -1076,14 +1083,14 @@ mod tests {
                 "type": "temporal_relation_revoked",
                 "time": T13,
                 "attributes": [
-                    fixture_attribute("target_claim_digest", target_digest),
-                    fixture_attribute("effective_at", T10),
-                    fixture_attribute("source_recorded_at", T13),
-                    fixture_attribute("accepted_sequence", 2),
-                    fixture_attribute("source_ref", "source:zone-revocation"),
-                    fixture_attribute("source_digest", digest_hex(&[0x22; 32])),
-                    fixture_attribute("asserting_principal", "principal:reviewer"),
-                    fixture_attribute("authority_scope", "scope:zone-A")
+                    event_fixture_attribute("target_claim_digest", target_digest),
+                    event_fixture_attribute("effective_at", T10),
+                    event_fixture_attribute("source_recorded_at", T13),
+                    event_fixture_attribute("accepted_sequence", 2),
+                    event_fixture_attribute("source_ref", "source:zone-revocation"),
+                    event_fixture_attribute("source_digest", digest_hex(&[0x22; 32])),
+                    event_fixture_attribute("asserting_principal", "principal:reviewer"),
+                    event_fixture_attribute("authority_scope", "scope:zone-A")
                 ],
                 "relationships": [{
                     "objectId": "rel-asset-zone",
