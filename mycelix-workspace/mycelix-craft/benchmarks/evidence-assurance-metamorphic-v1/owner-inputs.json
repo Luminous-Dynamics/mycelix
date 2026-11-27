@@ -1,0 +1,435 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "synthetic_only": true,
+  "source_fixture_policy": "Source WSR JSON files are immutable inputs. These owner_views are separately versioned synthetic projections used only to specify future adapters. They are not real owner evaluator receipts or cryptographic commitments.",
+  "digest_semantics": "Every digest in this file is a deterministic shape-only placeholder for a synthetic fixture. It is not a cryptographic commitment. A future adapter must recompute commitments from exact serialized fixture bytes.",
+  "seeds": [
+    {
+      "seed_id": "SEED-WSR-001",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-001",
+      "owner_views": {
+        "decision_closure": {
+          "decision": {
+            "disposition": "not_eligible",
+            "context_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "blockers": [
+            {
+              "blocker_id": "physical-restoration",
+              "kind": "missing_independent_observation"
+            },
+            {
+              "blocker_id": "water-quality",
+              "kind": "missing_current_quality_result"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-003",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-003",
+      "owner_views": {
+        "decision_closure": {
+          "decision": {
+            "disposition": "not_eligible",
+            "context_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "blockers": [
+            {
+              "blocker_id": "water-quality-clearance",
+              "kind": "pending_quality_evidence"
+            }
+          ]
+        },
+        "counterfactual_repair": {
+          "blockers": [
+            {
+              "blocker_id": "water-quality-clearance",
+              "material_element": {
+                "artifact_id": "water-quality-claim",
+                "revision": 1,
+                "digest": "4444444444444444444444444444444444444444444444444444444444444444"
+              },
+              "required_evidence": [
+                {
+                  "kind": "qualified_current_lab_result",
+                  "owner": "accredited-laboratory",
+                  "context_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+                }
+              ],
+              "required_authority": null
+            },
+            {
+              "blocker_id": "local-review-prerequisite",
+              "material_element": {
+                "artifact_id": "local-review",
+                "revision": 1,
+                "digest": "5555555555555555555555555555555555555555555555555555555555555555"
+              },
+              "required_evidence": [],
+              "required_authority": {
+                "artifact_id": "local-authority-policy",
+                "revision": 1,
+                "digest": "6666666666666666666666666666666666666666666666666666666666666666"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "step_id": "obtain-current-lab-result",
+              "kind": "collect_evidence",
+              "owner": "accredited-laboratory",
+              "reassess_by": "ClaimSupport",
+              "required_evidence_kind": "qualified_current_lab_result",
+              "context_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+            },
+            {
+              "step_id": "request-local-decision",
+              "kind": "obtain_authority_decision",
+              "owner": "local-authority",
+              "reassess_by": "DecisionClosure",
+              "required_authority": {
+                "artifact_id": "local-authority-policy",
+                "revision": 1,
+                "digest": "6666666666666666666666666666666666666666666666666666666666666666"
+              },
+              "context_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+            }
+          ],
+          "evidence_requirements": [
+            "qualified_current_lab_result"
+          ],
+          "context": {
+            "unrelated_note": "synthetic metadata baseline"
+          }
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-004",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-004",
+      "owner_views": {
+        "applicability": {
+          "jurisdiction_ref": "JURIS-SYN-01",
+          "population_scope_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+          "service_zone_ref": "ZONE-SYN-D"
+        },
+        "claim_support": {
+          "alternative_sets": [
+            {
+              "alternative_id": "ALT-PRESSURE-AND-LAB",
+              "required": [
+                {
+                  "claim": "pressure_restored",
+                  "supported": true
+                },
+                {
+                  "claim": "water_quality_passed",
+                  "supported": false
+                }
+              ]
+            },
+            {
+              "alternative_id": "ALT-APPROVED-ALTERNATE-SUPPLY",
+              "required": [
+                {
+                  "claim": "approved_alternative_supply",
+                  "supported": true
+                },
+                {
+                  "claim": "quality_for_alternative_supply",
+                  "supported": false
+                }
+              ]
+            }
+          ]
+        },
+        "decision_closure": {
+          "decision": {
+            "disposition": "eligible_for_local_review",
+            "context_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "local_authority_status": "current",
+          "authority_ref": {
+            "kind": "draft",
+            "artifact": {
+              "artifact_id": "draft-closure-proposal",
+              "revision": 1,
+              "digest": "8888888888888888888888888888888888888888888888888888888888888888"
+            }
+          },
+          "permit_ref": {
+            "artifact_id": "permit-wsr-004",
+            "revision": 1,
+            "digest": "9999999999999999999999999999999999999999999999999999999999999999"
+          }
+        },
+        "need_intake": {
+          "reviews": [
+            {
+              "review_id": "MODEL-SUMMARY-004",
+              "decision": "suggested_consensus",
+              "authenticated": false,
+              "authority_ref": null
+            }
+          ],
+          "community_decisions": []
+        },
+        "impact_qualification": {
+          "event": {
+            "event_id": "CHANGE-WSR-004-BASE",
+            "digest": "1010101010101010101010101010101010101010101010101010101010101010"
+          },
+          "artifact": {
+            "artifact_id": "service-record-004",
+            "revision": 1,
+            "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "edge": {
+            "edge_id": "EDGE-WSR-004",
+            "digest": "1212121212121212121212121212121212121212121212121212121212121212"
+          },
+          "use_context": {
+            "digest": "1313131313131313131313131313131313131313131313131313131313131313",
+            "jurisdiction_ref": "JURIS-SYN-01",
+            "population_scope_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+          }
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-005",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-005",
+      "owner_views": {
+        "evidence_lifecycle": {
+          "unrelated_evidence": [
+            {
+              "evidence_id": "IRRELEVANT-OPS-NOTE",
+              "status": "current",
+              "valid_until": "2030-01-01T00:00:00Z",
+              "context_digest": "1515151515151515151515151515151515151515151515151515151515151515"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-007",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-007",
+      "owner_views": {
+        "provenance": {
+          "origin_groups": [
+            {
+              "group_id": "PROVIDER-OPS-07",
+              "source_ids": [
+                "SRC-PROVIDER-07A",
+                "SRC-PROVIDER-07B"
+              ],
+              "qualified_common_cause": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-008",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-008",
+      "owner_views": {
+        "evidence_lineage": {
+          "events": [
+            {
+              "event_id": "EVT-LAB-CORRECTION-08",
+              "host_sequence": 41,
+              "event_type": "source_corrected",
+              "payload_digest": "1616161616161616161616161616161616161616161616161616161616161616"
+            },
+            {
+              "event_id": "EVT-WSR-008-FOLLOWUP",
+              "host_sequence": 42,
+              "event_type": "revalidation_required",
+              "payload_digest": "1717171717171717171717171717171717171717171717171717171717171717"
+            }
+          ],
+          "dependency_edges": [
+            {
+              "edge_id": "EDGE-LAB-TO-CLAIM-08",
+              "from": "lab-result-r1",
+              "to": "water-quality-claim",
+              "impact_policy": "Informational"
+            },
+            {
+              "edge_id": "EDGE-CLAIM-TO-DECISION-08",
+              "from": "water-quality-claim",
+              "to": "local-closure-08",
+              "impact_policy": "RevalidateOnChange"
+            }
+          ]
+        },
+        "impact_qualification": {
+          "change_event": {
+            "event_id": "EVT-LAB-CORRECTION-08",
+            "revision": 1,
+            "digest": "1818181818181818181818181818181818181818181818181818181818181818"
+          },
+          "dependency_edge": {
+            "edge_id": "EDGE-LAB-TO-CLAIM-08",
+            "revision": 1,
+            "digest": "1919191919191919191919191919191919191919191919191919191919191919"
+          },
+          "use_context": {
+            "context_id": "WATER-QUALITY-USE-08",
+            "digest": "2020202020202020202020202020202020202020202020202020202020202020",
+            "jurisdiction_ref": "JURIS-SYN-01"
+          }
+        },
+        "claim_support": {
+          "alternative_sets": [
+            {
+              "alternative_id": "ALT-08-A",
+              "required": [
+                {
+                  "claim": "current_lab_result",
+                  "supported": false
+                },
+                {
+                  "claim": "independent_sampling_chain",
+                  "supported": true
+                }
+              ]
+            },
+            {
+              "alternative_id": "ALT-08-B",
+              "required": [
+                {
+                  "claim": "recognized_emergency_protocol",
+                  "supported": false
+                },
+                {
+                  "claim": "authority_approval",
+                  "supported": true
+                }
+              ]
+            }
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "node_id": "LAB-08"
+            },
+            {
+              "node_id": "CLAIM-08"
+            },
+            {
+              "node_id": "DECISION-08"
+            }
+          ]
+        },
+        "measurements": {
+          "timestamps": {
+            "first_response": "2026-01-01T08:00:00Z",
+            "repair_complete": "2026-01-01T12:00:00Z",
+            "restoration_observed": "2026-01-01T13:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-010",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-010",
+      "owner_views": {}
+    },
+    {
+      "seed_id": "SEED-WSR-013",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-013",
+      "owner_views": {
+        "applicability": {
+          "jurisdiction_ref": "JURIS-SYN-02",
+          "population_scope_digest": "2121212121212121212121212121212121212121212121212121212121212121",
+          "service_zone_ref": "ZONE-SYN-M"
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-WSR-016",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-016",
+      "owner_views": {
+        "metric_semantics": {
+          "timestamps": {
+            "first_response": "2025-03-01T10:00:00Z",
+            "repair_complete": "2025-03-02T14:00:00Z",
+            "restoration_observed": "2025-03-03T09:00:00Z",
+            "quality_clearance": "2025-03-03T15:00:00Z",
+            "authority_closure": "2025-03-04T11:00:00Z"
+          },
+          "definitions": {
+            "response": "on_site_and_process_initiated",
+            "restoration": "independently_observed_physical_restoration"
+          }
+        }
+      }
+    },
+    {
+      "seed_id": "SEED-NIV1-DISSENT-001",
+      "source_benchmark": "CRAFT-NEED-INTAKE-V1",
+      "source_case_id": "NIV1-STAKEHOLDER-DISSENT-001",
+      "owner_views": {
+        "need_intake": {
+          "proposal": {
+            "artifact_id": "need-proposal-water-001",
+            "revision": 1,
+            "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "positions": [
+            {
+              "position_id": "POSITION-AFFORDABILITY",
+              "revision": 1,
+              "group_id": "HOUSEHOLDS-COST-CONCERN",
+              "statement_digest": "2323232323232323232323232323232323232323232323232323232323232323",
+              "material": true,
+              "state": "Active",
+              "attribution": {
+                "artifact_id": "GROUP-MANDATE-AFFORDABILITY",
+                "revision": 1,
+                "digest": "2424242424242424242424242424242424242424242424242424242424242424"
+              }
+            },
+            {
+              "position_id": "POSITION-RELIABILITY",
+              "revision": 1,
+              "group_id": "HOUSEHOLDS-RELIABILITY-CONCERN",
+              "statement_digest": "2525252525252525252525252525252525252525252525252525252525252525",
+              "material": true,
+              "state": "Disputed",
+              "attribution": {
+                "artifact_id": "GROUP-MANDATE-RELIABILITY",
+                "revision": 1,
+                "digest": "2626262626262626262626262626262626262626262626262626262626262626"
+              }
+            }
+          ],
+          "reviews": [
+            {
+              "review_id": "MODEL-REVIEW-NIV1",
+              "decision": "suggested_consensus",
+              "authenticated": false,
+              "authority_ref": null
+            }
+          ],
+          "community_decisions": []
+        }
+      }
+    }
+  ]
+}
