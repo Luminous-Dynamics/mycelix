@@ -342,7 +342,10 @@ pub fn evaluate_lineage(
             (None, false) => {}
         }
 
-        target_events.entry(target_key).or_default().push(event.clone());
+        target_events
+            .entry(target_key)
+            .or_default()
+            .push(event.clone());
         sequence_owners.insert(event.sequence, event.event_id.clone());
         unique_events.insert(event.event_id.clone(), event.clone());
     }
@@ -411,18 +414,28 @@ pub fn evaluate_lineage(
         left.affected_artifact
             .artifact_id
             .cmp(&right.affected_artifact.artifact_id)
-            .then_with(|| left.affected_artifact.revision.cmp(&right.affected_artifact.revision))
-            .then_with(|| left.dependency.artifact_id.cmp(&right.dependency.artifact_id))
+            .then_with(|| {
+                left.affected_artifact
+                    .revision
+                    .cmp(&right.affected_artifact.revision)
+            })
+            .then_with(|| {
+                left.dependency
+                    .artifact_id
+                    .cmp(&right.dependency.artifact_id)
+            })
             .then_with(|| left.dependency.revision.cmp(&right.dependency.revision))
     });
 
     let artifacts = states
         .into_iter()
         .filter_map(|(artifact_key, state)| {
-            node_map.get(&artifact_key).map(|node| ArtifactStateRecordV1 {
-                reference: node.reference.clone(),
-                state,
-            })
+            node_map
+                .get(&artifact_key)
+                .map(|node| ArtifactStateRecordV1 {
+                    reference: node.reference.clone(),
+                    state,
+                })
         })
         .collect();
 
@@ -464,10 +477,7 @@ mod tests {
         }
     }
 
-    fn node(
-        reference: ArtifactRefV1,
-        dependencies: Vec<ArtifactDependencyV1>,
-    ) -> ArtifactNodeV1 {
+    fn node(reference: ArtifactRefV1, dependencies: Vec<ArtifactDependencyV1>) -> ArtifactNodeV1 {
         ArtifactNodeV1 {
             reference,
             kind: ArtifactKindV1::Other,
@@ -492,11 +502,10 @@ mod tests {
         }
     }
 
-    fn state(
-        evaluation: &LineageEvaluationV1,
-        reference: &ArtifactRefV1,
-    ) -> ArtifactStateV1 {
-        evaluation.state_for(reference).expect("artifact state exists")
+    fn state(evaluation: &LineageEvaluationV1, reference: &ArtifactRefV1) -> ArtifactStateV1 {
+        evaluation
+            .state_for(reference)
+            .expect("artifact state exists")
     }
 
     #[test]
@@ -714,9 +723,7 @@ mod tests {
                 .expect("well-formed two-edge lineage");
 
                 let expected_intermediate = match first_policy {
-                    ImpactPolicyV1::RevalidateOnChange => {
-                        ArtifactStateV1::NeedsRevalidation
-                    }
+                    ImpactPolicyV1::RevalidateOnChange => ArtifactStateV1::NeedsRevalidation,
                     ImpactPolicyV1::InvalidateOnChange => ArtifactStateV1::Invalidated,
                     ImpactPolicyV1::Informational => ArtifactStateV1::Current,
                 };
@@ -726,9 +733,7 @@ mod tests {
                     ArtifactStateV1::Current
                 } else {
                     match second_policy {
-                        ImpactPolicyV1::RevalidateOnChange => {
-                            ArtifactStateV1::NeedsRevalidation
-                        }
+                        ImpactPolicyV1::RevalidateOnChange => ArtifactStateV1::NeedsRevalidation,
                         ImpactPolicyV1::InvalidateOnChange => ArtifactStateV1::Invalidated,
                         ImpactPolicyV1::Informational => ArtifactStateV1::Current,
                     }
@@ -811,13 +816,7 @@ mod tests {
     fn exact_event_replay_is_idempotent() {
         let source = reference("source", 1, 1);
         let nodes = vec![node(source.clone(), vec![])];
-        let change = event(
-            "expire-source",
-            1,
-            source,
-            ChangeReasonV1::Expired,
-            None,
-        );
+        let change = event("expire-source", 1, source, ChangeReasonV1::Expired, None);
         let evaluation = evaluate_lineage(&nodes, &[change.clone(), change])
             .expect("exact event replay is idempotent");
         assert_eq!(evaluation.applied_event_ids, vec!["expire-source"]);
@@ -827,20 +826,8 @@ mod tests {
     fn event_identifier_reuse_with_different_payload_is_rejected() {
         let source = reference("source", 1, 1);
         let nodes = vec![node(source.clone(), vec![])];
-        let first = event(
-            "same-id",
-            1,
-            source.clone(),
-            ChangeReasonV1::Expired,
-            None,
-        );
-        let second = event(
-            "same-id",
-            1,
-            source,
-            ChangeReasonV1::Revoked,
-            None,
-        );
+        let first = event("same-id", 1, source.clone(), ChangeReasonV1::Expired, None);
+        let second = event("same-id", 1, source, ChangeReasonV1::Revoked, None);
         assert_eq!(
             evaluate_lineage(&nodes, &[first, second]),
             Err(LineageErrorV1::ConflictingEventIdentifier)
@@ -896,21 +883,12 @@ mod tests {
     fn duplicate_event_sequence_is_rejected() {
         let source_a = reference("source-a", 1, 1);
         let source_b = reference("source-b", 1, 2);
-        let nodes = vec![node(source_a.clone(), vec![]), node(source_b.clone(), vec![])];
-        let first = event(
-            "expire-a",
-            1,
-            source_a,
-            ChangeReasonV1::Expired,
-            None,
-        );
-        let second = event(
-            "expire-b",
-            1,
-            source_b,
-            ChangeReasonV1::Expired,
-            None,
-        );
+        let nodes = vec![
+            node(source_a.clone(), vec![]),
+            node(source_b.clone(), vec![]),
+        ];
+        let first = event("expire-a", 1, source_a, ChangeReasonV1::Expired, None);
+        let second = event("expire-b", 1, source_b, ChangeReasonV1::Expired, None);
         assert_eq!(
             evaluate_lineage(&nodes, &[first, second]),
             Err(LineageErrorV1::DuplicateChangeSequence)
@@ -921,7 +899,10 @@ mod tests {
     fn correction_requires_existing_higher_revision_of_same_artifact() {
         let source_v1 = reference("source", 1, 1);
         let wrong_replacement = reference("other-source", 2, 2);
-        let nodes = vec![node(source_v1.clone(), vec![]), node(wrong_replacement.clone(), vec![])];
+        let nodes = vec![
+            node(source_v1.clone(), vec![]),
+            node(wrong_replacement.clone(), vec![]),
+        ];
         let change = event(
             "correct-source",
             1,
@@ -1016,7 +997,11 @@ mod tests {
             reference("d", 1, 4),
         ];
         let possible_edges = (0..4)
-            .flat_map(|from| (0..4).filter(move |to| *to != from).map(move |to| (from, to)))
+            .flat_map(|from| {
+                (0..4)
+                    .filter(move |to| *to != from)
+                    .map(move |to| (from, to))
+            })
             .collect::<Vec<_>>();
 
         for mask in 0_u16..(1_u16 << possible_edges.len()) {
