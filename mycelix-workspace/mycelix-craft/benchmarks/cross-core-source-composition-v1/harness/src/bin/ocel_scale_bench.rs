@@ -68,10 +68,15 @@ fn generate_log(path: &Path, event_count: usize) -> Result<(), Box<dyn Error>> {
             "source_ref",
             Value::String(format!("scale-source-{index:012}")),
         )?;
+        let source_record = format!("craft-scale-source-record-v1:{index}");
+        let source_digest = Sha256::digest(source_record.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         set_attribute(
             &mut event,
             "source_digest",
-            Value::String(format!("sha256:scale-event-{index:012}")),
+            Value::String(format!("sha256:{source_digest}")),
         )?;
         serde_json::to_writer(&mut writer, &event)?;
     }
