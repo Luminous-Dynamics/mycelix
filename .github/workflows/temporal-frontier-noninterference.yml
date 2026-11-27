@@ -1,0 +1,58 @@
+name: Temporal frontier noninterference (TLC)
+
+on:
+  push:
+    branches:
+      - research/econ-temporal-hindsight-v0-1
+    paths:
+      - 'docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md'
+      - 'tools/economic/temporal-range-index/formal/**'
+      - '.github/workflows/temporal-frontier-noninterference.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md'
+      - 'tools/economic/temporal-range-index/formal/**'
+      - '.github/workflows/temporal-frontier-noninterference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontier-noninterference:
+    name: Correct model plus independent negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download and verify pinned TLA+ tools
+        env:
+          TLA2TOOLS_URL: https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          TLA2TOOLS_SHA1: bee4a54f3ee3d4afc347c3240ec2d9e93b075104
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/tla2tools.jar" "$TLA2TOOLS_URL"
+          printf '%s  %s\n' "$TLA2TOOLS_SHA1" "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check --strict
+          echo "TLA2TOOLS_JAR=$RUNNER_TEMP/tla2tools.jar" >> "$GITHUB_ENV"
+
+      - name: Check correct model and independent negative controls
+        run: bash tools/economic/temporal-range-index/formal/verify-frontier-noninterference.sh
