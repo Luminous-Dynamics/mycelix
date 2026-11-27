@@ -117,6 +117,30 @@ Required differential cases:
 8. Reconstruct the same valid-time slice at accepted-sequence frontiers 10, 11 and 12; event 006 remains effective at frontier 10, is superseded at 11, and event 008 is revoked only at 12.
 9. Reordering the OCEL event array cannot change the replay receipt; duplicate host sequences, unknown mutation targets, non-causal mutations and conflicting mutations fail closed.
 
+### Declarative object-centric process comparator (research target)
+
+A second relevant baseline appeared on 24 November 2026: *Discovery and conformance checking of object-centric DCR graphs from event knowledge graphs*. It formalizes Object-Centric Dynamic Condition Response (OC-DCR), adds alignment-based conformance over event knowledge graphs, evaluates rediscoverability on synthetic multi-object logs, demonstrates discovery on BPIC17 and the OCEL Order Management log, and benchmarks alignments under eight injected-noise levels. Its synthetic rediscoverability experiment uses 1,000 simulated cases and includes one-to-many and many-to-many synchronization. The paper reports rapidly increasing alignment runtime as alignment cost rises, with its benchmark imposing a five-minute timeout per alignment; its analysis also notes that global synchronization can be too coarse for some object-centric processes.
+
+This gives Craft a more exact comparator than generic workflow engines:
+- OC-DCR / OCDisCoveR: object-centric declarative lifecycle constraints, spawning and multi-object synchronization, discovery and alignment-based conformance.
+- PM4Py / FLOWVAULT: event-log interoperability, object-centric process discovery and lifecycle analytics.
+- Mycelix Craft: owner-specific evidence obligations, freshness/revocation propagation, authority scope, physical-outcome distinctions and conclusion-relative closure.
+
+Do not compete with OC-DCR on model discovery unless the same benchmark corpus and metrics are implemented. Instead add a matched assurance layer around the same traces and objects. For example, OC-DCR may establish that a work-order/permit/crew sequence conforms to a declared process model; Craft must separately establish whether the permit source is authentic/current, whether the assigned crew qualification was valid at the relevant valid-time and knowledge frontier, and whether independent evidence supports physical restoration. A process-conformance pass is not an evidence-authenticity or service-outcome pass.
+
+Add a comparator suite with:
+1. Synthetic ground-truth rediscoverability across one-to-many and many-to-many object synchronization.
+2. BPIC17 and OCEL Order Management baseline import/discovery/conformance to verify toolchain execution.
+3. WSR domain-specific OC-DCR constraints for permit-before-work, qualified-crew assignment, sampling-before-result, pressure observation, independent quality support and decision closure.
+4. The same eight event-noise families used in the published OC-DCR evaluation (event deletion, insertion and same-trace swaps) plus WSR-specific faults: wrong-zone relation, stale permit, revoked qualification, mirrored source, correction, revocation, late arrival and forged/unknown source.
+5. Separate event-log conformance score, alignment cost/runtime, timeout rate, owner-core disposition agreement, evidence-lineage invalidation recall and false-safe rate.
+
+Report all alignment timeouts, not only completed alignments; stratify by trace length, object count, synchronization fanout, alignment cost and noise rate. Any five-minute timeout is an uncompleted observation, never a pass. Include a separately adjudicated oracle for evidence truth and authority: OC-DCR conformance alone cannot validate those properties.
+
+Reference:
+- OC-DCR discovery and conformance paper (published 2026-11-24): https://link.springer.com/article/10.1007/s44311-026-00061-9
+- OCEL 2.0 process-mining tool support: https://www.ocel-standard.org/tool-support/overview/
+
 ### Published OCPM scale anchors (context, not a head-to-head result)
 
 A 2026 study, *Advancing object-centric process mining with multi-dimensional data operations*, evaluates four publicly available BPIC-derived OCEL collections (BPIC 2014, 2016, 2017 and 2019). The reported logs span roughly 0.7 million to more than 7 million events and around 0.1 million to more than 0.7 million objects. Its BPIC 2016 stress case reports about 29 seconds per unfold call and about 60 seconds for drill-down; loading that log into PM4Py was roughly an order of magnitude slower than loading the other studied logs. The paper also reports that the OCPA conformance implementation timed out on 20 of 91 groups during fitness/precision calculation, despite the log transformations being applicable to all 91 groups.
