@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/temporal-ads-scenario-v0.1.schema.json",
+  "title": "Mycelix Temporal ADS Scenario V0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenario_id", "purpose", "scope", "universe", "frontiers", "owner_logs", "expected"],
+  "properties": {
+    "schema_version": { "const": "MYCELIX-TEMPORAL-ADS-SCENARIO-V0.1" },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "purpose": { "type": "string", "minLength": 1 },
+    "scope": { "$ref": "#/$defs/scope" },
+    "universe": { "$ref": "#/$defs/universe" },
+    "frontiers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/frontier" }
+    },
+    "owner_logs": { "type": "array", "items": { "$ref": "#/$defs/owner_log" } },
+    "expected": { "$ref": "#/$defs/expected" }
+  },
+  "$defs": {
+    "instant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seconds", "nanos"],
+      "properties": {
+        "seconds": { "type": "integer" },
+        "nanos": { "type": "integer", "minimum": 0, "maximum": 999999999 }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verifier_ref", "policy_epoch_ref", "namespace_ref", "subject_ref", "claim_id", "query_profile_ref", "valid_at"],
+      "properties": {
+        "verifier_ref": { "type": "string", "minLength": 1 },
+        "policy_epoch_ref": { "type": "string", "minLength": 1 },
+        "namespace_ref": { "type": "string", "minLength": 1 },
+        "subject_ref": { "type": "string", "minLength": 1 },
+        "claim_id": { "type": "string", "minLength": 1 },
+        "query_profile_ref": { "type": "string", "minLength": 1 },
+        "valid_at": { "$ref": "#/$defs/instant" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_ref", "disposition"],
+      "properties": {
+        "owner_ref": { "type": "string", "minLength": 1 },
+        "history_ref": { "type": ["string", "null"] },
+        "disposition": { "enum": ["Required", "ExcludedByDeclaredProfile", "Unknown", "Withheld", "Unavailable"] },
+        "exclusion_code": { "type": "string" },
+        "exclusion_proof_digest": { "type": "string" }
+      }
+    },
+    "universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry_ref", "registry_epoch", "profile_ref", "candidates"],
+      "properties": {
+        "registry_ref": { "type": "string", "minLength": 1 },
+        "registry_epoch": { "type": "string", "minLength": 1 },
+        "profile_ref": { "type": "string", "minLength": 1 },
+        "candidates": { "type": "array", "items": { "$ref": "#/$defs/candidate" } }
+      }
+    },
+    "owner_cut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_ref", "history_ref", "sequence_cut"],
+      "properties": {
+        "owner_ref": { "type": "string", "minLength": 1 },
+        "history_ref": { "type": "string", "minLength": 1 },
+        "sequence_cut": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "frontier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frontier_ref", "owners"],
+      "properties": {
+        "frontier_ref": { "type": "string", "minLength": 1 },
+        "owners": { "type": "array", "items": { "$ref": "#/$defs/owner_cut" } }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "event_id", "dimension"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "event_id": { "type": "string", "minLength": 1 },
+        "dimension": { "enum": ["VALID_FROM", "VALID_TO", "NON_TEMPORAL"] },
+        "interval_ref": { "type": "string" },
+        "value": { "type": "integer" },
+        "explicit_open": { "type": "boolean" },
+        "supersedes": { "type": "string" }
+      }
+    },
+    "owner_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_ref", "history_ref", "events"],
+      "properties": {
+        "owner_ref": { "type": "string", "minLength": 1 },
+        "history_ref": { "type": "string", "minLength": 1 },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/event" } }
+      }
+    },
+    "frontier_expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "matching_interval_refs"],
+      "properties": {
+        "disposition": { "enum": ["CompleteForSuppliedOwnerPrefixes", "Indeterminate", "NotEvaluated"] },
+        "matching_interval_refs": { "type": "array", "items": { "type": "string" } },
+        "reason_code": { "type": "string" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frontier_results", "roster_disposition"],
+      "properties": {
+        "frontier_results": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/frontier_expected" }
+        },
+        "roster_disposition": { "enum": ["FrontierCoversSuppliedRequiredRoster", "Indeterminate", "NotEvaluated"] },
+        "roster_reason_code": { "type": "string" },
+        "historical_replay_equal_across_suffix_variants": { "type": "boolean" }
+      }
+    }
+  }
+}
