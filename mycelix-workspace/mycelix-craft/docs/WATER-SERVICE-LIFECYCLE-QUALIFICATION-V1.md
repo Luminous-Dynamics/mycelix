@@ -1,0 +1,197 @@
+# Water Service Lifecycle Qualification V1
+
+- **Benchmark:** CRAFT-WATER-SERVICE-REPAIR-V1 (#6771)
+- **Status:** Proposed measurement and integration protocol
+- **Version:** 1.0-draft
+- **Date:** 2026-11-27
+- **Data boundary:** Public source metadata plus synthetic conformance fixtures only
+
+## 1. Research question
+
+Can an evidence-governed service workflow reduce false restoration claims, unsafe or premature closure, repeated visits and avoidable review effort while improving the service outcomes experienced by affected people?
+
+The unit of evaluation is not a ticket or a model answer. It is a **service episode** with a declared scope, event chronology, evidence history, responsible authorities, affected-service population and independently measured outcome.
+
+The benchmark does not assume that a well-formed record means a repaired network, that a completed work order means restored service, or that an eligible closure packet authorizes closure.
+
+## 2. Measurement discovery: do not compare unlike 48-hour KPIs
+
+Johannesburg Water's 2025/26 Business Plan labels its water-burst indicator as restoration within 48 hours and provides a 67.46% baseline (labelled 2023/24) and 90% FY2025/26 target. Its detailed operational definition says the 48-hour milestone is that someone is on site and has initiated resolution; it explicitly says this does not necessarily mean the callout was resolved.
+
+The Johannesburg Water FY2024/25 Annual Report separately reports 70.35% of bursts repaired within 48 hours against an 85% target. The two published figures must not be compared as though the numerator, event, denominator and reporting period were equivalent. The annual-report achievement statement and business-plan operational definition must first be reconciled with the metric owner.
+
+References:
+- Johannesburg Water, Business Plan 2025/26, printed pp. 83-84 and 95-96: https://www.johannesburgwater.co.za/wp-content/uploads/2025/07/JHB-Water_Business-Plan-2025_For-Upload_FINAL_070725.pdf
+- Johannesburg Water, Integrated Annual Report 2024/25: https://www.johannesburgwater.co.za/wp-content/uploads/2026/05/Annual-Report-2425.pdf
+
+Every reported KPI must carry a versioned measurement definition containing:
+- event start and stop semantics;
+- reporting period and time zone;
+- numerator, denominator and eligibility rules;
+- source system and extraction time;
+- treatment of reopened, cancelled, duplicate and censored episodes;
+- scope, units, exclusions and known data limitations;
+- owner and approval/revision history.
+
+A label is not a definition. If these elements cannot be reconciled, the output is `not_established`, not an inferred comparison.
+
+## 3. Lifecycle event model
+
+Preserve, at minimum, these independently timestamped milestones:
+
+1. Need/incident notification received.
+2. Acknowledgement and triage.
+3. Dispatch.
+4. Crew arrival and first response.
+5. Permit/isolation and work authorization.
+6. Repair work started.
+7. Repair work completed.
+8. Independent pressure/flow restoration observed.
+9. Required water-quality sample collected.
+10. Qualified laboratory result and applicable quality release.
+11. Alternative supply started, delivered and measured where interruption persists.
+12. Local authority closure or explicit continued monitoring.
+
+Each event has both **valid/event time** (when it happened) and **recorded/knowledge time** (when the system learned or admitted it). Corrections append new events; they do not rewrite history. Late evidence must not be backdated into a timely operational action.
+
+A service episode may have more than one work order, observation, source correction, outage interval or closure attempt. Repeat incidents are new episodes linked to historical records, not edits to the prior event.
+
+## 4. Outcome vector — do not collapse into one score
+
+Report every dimension separately. A composite score can conceal a dangerous trade-off and is not an acceptance criterion.
+
+| Dimension | Operational definition | Evidence boundary |
+| --- | --- | --- |
+| First response time | Notification to crew arrival / first qualified on-site response | Dispatch telemetry or independently time-stamped arrival; not ticket status |
+| Repair completion time | Notification to verified work completion | Work-step evidence, permits and accountable completion record |
+| Verified restoration time | Notification to sustained pressure/flow recovery against a preregistered local profile | Independent, in-scope measurements over the authority-approved observation window |
+| Quality release time | Sampling to qualified result and release decision | Sample identity, sampling point/time, applicable parameters, laboratory method and source authority |
+| Customer-minutes lost | Sum across affected service points of interruption duration, weighted by the affected customer count | Declared population denominator and service-point observation window |
+| Pressure deficit exposure | Time integral of the positive pressure shortfall below the local target, reported by service point/zone | Time-series coverage, sensor calibration/provenance and profile revision |
+| Alternative-supply adequacy | Qualifying drinking-water volume delivered per person per day during interruption | Actual delivery, source quality and accessible delivery point; dispatch is not delivery |
+| Repeat failure | Same asset/zone recurrence within preregistered 7/30/90-day windows | Stable asset/zone identity and explicit recurrence rule |
+| Safety and quality | Unresolved hazard, permit, isolation, worker-safety or water-quality states | Competent professional / statutory authority evidence |
+| Distributional service burden | Outcome vector stratified by approved, privacy-protecting service-area cohorts | Minimum cohort sizes, no household-level publication and disclosed missingness |
+| Operational burden | Review minutes, false holds, repeat visits, emergency procurement and rework | Time/cost capture method and common scope across baselines |
+
+### Calculation notes
+
+For service point (i), interruption duration (d_i) and affected population (n_i):
+
+[
+CML = \sum_i n_i d_i
+]
+
+Report units explicitly (for example, customer-minutes). Do not infer population from ticket count.
+
+For pressure (p_i(t)) and the locally approved minimum profile (p_{min,i}(t)), pressure deficit exposure may be reported as:
+
+[
+PDE_i = \int_{t_0}^{t_1} \max(0, p_{min,i}(t)-p_i(t))\,dt
+]
+
+The integral is a diagnostic measure, not a universal statutory threshold. Declare units, sampling frequency, interpolation, calibration, missing-data policy and profile version. Also report deficit duration and worst affected service-point cohort so a mean cannot hide local deprivation.
+
+Water quality is a separate safety gate. A passed pressure observation cannot satisfy a pending, expired, superseded, contradictory or high-risk laboratory result.
+
+## 5. Statutory anchors and scope boundaries
+
+The revised Compulsory National Water and Sanitation Services Standards, Government Gazette 52814 (6 June 2025), provide test anchors including:
+- alternative drinking-water supply of at least 15 litres per person per day where interruption exceeds 48 hours, through safe and reasonably convenient delivery points;
+- monitoring-programme and source-origin requirements for alternative supply continuing beyond one week;
+- SANS 241-based drinking-water quality management and specified sample points, frequency and parameters;
+- ISO 17025-accredited laboratory methods or a credible proficiency-tested alternative;
+- notification to the DWS regional office and provincial Health Department district office within 12 hours after confirmation of a health-risk incident, with applicable drinking-water quality advisory communication.
+
+Official source: https://www.gov.za/documents/notices/water-services-act-compulsory-national-water-and-sanitation-services-standards
+
+These are scenario anchors for qualified human/professional interpretation. Synthetic conformance results are **not legal-compliance determinations**. The benchmark must pin the exact applicable instrument and revision; no general-purpose rule engine may infer jurisdiction or applicability from a label.
+
+## 6. Metamorphic qualification
+
+The companion `metamorphic-cases.json` defines 20 proposed counterfactual mutations. They test whether an evaluator changes only the conclusion elements actually affected by a change.
+
+Required properties include:
+- provider response or completion cannot substitute for independent physical restoration;
+- evidence with changed context, stale status or a shared common cause cannot remain admissible as before;
+- repair scope and action denominators cannot silently shrink;
+- a correction/revocation creates targeted requalification while preserving the historical decision;
+- the 48-hour response/repair semantic conflict remains unresolved until definition and period are reconciled;
+- an improved arrival time cannot be reported as an improved restoration time;
+- customer-minutes lost scale with the affected population when duration is held constant;
+- a transient pressure spike or network average cannot conceal a sustained/local service deficit;
+- regulatory boundary values are tested explicitly, without rounding away a failed threshold.
+
+The current shell/JSON validation only checks corpus structure and referential integrity. It does **not** execute the mutations against the Rust cores. Executable differential replay requires adapters that invoke the accepted versions of the semantic owners and compare their outputs to an independent oracle. Do not call the mutation vectors "passed" until that runner exists and has executed at the recorded source heads.
+
+## 7. Cross-core composition contract
+
+The integration path is a sequence of typed handoffs, not a new generic authority or currentness service:
+
+- Need Intake (#6750): scope, community need, dissent, assumptions and source references.
+- Project Formation (#6733): project/package/capability envelope and participant acceptance.
+- Claim Support (#6754): exact semantic support for each material claim.
+- Decision Closure (#6757): material-element coverage against approved, versioned mappings.
+- Evidence Lineage (#6762): correction, revocation, expiry and withdrawal propagation.
+- Impact Qualification (#6769): event/context-bound change impact and surviving evidence sufficiency.
+- Existing observation/provenance and temporal owners (#6140, #181, #1087, #2631/#1207, #4835): observation independence, leases, applicability, epochs and independent evaluation.
+
+The pilot adapter must:
+1. preserve each owner's schema version, exact artifact/context digest, authority revision, validity interval and disposition;
+2. reject missing, stale, out-of-scope or unverifiable owner receipts;
+3. preserve owner-specific uncertainty and reason codes instead of flattening them into a Boolean;
+4. block on required safety/quality/authority states;
+5. record the exact input/output digest for deterministic replay;
+6. distinguish "eligible for local review" from the competent authority's closure decision.
+
+No downstream adapter may manufacture a missing owner receipt, reuse a digest across distinct contexts, widen a lease or elevate machine output into human authority.
+
+## 8. Fair industry baselines
+
+Benchmark against configured, documented workflows rather than product names as strawmen:
+
+1. Current authority work-order process, with its real event/status semantics documented.
+2. Structured manual checklist with independent close-out review.
+3. Plain traceability graph / requirements-management workflow.
+4. Configured IBM DOORS Next or Jama Connect workflow where the evaluator has lawful access and equivalent configuration.
+5. Single-model LLM and retrieval-grounded LLM assistance.
+6. Multi-agent workflow with the same source packet and review budget.
+7. Evidence-governed cross-core workflow.
+
+Utility service-performance measures (including interruption duration, pressure, customer impact and losses) remain the appropriate outcome baselines. Mycelix's hypothesis is not a new generic water KPI; it is the auditable linkage of need, authority, claim support, material closure, event lineage, scoped impact and measured consequence.
+
+All baselines receive the same source packet, permitted data, service scope, intervention opportunity and time budget. Record configuration, human review time, model/version, prompts, retrieval snapshot and cost.
+
+## 9. Qualification targets — targets, not results
+
+| Dimension | Target |
+| --- | --- |
+| False safe/closed outcomes on frozen high-consequence cases | 0 |
+| Provider-only completion accepted as restoration | 0 |
+| Stale, revoked, wrong-zone or wrong-context evidence silently accepted | 0 |
+| False `NotAffected` on high-consequence mutations | 0 |
+| Shared-cause sources counted as independent | 0 |
+| Frozen known-answer scenario correctness | 100% |
+| Deterministic replay of frozen inputs and receipts | 100% |
+| Material-element recall | At least 99%, reported by domain and adjudicated mapping |
+| Unnecessary invalidation of unaffected independent evidence | 0 on adjudicated fixtures |
+| KPI comparisons with unreconciled semantics/period/denominator | 0 |
+
+Report false holds and requalification latency separately; fail-closed behavior is not free. Report confidence intervals and counts, not percentages alone, for small corpora.
+
+## 10. Prospective pilot design
+
+The synthetic benchmark is only the first qualification tier.
+
+A prospective pilot requires written authorization from the responsible Water Services Authority/Institution, community participation, data-sharing and privacy agreements, information-security review, worker-safety protocols, professional approval of pressure/quality criteria, and a documented incident/escalation process.
+
+Before outcome comparison:
+- preregister cohort selection, control/matched-area design, outcome definitions and analysis;
+- obtain a new baseline using the same metric definition on both sides;
+- use a prospective holdout and independent measurement/adjudication;
+- report missing data, adverse events, null effects and differential service burden;
+- separate process improvement from causal service improvement.
+
+Where ethically and operationally acceptable, use a controlled or stepped-wedge rollout with a predeclared analysis. Otherwise describe the comparison as observational and do not attribute causality to Mycelix.
+
+No partnership, system access, field deployment, regulatory certification or service improvement is claimed by this protocol.
