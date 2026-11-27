@@ -481,12 +481,11 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
     if receipt.adapter.executable.reference.kind != "adapter_executable" {
         return Err(ReceiptError::RoleArtifactMismatch("adapter.executable".into()));
     }
-    if let Some(provenance) = &receipt.adapter.build_provenance {
-        if !provenance.id.strip_prefix("sha256:").is_some_and(valid_sha256)
-            || provenance.kind != "slsa_build_provenance"
-        {
-            return Err(ReceiptError::InvalidArtifact(provenance.id.clone()));
-        }
+    if let Some(provenance) = &receipt.adapter.build_provenance
+        && (!provenance.id.strip_prefix("sha256:").is_some_and(valid_sha256)
+            || provenance.kind != "slsa_build_provenance")
+    {
+        return Err(ReceiptError::InvalidArtifact(provenance.id.clone()));
     }
     validate_content_artifact(&receipt.invocation.arguments)?;
     validate_content_artifact(&receipt.invocation.environment_profile)?;
