@@ -172,8 +172,12 @@ pub fn get_evidence_constraint(id: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
     let mut records = records_from_links(links)?;
-    records.sort_by_key(|record| format!("{:?}", record.action_address()));
-    Ok(records.into_iter().next())
+    if records.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Multiple records share this constraint ID; manual integrity review required".into()
+        )));
+    }
+    Ok(records.pop())
 }
 
 /// Read constraints issued by an authenticated Civic DID.
