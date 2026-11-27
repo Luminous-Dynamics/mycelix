@@ -376,3 +376,32 @@ func TestVectorMaterializationBudgetFailsBeforePointMaterialization(t *testing.T
 		t.Fatalf("vector materialization budget did not fail closed: %v", err)
 	}
 }
+
+func boundedAntichainForTest(t *testing.T, ownerCount, width int) ProgressAntichainV1 {
+	t.Helper()
+	owners := make([]string, ownerCount)
+	for i := range owners {
+		owners[i] = fmt.Sprintf("owner:%05d", i)
+	}
+	result := ProgressAntichainV1{Scope: testScope(owners...), Points: make([]ProgressCutV1, width)}
+	for point := 0; point < width; point++ {
+		cut := ProgressCutV1{Owners: make([]OwnerSequenceV1, ownerCount)}
+		for owner, ownerRef := range owners {
+			sequence := uint64(0)
+			if owner == point {
+				sequence = 1
+			}
+			cut.Owners[owner] = OwnerSequenceV1{OwnerRef: ownerRef, Sequence: sequence}
+		}
+		result.Points[point] = cut
+	}
+	return result
+}
+
+func TestAdvanceComparisonBudgetFailsClosed(t *testing.T) {
+	antichain := boundedAntichainForTest(t, 1000, 128)
+	result := AdvanceProgressAntichainV1(antichain, antichain)
+	if result.Disposition != AdvanceIndeterminate || !strings.Contains(result.Reason, "comparison budget") {
+		t.Fatalf("oversized cross-frontier comparison did not fail closed: %+v", result)
+	}
+}
