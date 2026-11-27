@@ -314,6 +314,17 @@ func hashAcceptedReceiptInventoryV1(
 	_ = binary.Write(&preimage, binary.BigEndian, binding.OwnerSequence)
 	_ = binary.Write(&preimage, binary.BigEndian, binding.TreeSize)
 	appendForestStringV1(&preimage, binding.OwnerLogRootDigest)
+
+	// Commit the complete owner-log leaf sequence, including non-receipt entries.
+	_ = binary.Write(&preimage, binary.BigEndian, uint64(len(inventory.LogLeaves)))
+	for _, leaf := range inventory.LogLeaves {
+		_ = binary.Write(&preimage, binary.BigEndian, leaf.LeafIndex)
+		_ = binary.Write(&preimage, binary.BigEndian, leaf.OwnerSequence)
+		_ = binary.Write(&preimage, binary.BigEndian, uint32(len(leaf.EntryBytes)))
+		preimage.Write(leaf.EntryBytes)
+	}
+
+	// Then commit the explicit semantic projection assigned to receipt leaves.
 	_ = binary.Write(&preimage, binary.BigEndian, uint64(len(inventory.Receipts)))
 	for _, receipt := range inventory.Receipts {
 		_ = binary.Write(&preimage, binary.BigEndian, receipt.ReceiptLogLeafIndex)
@@ -342,6 +353,7 @@ func hashOwnerProjectionAuditV1(
 	inventoryDigest [32]byte,
 	indexRoot [32]byte,
 	receiptCount uint64,
+	nonReceiptLeafCount uint64,
 	intervalCount uint64,
 	nonTemporalCount uint64,
 ) [32]byte {
@@ -357,6 +369,7 @@ func hashOwnerProjectionAuditV1(
 	preimage.Write(inventoryDigest[:])
 	preimage.Write(indexRoot[:])
 	_ = binary.Write(&preimage, binary.BigEndian, receiptCount)
+	_ = binary.Write(&preimage, binary.BigEndian, nonReceiptLeafCount)
 	_ = binary.Write(&preimage, binary.BigEndian, intervalCount)
 	_ = binary.Write(&preimage, binary.BigEndian, nonTemporalCount)
 	_ = binary.Write(&preimage, binary.BigEndian, uint32(len(binding.Gaps)))
