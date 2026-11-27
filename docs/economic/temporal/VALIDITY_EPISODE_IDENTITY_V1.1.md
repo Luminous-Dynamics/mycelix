@@ -20,6 +20,11 @@ A subject and claim can have more than one validity period. For example, a grant
 
 ## Migration
 
+- Preserve the original v1.0 JSON schema at `docs/economic/temporal/schemas/temporal-evidence-envelope.v1.schema.json` and its unmodified fixture at `docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json`.
+- The new v1.1 schema is `docs/economic/temporal/schemas/temporal-evidence-envelope.v1.1.schema.json`; its matching fixture is `docs/economic/temporal/fixtures/temporal-evidence-envelope.v1.1.json`.
+- Readers should dispatch by the explicit envelope `version`, not by a filename, timestamp heuristic or presence inferred from unrelated fields.
+- The Rust in-memory API accepts `None` for legacy endpoints for compatibility, but such endpoints cannot yield an episode-complete answer.
+
 The JSON envelope schema advances to version 1.1 and requires `validity_interval_ref` for VALID_FROM/VALID_TO. Non-endpoint dimensions cannot carry it. Existing persisted records require an explicit migration decision; do not synthesize episode identifiers from timestamps or array position. Such synthesis would create an unreviewed semantic claim.
 
 ## Tests
