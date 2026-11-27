@@ -14,6 +14,7 @@ const (
 type TemporalFrontierProjectionReplayResultV1 struct {
 	Disposition                    TemporalFrontierProjectionDispositionV1
 	ReceiptInventoryAuthentication ReceiptInventoryAuthenticationV1
+	ProjectionMappingAuthentication ProjectionMappingAuthenticationV1
 	OwnerCount                     int
 	HasOwnerGaps                   bool
 	OwnerAudits                    []OwnerProjectionReplayAuditV1
@@ -29,9 +30,10 @@ var (
 //
 // The expected forest root and owner set must come from a separately verified checkpoint/frontier.
 // This function proves only that each supplied inventory deterministically projects to its
-// committed per-owner interval-index root and projection-audit digest. It deliberately returns
-// ReceiptInventoryAuthenticationNotEvaluated: the caller must still verify that each supplied
-// inventory is the complete accepted receipt-log prefix represented by the authenticated frontier.
+// committed per-owner interval-index root, recomputes the complete RFC 9162 owner-log root
+// from canonical receipt bytes, and verifies the projection-audit digest. The checkpoint/frontier
+// layer must authenticate the forest/log roots. The semantic derivation of supplied interval
+// fields from assertion payload bytes remains a separate qualified adapter obligation.
 func VerifyTemporalFrontierProjectionReplayV1(
 	expectedVerifier string,
 	expectedPolicyEpoch string,
@@ -82,7 +84,8 @@ func VerifyTemporalFrontierProjectionReplayV1(
 
 	result := TemporalFrontierProjectionReplayResultV1{
 		Disposition: ProjectionMatchesAllSuppliedOwnerInventoriesV1,
-		ReceiptInventoryAuthentication: ReceiptInventoryAuthenticationNotEvaluatedV1,
+		ReceiptInventoryAuthentication: ReceiptLogRootRecomputedButTrustExternalV1,
+		ProjectionMappingAuthentication: ProjectionMappingAuthenticationNotEvaluatedV1,
 		OwnerCount: len(manifest.Owners),
 		OwnerAudits: make([]OwnerProjectionReplayAuditV1, 0, len(manifest.Owners)),
 	}
