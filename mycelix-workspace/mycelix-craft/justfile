@@ -9,3 +9,7 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run only the pure Rust governance and economic agreement reference cores
+core-test:
+    cargo test -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1

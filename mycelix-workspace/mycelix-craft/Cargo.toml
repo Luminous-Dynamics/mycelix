@@ -2,6 +2,9 @@
 exclude = ["apps/leptos"]
 members = [
     "tests",
+    "crates/guild-governance-v1",
+    "crates/economic-agreement-v1",
+    "crates/professional-assessment-authority-v1",
     "zomes/craft-graph/integrity",
     "zomes/craft-graph/coordinator",
     "zomes/job-postings/integrity",

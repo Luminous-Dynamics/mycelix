@@ -36,6 +36,8 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      craft: ${{ steps.filter.outputs.craft }}
+      craft_ui: ${{ steps.filter.outputs.craft_ui }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +76,12 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            craft:
+              - 'mycelix-workspace/mycelix-craft/**'
+            craft_ui:
+              - 'mycelix-workspace/mycelix-craft/apps/leptos/**'
+              - 'mycelix-workspace/Cargo.toml'
+              - 'mycelix-workspace/Cargo.lock'
             cos_conformance:
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
@@ -434,6 +442,89 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # Craft reference cores are dependency-light policy contracts. Keep this
+  # gate scoped to those packages: Holochain zomes and live owner adapters are
+  # not covered by this reference-core job.
+  test-craft-reference:
+    name: Craft reference cores (governance + economic agreements)
+    needs: changes
+    if: needs.changes.outputs.craft == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Test the exact PR head rather than GitHub's synthetic merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-craft
+      - name: Verify exact checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Check formatting
+        working-directory: mycelix-workspace/mycelix-craft
+        run: cargo fmt --check -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1
+      - name: Test reference cores
+        working-directory: mycelix-workspace/mycelix-craft
+        run: cargo test -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1
+      - name: Clippy reference cores
+        working-directory: mycelix-workspace/mycelix-craft
+        run: cargo clippy -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1 --all-targets -- -D warnings
+
+  # Craft's browser UI is a root-workspace package, separate from its zome workspace.
+  test-craft-ui:
+    name: Craft opportunity matching UI
+    needs: changes
+    if: needs.changes.outputs.craft_ui == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Test the exact PR head, not GitHub's synthetic merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # The changed-file formatting gate compares the exact base and head SHAs.
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace
+      - name: Verify exact checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Check formatting of changed Craft UI Rust files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          changed_files="$(git diff --name-only "$BASE_SHA" "$EXPECTED_HEAD_SHA" -- mycelix-workspace/mycelix-craft/apps/leptos)"
+          if [ -z "$changed_files" ]; then
+            echo "No changed Craft UI files; skipping only the file-format check."
+            exit 0
+          fi
+          status=0
+          while IFS= read -r file; do
+            case "$file" in
+              *.rs)
+                echo "Checking $file"
+                rustfmt --edition 2021 --check "$file" || status=1
+                ;;
+            esac
+          done <<< "$changed_files"
+          exit "$status"
+      - name: Test Craft UI and matching contracts
+        run: cargo test --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui
+      - name: Clippy Craft UI
+        run: cargo clippy --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui --all-targets -- -D warnings
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -452,6 +543,8 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-craft-reference
+      - test-craft-ui
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +565,73 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "Craft reference cores: ${{ needs.test-craft-reference.result }}"
+          echo "Craft UI: ${{ needs.test-craft-ui.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-craft-reference.result }}" "${{ needs.test-craft-ui.result }}"; do
+            if [ "$result" = "failure" ]; then exit 1; fi
+          done
+          echo "All checks passed!"
+ || true)"
+          if [ -z "$changed_rust_files" ]; then
+            echo "No changed Craft UI Rust files; skipping only the file-format check."
+            exit 0
+          fi
+          while IFS= read -r file; do
+            echo "Checking $file"
+            rustfmt --edition 2021 --check "$file"
+          done <<< "$changed_rust_files"
+      - name: Test Craft UI and matching contracts
+        run: cargo test --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui
+      - name: Clippy Craft UI
+        run: cargo clippy --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui --all-targets -- -D warnings
+
+  # Summary gate
+  ci-pass:
+    if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
+    needs:
+      - format
+      - test-cos-conformance
+      - test-commons
+      - test-civic
+      - test-hearth
+      - test-finance
+      - test-finance-integration
+      - test-governance
+      - test-identity
+      - test-personal
+      - test-attribution
+      - test-bridge
+      - test-sdk
+      - test-prism
+      - test-craft-reference
+      - test-craft-ui
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          echo "Format: ${{ needs.format.result }}"
+          echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "Commons: ${{ needs.test-commons.result }}"
+          echo "Civic: ${{ needs.test-civic.result }}"
+          echo "Hearth: ${{ needs.test-hearth.result }}"
+          echo "Finance: ${{ needs.test-finance.result }}"
+          # Reported but not gated below — expected red until the finance
+          # zomes/tests are synced from the monorepo. See the job's own comment.
+          echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
+          echo "Governance: ${{ needs.test-governance.result }}"
+          echo "Identity: ${{ needs.test-identity.result }}"
+          echo "Personal: ${{ needs.test-personal.result }}"
+          echo "Attribution: ${{ needs.test-attribution.result }}"
+          echo "Bridge: ${{ needs.test-bridge.result }}"
+          echo "SDK: ${{ needs.test-sdk.result }}"
+          echo "Prism: ${{ needs.test-prism.result }}"
+          echo "Craft reference cores: ${{ needs.test-craft-reference.result }}"
+          echo "Craft UI: ${{ needs.test-craft-ui.result }}"
+          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
+          # Skipped jobs are OK (path filter didn't match)
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-craft-reference.result }}" "${{ needs.test-craft-ui.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"

@@ -1,0 +1,9 @@
+[package]
+name = "craft-professional-assessment-authority-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Pure Rust reference authorization contract for scoped professional assessment authority"
+
+[lib]
+path = "src/lib.rs"
