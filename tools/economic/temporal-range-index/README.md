@@ -113,3 +113,10 @@ The benchmark harness now includes canonical proof wire encoding and decode-plus
 - open-ended (all matching).
 
 For each it reports build, linear-scan baseline, proof generation, proof node/pruned/expanded/returned-leaf counts, canonical proof bytes, and wire decode-plus-verification. The CI invocation uses one iteration per case only to catch harness/code regressions. It is not a stable performance measurement. Repeated pinned runs are still required for p50/p95/p99, confidence intervals and raw sample publication.
+
+
+### Assertion payload byte binding
+
+Each projected knowledge receipt now carries the exact assertion payload bytes referenced by its canonical `assertion_digest`. The replay recomputes SHA-256 over those bytes, requires it to match the digest inside the canonical receipt, applies 1 MiB per-payload and 64 MiB aggregate limits, and commits the payload bytes into the inventory digest.
+
+This proves byte-to-digest consistency and binds the payload bytes used by later semantic mapping. It does **not** parse the temporal assertion schema or independently derive the supplied validity endpoints; `ProjectionMappingAuthentication=NotEvaluated` remains the only honest outcome until #6786 is implemented and qualified.
