@@ -132,18 +132,13 @@ Next ==
    checking that it equals the independently enumerated live universe. *)
 CloseRosterMutant ==
     /\ registryEpoch = Epoch1
-    /\ manifestEpoch = registryEpoch
-    /\ unknownOwners = {}
-    /\ requiredOwners \cup excludedOwners = rosterCandidates
-    /\ requiredOwners \cap excludedOwners = {}
-    /\ excludedOwners \subseteq exclusionProofs
     /\ rosterClosed = FALSE
+    /\ manifestEpoch' = registryEpoch
     /\ rosterClosed' = TRUE
     /\ frontierCovered' = FALSE
-    /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
-                   rosterCandidates, requiredOwners, excludedOwners,
-                   unknownOwners, exclusionProofs, frontierOwners,
-                   historicalCertEpoch>>
+    /\ UNCHANGED <<registryEpoch, liveUniverse, rosterCandidates,
+                   requiredOwners, excludedOwners, unknownOwners,
+                   exclusionProofs, frontierOwners, historicalCertEpoch>>
 
 NextMutant == Next \/ CloseRosterMutant
 
