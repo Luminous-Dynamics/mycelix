@@ -477,7 +477,7 @@ pub fn evaluate_support_sufficiency(
         if item
             .independence_group_id
             .as_ref()
-            .map_or(false, |group| !non_empty(group))
+            .is_some_and(|group| !non_empty(group))
         {
             return Err(SupportSufficiencyErrorV1::InvalidEvidenceReference);
         }
@@ -1022,7 +1022,7 @@ mod tests {
         // 5^4 = 625 possible evidence-state assignments.
         for mut mask in 0_usize..625 {
             let mut selected = Vec::with_capacity(4);
-            for index in 0..4 {
+            for _ in 0..4 {
                 selected.push(states[mask % states.len()]);
                 mask /= states.len();
             }
