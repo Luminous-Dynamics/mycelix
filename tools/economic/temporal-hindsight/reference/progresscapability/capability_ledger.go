@@ -313,12 +313,10 @@ func failedReplay(result ReplayResultV1,reason string)ReplayResultV1 {
 func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1,expectedCount uint64,expectedTail string)ReplayResultV1{
 	result:=ReplayResultV1{Disposition:LedgerIndeterminate,ExpectedEventCount:expectedCount,ObservedEventCount:uint64(len(events)),
 		LedgerAuthentication:NotEvaluated,IssuerAuthorityAuthentication:NotEvaluated,CheckpointAuthentication:NotEvaluated,SourceUniverseCompleteness:NotEvaluated}
-	scopeDigest,err:=ScopeDigestV1(scope);if err!=nil{return failedReplay(result,"invalid scope: "+err.Error())}
-	owners,_:=canonicalOwners(scope);result.ScopeDigest=scopeDigest
-	genesis:=genesisDigest(scopeDigest);result.GenesisDigest=genesis;result.ObservedTailDigest=genesis
-	if expectedCount>MaxLedgerEvents || uint64(len(events))>MaxLedgerEvents{return failedReplay(result,"ledger event count exceeds configured limit")}
-	if !validDigest(expectedTail){return failedReplay(result,"expected tail anchor is malformed")}
-	if uint64(len(events))!=expectedCount{return failedReplay(result,"observed event count differs from independent tail anchor")}
+	if expectedCount>MaxLedgerEvents || uint64(len(events))>MaxLedgerEvents {
+		result.SubmittedEventsDigest=digestBytes([]byte(fmt.Sprintf("MYCELIX-OVERLIMIT-EVENT-SUBMISSION-V1|expected=%d|observed=%d",expectedCount,len(events))))
+		return failedReplay(result,"ledger event count exceeds configured limit")
+	}
 	var totalCoordinates uint64
 	var totalEncodingBytes uint64
 	addEncodedField := func(value string) bool {
@@ -344,6 +342,11 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 		}
 	}
 	result.SubmittedEventsDigest=rawEventsDigest(events)
+	if !validDigest(expectedTail){return failedReplay(result,"expected tail anchor is malformed")}
+	if uint64(len(events))!=expectedCount{return failedReplay(result,"observed event count differs from independent tail anchor")}
+	scopeDigest,err:=ScopeDigestV1(scope);if err!=nil{return failedReplay(result,"invalid scope: "+err.Error())}
+	owners,_:=canonicalOwners(scope);result.ScopeDigest=scopeDigest
+	genesis:=genesisDigest(scopeDigest);result.GenesisDigest=genesis;result.ObservedTailDigest=genesis
 	active:=make(map[string]activeState)
 	usedCapabilityIDs:=make(map[string]struct{})
 	seenIDs:=make(map[string]struct{},len(events))
