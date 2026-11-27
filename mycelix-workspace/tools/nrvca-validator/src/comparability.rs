@@ -13,13 +13,14 @@ use std::collections::BTreeSet;
 
 /// Fields that define whether two observed KPI values are directly comparable.
 /// Keep this list versioned by review: adding/removing a field changes semantics.
-pub const MEASUREMENT_FIELDS: [&str; 11] = [
+pub const MEASUREMENT_FIELDS: [&str; 12] = [
     "canonical_concept_id",
     "unit",
     "numerator_definition",
     "denominator_definition",
     "eligible_population",
     "clock_start",
+    "clock_stop",
     "deadline_rule",
     "category_rule",
     "geographic_scope",
