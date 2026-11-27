@@ -1,0 +1,35 @@
+{
+  "schema_version": "terra-lab-core-observation-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "source_description": "Manufactured specimen-flow observations; no empirical soil measurements.",
+  "observations": [
+    {
+      "protocol": "constant_head",
+      "record_id": "constant-head-core-001",
+      "physical_sample_group_id": "sample-001",
+      "specimen": {
+        "diameter_m": 0.05,
+        "length_m": 0.1
+      },
+      "delta_head_m": 0.5,
+      "flow_rate_m3_s": 0.000001,
+      "original_method_label": "constant head permeameter",
+      "specimen_preparation": "undisturbed"
+    },
+    {
+      "protocol": "falling_head",
+      "record_id": "falling-head-core-001",
+      "physical_sample_group_id": "sample-001",
+      "specimen": {
+        "diameter_m": 0.05,
+        "length_m": 0.1
+      },
+      "standpipe_diameter_m": 0.005,
+      "elapsed_time_s": 600,
+      "initial_head_m": 1,
+      "final_head_m": 0.5,
+      "original_method_label": "falling head permeameter",
+      "specimen_preparation": "undisturbed"
+    }
+  ]
+}

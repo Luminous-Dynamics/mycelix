@@ -1,0 +1,49 @@
+name: Terra Preta laboratory core observation operators
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/lab-core-observation-reference/**'
+      - '.github/workflows/terra-lab-core-observation-reference.yml'
+  push:
+    branches: ['research/terra-lab-core-observation-v0.1']
+    paths:
+      - 'research/terra-preta/tools/lab-core-observation-reference/**'
+      - '.github/workflows/terra-lab-core-observation-reference.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-lab-core-observation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lab-core-observation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/lab-core-observation-reference/Cargo.toml -- --check
+      - name: Unit tests
+        run: cargo test --manifest-path research/terra-preta/tools/lab-core-observation-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/lab-core-observation-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Execute observation fixture
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/lab-core-observation-reference/Cargo.toml -- \
+            research/terra-preta/tools/lab-core-observation-reference/fixtures/core-observations.json \
+            "$RUNNER_TEMP/terra-core-observations.json"
+      - name: Validate synthetic output
+        run: |
+          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and
+            .observation_count == 2 and
+            ([.observations[].estimated_k_m_s | select(. > 0)] | length == 2) and
+            ([.observations[].forward_reconstruction_relative_error | select(. <= 1e-10)] | length == 2) and
+            ([.observations[].local_sensitivity | select(.parameter_id == "log_hydraulic_conductivity" and .observed_quantity_id != null and .derivative_per_unit_log_parameter != 0 and .log_elasticity != null)] | length == 2)'             "$RUNNER_TEMP/terra-core-observations.json"
