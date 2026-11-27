@@ -423,6 +423,84 @@ fn snapshot_digest(
 }
 
 
+
+fn declared_ocel_attribute_type<'a>(
+    root: &'a Value,
+    collection: &str,
+    type_name: &str,
+    attribute_name: &str,
+) -> Option<&'a str> {
+    root.get(collection)?
+        .as_array()?
+        .iter()
+        .find(|declaration| declaration.get("name").and_then(Value::as_str) == Some(type_name))?
+        .get("attributes")?
+        .as_array()?
+        .iter()
+        .find(|attribute| {
+            attribute.get("name").and_then(Value::as_str) == Some(attribute_name)
+        })?
+        .get("type")?
+        .as_str()
+}
+
+fn require_ocel_attribute_declaration(
+    root: &Value,
+    collection: &str,
+    type_name: &str,
+    attribute_name: &str,
+    expected_type: &str,
+) -> Result<(), TemporalRelationshipErrorV1> {
+    if declared_ocel_attribute_type(root, collection, type_name, attribute_name)
+        != Some(expected_type)
+    {
+        return Err(TemporalRelationshipErrorV1::InvalidOcel20);
+    }
+    Ok(())
+}
+
+fn validate_relation_claim_declaration(root: &Value) -> Result<(), TemporalRelationshipErrorV1> {
+    for (name, kind) in [
+        ("predicate", "string"),
+        ("cardinality", "string"),
+        ("valid_from", "time"),
+        ("source_recorded_at", "time"),
+        ("accepted_sequence", "integer"),
+        ("source_ref", "string"),
+        ("source_digest", "string"),
+        ("asserting_principal", "string"),
+        ("authority_scope", "string"),
+    ] {
+        require_ocel_attribute_declaration(
+            root,
+            "objectTypes",
+            "temporal_relation_claim",
+            name,
+            kind,
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_relation_mutation_declaration(
+    root: &Value,
+    event_type: &str,
+) -> Result<(), TemporalRelationshipErrorV1> {
+    for (name, kind) in [
+        ("target_claim_digest", "string"),
+        ("effective_at", "time"),
+        ("source_recorded_at", "time"),
+        ("accepted_sequence", "integer"),
+        ("source_ref", "string"),
+        ("source_digest", "string"),
+        ("asserting_principal", "string"),
+        ("authority_scope", "string"),
+    ] {
+        require_ocel_attribute_declaration(root, "eventTypes", event_type, name, kind)?;
+    }
+    Ok(())
+}
+
 fn ocel_attribute<'a>(
     record: &'a Value,
     name: &str,
@@ -586,6 +664,13 @@ pub fn parse_temporal_relationships_ocel20(
         }
     }
 
+    let has_relation_claims = objects.iter().any(|object| {
+        object.get("type").and_then(Value::as_str) == Some("temporal_relation_claim")
+    });
+    if has_relation_claims {
+        validate_relation_claim_declaration(&root)?;
+    }
+
     let mut claims = Vec::new();
     for object in objects {
         if object.get("type").and_then(Value::as_str) != Some("temporal_relation_claim") {
@@ -628,8 +713,14 @@ pub fn parse_temporal_relationships_ocel20(
     for event in events {
         let event_type = event.get("type").and_then(Value::as_str).unwrap_or_default();
         let kind = match event_type {
-            "temporal_relation_superseded" => TemporalRelationMutationKindV1::Supersede,
-            "temporal_relation_revoked" => TemporalRelationMutationKindV1::Revoke,
+            "temporal_relation_superseded" => {
+                validate_relation_mutation_declaration(&root, event_type)?;
+                TemporalRelationMutationKindV1::Supersede
+            }
+            "temporal_relation_revoked" => {
+                validate_relation_mutation_declaration(&root, event_type)?;
+                TemporalRelationMutationKindV1::Revoke
+            }
             _ => continue,
         };
         let event_id = event
