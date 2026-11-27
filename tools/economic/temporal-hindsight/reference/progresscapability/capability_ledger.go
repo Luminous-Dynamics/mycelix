@@ -15,6 +15,8 @@ const (
 	MaxIdentifierBytes = 4096
 	MaxOwners = 100000
 	MaxLedgerEvents = 1000000
+	MaxActiveCapabilities = 100000
+	MaxLedgerOwnerCoordinates = 5000000
 	OutcomeCommitted CapabilityOutcomeV1 = "Committed"
 	OutcomeUnknown CapabilityOutcomeV1 = "OutcomeUnknown"
 	OutcomeApplied CapabilityOutcomeV1 = "ReconciledApplied"
@@ -220,7 +222,15 @@ func transitionDigest(scopeDigest string, transition CapabilityTransitionV1) str
 
 func EventDigestV1(scopeDigest string,event CapabilityEventV1)(string,error){
 	if event.LogSequence==0 || strings.TrimSpace(event.EventID)=="" || len(event.EventID)>MaxIdentifierBytes{return "",errors.New("invalid event sequence or ID")}
-	if !validDigest(event.PreviousEventDigest){return "",errors.New("invalid previous event digest")}
+	if !validDigest(scopeDigest) || !validDigest(event.PreviousEventDigest){return "",errors.New("invalid scope or previous event digest")}
+	if len(event.ReconcilesEventID)>MaxIdentifierBytes{return "",errors.New("reconciliation event reference exceeds byte limit")}
+	if event.Transition!=nil {
+		transition:=event.Transition
+		for _,field:=range []string{transition.CapabilityID,transition.IssuerRef,transition.IssuerKeyEpoch,transition.AuthorityGrantRef,transition.CheckpointRef,transition.PriorCapabilityDigest} {
+			if len(field)>MaxIdentifierBytes{return "",errors.New("transition field exceeds byte limit")}
+		}
+		if len(transition.OwnerCut)>MaxOwners{return "",errors.New("transition owner cut exceeds owner limit")}
+	}
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-CAPABILITY-EVENT-V1")
 	writeString(&b,scopeDigest)
@@ -246,6 +256,7 @@ func validateTransition(scopeDigest string,owners []string,transition Capability
 	switch transition.Kind {
 	case TransitionMint:
 		if _,everUsed:=usedIDs[transition.CapabilityID];everUsed{return nil,"",errors.New("capability ID cannot be reused")}
+		if len(active)>=MaxActiveCapabilities{return nil,"",errors.New("active capability limit exceeded")}
 		if transition.Generation!=1 || transition.PriorCapabilityDigest!=""{return nil,"",errors.New("mint must start at generation one without predecessor")}
 	case TransitionAdvance:
 		if !exists{return nil,"",errors.New("cannot advance an inactive capability")}
@@ -307,6 +318,13 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 	if expectedCount>MaxLedgerEvents || uint64(len(events))>MaxLedgerEvents{return failedReplay(result,"ledger event count exceeds configured limit")}
 	if !validDigest(expectedTail){return failedReplay(result,"expected tail anchor is malformed")}
 	if uint64(len(events))!=expectedCount{return failedReplay(result,"observed event count differs from independent tail anchor")}
+	var totalCoordinates uint64
+	for _,event:=range events {
+		if event.Transition==nil {continue}
+		count:=uint64(len(event.Transition.OwnerCut))
+		if count>MaxLedgerOwnerCoordinates-totalCoordinates{return failedReplay(result,"ledger owner-coordinate work budget exceeded")}
+		totalCoordinates+=count
+	}
 	result.SubmittedEventsDigest=rawEventsDigest(events)
 	active:=make(map[string]activeState)
 	usedCapabilityIDs:=make(map[string]struct{})
