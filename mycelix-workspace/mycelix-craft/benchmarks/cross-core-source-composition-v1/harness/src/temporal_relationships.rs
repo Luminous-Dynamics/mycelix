@@ -997,7 +997,7 @@ mod tests {
     }
 
 
-    fn ocel_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+    fn fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
         serde_json::json!({
             "name": name,
             "time": T08,
@@ -1048,15 +1048,15 @@ mod tests {
                     "id": "rel-asset-zone",
                     "type": "temporal_relation_claim",
                     "attributes": [
-                        ocel_attribute("predicate", "member_of_zone"),
-                        ocel_attribute("cardinality", "many_to_one"),
-                        ocel_attribute("valid_from", T08),
-                        ocel_attribute("source_recorded_at", T08),
-                        ocel_attribute("accepted_sequence", 1),
-                        ocel_attribute("source_ref", "source:asset-zone"),
-                        ocel_attribute("source_digest", source_digest),
-                        ocel_attribute("asserting_principal", "principal:operator"),
-                        ocel_attribute("authority_scope", "scope:zone-A")
+                        fixture_attribute("predicate", "member_of_zone"),
+                        fixture_attribute("cardinality", "many_to_one"),
+                        fixture_attribute("valid_from", T08),
+                        fixture_attribute("source_recorded_at", T08),
+                        fixture_attribute("accepted_sequence", 1),
+                        fixture_attribute("source_ref", "source:asset-zone"),
+                        fixture_attribute("source_digest", source_digest),
+                        fixture_attribute("asserting_principal", "principal:operator"),
+                        fixture_attribute("authority_scope", "scope:zone-A")
                     ],
                     "relationships": [
                         {"objectId": "asset-1", "qualifier": "subject"},
@@ -1069,14 +1069,14 @@ mod tests {
                 "type": "temporal_relation_revoked",
                 "time": T13,
                 "attributes": [
-                    ocel_attribute("target_claim_digest", target_digest),
-                    ocel_attribute("effective_at", T10),
-                    ocel_attribute("source_recorded_at", T13),
-                    ocel_attribute("accepted_sequence", 2),
-                    ocel_attribute("source_ref", "source:zone-revocation"),
-                    ocel_attribute("source_digest", digest_hex(&[0x22; 32])),
-                    ocel_attribute("asserting_principal", "principal:reviewer"),
-                    ocel_attribute("authority_scope", "scope:zone-A")
+                    fixture_attribute("target_claim_digest", target_digest),
+                    fixture_attribute("effective_at", T10),
+                    fixture_attribute("source_recorded_at", T13),
+                    fixture_attribute("accepted_sequence", 2),
+                    fixture_attribute("source_ref", "source:zone-revocation"),
+                    fixture_attribute("source_digest", digest_hex(&[0x22; 32])),
+                    fixture_attribute("asserting_principal", "principal:reviewer"),
+                    fixture_attribute("authority_scope", "scope:zone-A")
                 ],
                 "relationships": [{
                     "objectId": "rel-asset-zone",
