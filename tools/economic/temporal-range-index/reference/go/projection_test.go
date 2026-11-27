@@ -1,29 +1,60 @@
 package temporalrange
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"testing"
 )
 
+func appendReceiptFixtureStringV1(out *bytes.Buffer, value string) {
+	_ = binary.Write(out, binary.BigEndian, uint32(len(value)))
+	_, _ = out.WriteString(value)
+}
+
+func canonicalReceiptFixtureV1(scope IntervalScopeV1, receiptID, assertionID, assertionDigest, owner string, sequence uint64) []byte {
+	var out bytes.Buffer
+	out.WriteString(canonicalKnowledgeReceiptMagicV1)
+	for _, value := range []string{receiptID, scope.VerifierRef, scope.PolicyEpochRef, assertionID, assertionDigest, owner} {
+		appendReceiptFixtureStringV1(&out, value)
+	}
+	_ = binary.Write(&out, binary.BigEndian, sequence)
+	_ = binary.Write(&out, binary.BigEndian, uint32(0))
+	return out.Bytes()
+}
+
+func receiptDigestFixtureV1(entry []byte) string {
+	sum := sha256.Sum256(entry)
+	return fmt.Sprintf("sha256:%x", sum)
+}
+
 func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBindingV1, AcceptedReceiptInventoryV1) {
+	assertionRef := "assertion:grant-42"
+	assertionDigest := intervalDigestV1(70)
+	entry0 := canonicalReceiptFixtureV1(scope, "receipt:2", assertionRef, assertionDigest, "owner:grants", 2)
+	entry1 := canonicalReceiptFixtureV1(scope, "receipt:8", "metadata:receipt-8", intervalDigestV1(71), "owner:grants", 8)
+	receiptDigest := receiptDigestFixtureV1(entry0)
 	record := IntervalRecordV1{
-		AssertionRef: "assertion:grant-42",
+		AssertionRef: assertionRef,
 		ValidFrom: intervalPointV1(10, 125_000_000),
 		ValidTo: intervalFiniteV1(30, 750_000_000),
-		ReceiptDigest: intervalDigestV1(41),
+		ReceiptDigest: receiptDigest,
 	}
 	tree, err := NewIntervalTreeV1(scope, []IntervalRecordV1{record})
 	if err != nil {
 		panic(err)
 	}
+	logRoot := rfc9162TreeHashV1([][]byte{entry0, entry1})
+	gaps := []OwnerGapRangeV1{{First: 1, Last: 1}, {First: 3, Last: 7}, {First: 9, Last: 9}}
 	binding := OwnerIntervalIndexBindingV1{
 		OwnerRef: "owner:grants",
 		OwnerHistoryRef: "history:grants:v1",
 		OwnerSequence: 9,
 		TreeSize: 2,
-		OwnerLogRootDigest: intervalDigestV1(42),
+		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", logRoot),
 		IntervalIndexRoot: tree.RootHash(),
-		Gaps: []OwnerGapRangeV1{{First: 4, Last: 5}},
+		Gaps: gaps,
 	}
 	inventory := AcceptedReceiptInventoryV1{
 		OwnerRef: binding.OwnerRef,
@@ -34,15 +65,15 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 		Receipts: []AcceptedReceiptProjectionV1{
 			{
 				ReceiptLogLeafIndex: 0, OwnerSequence: 2,
-				ReceiptDigest: record.ReceiptDigest,
-				Class: ReceiptProjectsIntervalAssertionV1,
+				ReceiptDigest: receiptDigest, CanonicalReceiptEntryBytes: entry0,
+				AssertionID: assertionRef, Class: ReceiptProjectsIntervalAssertionV1,
 				AssertionRef: record.AssertionRef,
 				ValidFrom: record.ValidFrom, ValidTo: record.ValidTo,
 			},
 			{
 				ReceiptLogLeafIndex: 1, OwnerSequence: 8,
-				ReceiptDigest: intervalDigestV1(43),
-				Class: ReceiptIsNonTemporalV1,
+				ReceiptDigest: receiptDigestFixtureV1(entry1), CanonicalReceiptEntryBytes: entry1,
+				AssertionID: "metadata:receipt-8", Class: ReceiptIsNonTemporalV1,
 			},
 		},
 	}
