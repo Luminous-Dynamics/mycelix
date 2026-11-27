@@ -7,3 +7,4 @@ description = "RFC 9162 SHA-256 Merkle Tree Hash inclusion and consistency proof
 
 [dependencies]
 sha2 = "=0.10.9"
+hex = "0.4"
