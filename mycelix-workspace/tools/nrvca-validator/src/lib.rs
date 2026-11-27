@@ -3,6 +3,8 @@
 //! This is intentionally an independent semantic layer; it does not claim full JSON
 //! Schema Draft 2020-12 conformance, official SNA/SEEA compliance, or factual truth.
 
+pub mod comparability;
+
 use serde_json::Value;
 use std::collections::HashSet;
 
