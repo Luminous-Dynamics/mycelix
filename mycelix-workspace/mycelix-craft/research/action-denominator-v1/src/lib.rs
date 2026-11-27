@@ -217,6 +217,7 @@ pub enum RejectionReasonV1 {
     NotYetObserved,
     ExpiredObservation,
     ExplicitRevocation,
+    ExplicitExpiry,
     ExplicitDispute,
     NonCompletionStatus,
 }
@@ -360,6 +361,8 @@ pub fn evaluate_action_coverage_v1(
             Some(RejectionReasonV1::ExpiredObservation)
         } else if observation.status == ObservationStatusV1::Revoked {
             Some(RejectionReasonV1::ExplicitRevocation)
+        } else if observation.status == ObservationStatusV1::Expired {
+            Some(RejectionReasonV1::ExplicitExpiry)
         } else if observation.status == ObservationStatusV1::Disputed {
             Some(RejectionReasonV1::ExplicitDispute)
         } else if observation.status != ObservationStatusV1::VerifiedComplete {
@@ -370,7 +373,9 @@ pub fn evaluate_action_coverage_v1(
 
         if let Some(reason) = reason {
             match reason {
-                RejectionReasonV1::ExplicitRevocation | RejectionReasonV1::ExpiredObservation => {
+                RejectionReasonV1::ExplicitRevocation
+                | RejectionReasonV1::ExplicitExpiry
+                | RejectionReasonV1::ExpiredObservation => {
                     unavailable_groups
                         .entry(observation.action_id.as_str())
                         .or_default()
@@ -405,6 +410,12 @@ pub fn evaluate_action_coverage_v1(
     for action in plan.actions() {
         let groups = by_action.get(action.action_id.as_str());
         let mut valid_group_count = 0_u16;
+        if disputed_groups
+            .get(action.action_id.as_str())
+            .is_some_and(|groups| !groups.is_empty())
+        {
+            group_conflicts.insert(action.action_id.clone());
+        }
         if let Some(groups) = groups {
             for (group_id, group_observations) in groups {
                 let unique: BTreeSet<DigestV1> =
