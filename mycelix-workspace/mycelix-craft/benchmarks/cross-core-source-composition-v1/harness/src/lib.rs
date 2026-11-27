@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod ocel_profile;
+
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
