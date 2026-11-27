@@ -1,0 +1,25 @@
+{
+  "corpus_version": "MYCELIX-TEMPORAL-ADS-CORPUS-V0.1",
+  "schema_file": "scenario.schema.json",
+  "scenarios_file": "scenarios.jsonl",
+  "scenario_count": 6,
+  "scenario_ids": [
+    "HINDSIGHT-BACKDATED-REVOCATION-001",
+    "VALIDITY-EPISODE-CROSS-PAIR-002",
+    "MISSING-VALID-TO-NOT-OPEN-003",
+    "OMITTED-OWNER-EMPTY-QUERY-004",
+    "WITHHELD-OWNER-ROSTER-005",
+    "ROSTER-EPOCH-STALE-006"
+  ],
+  "coverage": [
+    "historical-frontier-noninterference",
+    "backdated-revocation",
+    "validity-episode-pairing",
+    "explicit-open",
+    "missing-endpoint-indeterminacy",
+    "owner-universe-omission",
+    "withheld-source",
+    "registry-epoch-staleness"
+  ],
+  "status": "synthetic-adjudicated-seed-corpus; not production or SOTA evaluation"
+}
