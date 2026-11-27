@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - research/craft-cross-core-source-composition-v0.1-20261127
+      - research/craft-water-ocel-interoperability-v0.1-20261127
     paths:
       - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/**'
       - '.github/workflows/craft-cross-core-source-composition.yml'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - research/craft-cross-core-source-composition-v0.1-20261127
     paths:
       - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/**'
       - '.github/workflows/craft-cross-core-source-composition.yml'
@@ -49,7 +52,7 @@ jobs:
           bash mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/materialize.sh "$OUT_DIR"
           echo "CROSS_CORE_WORKSPACE=$OUT_DIR" >> "$GITHUB_ENV"
 
-      - name: Generate deterministic dependency-free workspace lock
+      - name: Generate deterministic lock for pinned owner and adapter dependencies
         run: cargo +1.96.0 generate-lockfile --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml"
 
       - name: Check formatting across the combined source tree
@@ -61,6 +64,9 @@ jobs:
       - name: Run WSR cross-core qualification slice explicitly
         run: cargo +1.96.0 test --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" -p craft-water-cross-core-harness -- --nocapture
 
+      - name: Run OCEL 2.0 water-profile tests explicitly
+        run: cargo +1.96.0 test --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" -p craft-water-cross-core-harness ocel_profile::tests -- --nocapture
+
       - name: Run combined-workspace Clippy
         run: cargo +1.96.0 clippy --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
 
@@ -68,5 +74,5 @@ jobs:
         run: |
           sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock"
           cat "$CROSS_CORE_WORKSPACE/source-receipt.tsv"
-          printf '%s\n' 'PASS = six exact pinned owner cores plus six executable cross-core tests, all owner unit suites, rustfmt and Clippy.'
-          printf '%s\n' 'NONCLAIM = WSR-001/004/006/009 plus expiry precision/recall and common-cause controls are executed; the remaining 12 WSR cases, other proposed mutations and any field-service outcome remain unqualified.'
+          printf '%s\n' 'PASS = six exact pinned owner cores, executable water-service checks, OCEL 2.0 profile conformance tests, all owner unit suites, rustfmt and Clippy.'
+          printf '%s\n' 'NONCLAIM = a restricted OCEL 2.0 profile is not a full OCEL schema implementation; OCEL 2.1 remains experimental; field-service outcomes remain unqualified.'
