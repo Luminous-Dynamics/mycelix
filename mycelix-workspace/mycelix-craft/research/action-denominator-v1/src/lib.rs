@@ -443,7 +443,6 @@ pub fn evaluate_action_coverage_v1(
     }
 
     let mut covered = BTreeSet::<String>::new();
-    let mut statuses = BTreeMap::<String, ActionCoverageStatusV1>::new();
     loop {
         let mut progress = false;
         for action in plan.actions() {
@@ -451,7 +450,6 @@ pub fn evaluate_action_coverage_v1(
                 continue;
             }
             if group_conflicts.contains(&action.action_id) {
-                statuses.insert(action.action_id.clone(), ActionCoverageStatusV1::Conflict);
                 continue;
             }
             if !action
@@ -464,7 +462,6 @@ pub fn evaluate_action_coverage_v1(
             let groups = *group_counts.get(&action.action_id).unwrap_or(&0);
             if groups >= action.minimum_independent_groups {
                 covered.insert(action.action_id.clone());
-                statuses.insert(action.action_id.clone(), ActionCoverageStatusV1::Covered);
                 progress = true;
             }
         }
