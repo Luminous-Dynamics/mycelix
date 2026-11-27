@@ -1,0 +1,131 @@
+# Historical Frontier Noninterference — V0.1
+
+**Status:** research/verification draft. The TLA+ model is authored but has not yet been executed by TLC. No model-checking result is claimed.
+
+## 1. The property
+
+A temporal query certificate is a statement about one verifier's accepted causal frontier, not about everything visible in a database today.
+
+Let two executions have identical authenticated per-owner prefixes at a fixed frontier F0 and identical query/policy/profile inputs. They may differ in any suffix beyond F0. A historical replay at F0 must be identical:
+
+\[
+\operatorname{Prefix}(E_1,F_0)=\operatorname{Prefix}(E_2,F_0)
+\Rightarrow
+\operatorname{Replay}(E_1,F_0,Q,V,P)=\operatorname{Replay}(E_2,F_0,Q,V,P)
+\]
+
+This is **historical-frontier noninterference** (the no-hindsight property). It is a hyperproperty because it compares two executions, not just one execution against a local invariant.
+
+The key adversarial case is a correction whose business-valid time is before the query instant V, but whose receipt is accepted only after F0. It can change a query at a later frontier F1. It must not change what F0 justified.
+
+## 2. Why pointwise proof checks are insufficient
+
+An interval proof can be complete for its root while a caller accidentally supplies a newer root, a latest-state projection, or a correction head selected using evidence beyond the requested frontier. A Merkle proof can still verify. The failure is semantic: the verifier answered a historical question using future knowledge.
+
+The current forest work correctly separates:
+- completeness relative to declared owner-index roots;
+- receipt-inventory/log-root reconstruction;
+- semantic mapping from assertion payload bytes to validity intervals;
+- authentication of checkpoint/key/witness roots.
+
+This model adds a separate test: even if a later suffix is visible in one replica but delayed in another, does the same F0 replay remain the same?
+
+## 3. Bounded TLA+ model
+
+`TemporalFrontierNoninterference.tla` models:
+- two owner histories with independent sequence cuts;
+- two replicas that may observe later suffix receipts at different times;
+- one base receipt per owner at sequence 1;
+- a backdated correction per owner at sequence 2;
+- fixed historical frontier F0 = (A:1, B:1);
+- independently advancing current cuts;
+- historical replay outputs and certificates bound to F0.
+
+The correction abstracts a later accepted VALID_TO assertion that ends the matching interval at or before V. It changes the current result only after the relevant owner-local cut advances to sequence 2.
+
+The model intentionally has no global scalar sequence. Owner A and owner B can advance independently, yielding incomparable current cuts.
+
+### Correct specification
+
+Run the base model using the TLA+ tools:
+
+```sh
+java -cp tla2tools.jar tlc2.TLC -config TemporalFrontierNoninterference.cfg TemporalFrontierNoninterference.tla
+```
+
+The configured invariants are:
+- `TypeOK`;
+- equality of accepted prefixes at F0;
+- historical replay is evaluated at F0, not at the current cut;
+- paired historical replay equality;
+- no-hindsight equivalence;
+- exact certificate binding to F0, policy epoch, query instant, accepted prefix and result.
+
+### Negative control
+
+`TemporalFrontierNoninterference-Mutant.cfg` enables two deliberately incorrect actions:
+1. replay a historical query using the latest/current frontier;
+2. relabel an F0 certificate with a later current frontier.
+
+The mutant model is expected to produce a counterexample after a correction is observed and accepted. A failing mutant is a successful negative control; it must not be counted as a passing production invariant or CI qualification.
+
+## 4. Required implementation semantics
+
+A production query certificate should bind at least:
+- verifier identity and exact accepted frontier digest;
+- canonical owner set and stable owner-history identities;
+- each owner-local cut, log root/tree size, gaps and consistency lineage;
+- exact query scope and valid-time instant/interval;
+- temporal schema and interval profile;
+- semantic mapper and evaluator build digests;
+- policy identity and immutable epoch;
+- canonical result/provenance commitment;
+- claim ceiling and every unevaluated trust boundary.
+
+Historical replay must resolve correction/supersession heads against the accepted frontier, not against a latest global view. A later correction produces a linked current reassessment with new evidence and a new certificate. It does not mutate the earlier certificate.
+
+This property does not permit a missing owner to be ignored: both executions must share the exact required owner set, and incomplete coverage still yields Indeterminate.
+
+## 5. Adversarial and metamorphic benchmark
+
+Generate paired traces with the same F0 prefixes and vary only evidence outside F0:
+
+| Mutation | F0 replay | Later/current replay |
+|---|---|---|
+| Delayed receipt visible in one replica only | identical | may differ only after accepted frontier advances |
+| Backdated revocation accepted at F1 | unchanged | must reflect applicable revocation |
+| Corrections delivered in opposite interleavings across owners | identical for same owner cuts/dependencies | same result for equivalent merged frontier |
+| A advances while B remains behind | unchanged | preserve a partial-order cut |
+| Same sequence, conflicting owner-history roots | Indeterminate | Indeterminate until conflict is resolved |
+| Policy epoch or mapper build changes | historical certificate remains bound to old identity | new evaluation must name new identity |
+| Missing owner or unresolved gap | Indeterminate, never Complete | Indeterminate until repaired |
+| Irrelevant correction | unchanged | no false invalidation of unrelated claims |
+
+Hard correctness targets (proposed, not achieved):
+- zero historical result drift under suffix-only mutations;
+- zero acceptance of stale or relabelled certificates;
+- zero hindsight leaks from post-frontier backdated corrections;
+- zero result dependence on topological delivery order where causal edges are preserved;
+- 100% exact replay parity against an independent oracle;
+- 100% detection of applicable corrections at a later frontier;
+- zero false invalidation from irrelevant corrections;
+- zero Complete outcomes with missing required owners, gaps or unresolved forks.
+
+For each run, publish the raw trace and corpus digest, exact source SHA, toolchain, hardware, model state-space size, and all failed cases. For performance, collect at least 30 repetitions after warm-up and report p50/p95/p99 for historical replay, current reassessment, full recomputation and incremental correction processing. Also report certificate bytes and peak memory. Keep semantic correctness, proof verification, index construction and query latency as separate measurements.
+
+## 6. Fair industry and research baselines
+
+- **VeriTS** (Yao et al., 28 Aug 2026): authenticated aggregate interval trees, minimum-covering-set completeness and sliding-window delta verification are mandatory interval-proof baselines. This model does not claim to outperform VeriTS's interval data structure; it tests a different property—knowledge-frontier noninterference.
+  - https://arxiv.org/abs/2608.28318
+- **XTDB:** compare valid-time/system-time reconstruction and retrospective corrections under the same frozen corpus. XTDB documents separate system-time and valid-time axes, including backdated valid-time changes; the additional Mycelix variable is the verifier's accepted owner frontier.
+  - https://docs.xtdb.com/about/time-in-xtdb.html
+  - https://docs.xtdb.com/concepts/key-concepts.html
+- **SQL Server temporal tables:** compare system-versioned AS OF and range history behavior. Its temporal query semantics are a mature baseline, not a distributed verifier-frontier proof.
+  - https://learn.microsoft.com/en-us/sql/relational-databases/tables/querying-data-in-a-system-versioned-temporal-table
+- **Event sourcing/workflow replay:** compare deterministic reconstruction and correction processing over the same frozen event streams. Do not compare an unverified latest-state scan against a proof-carrying path as though their guarantees were equivalent.
+
+## 7. Boundaries
+
+This bounded model abstracts cryptographic verification, owner-set discovery, schema parsing, interval pairing and policy execution. It does not prove source truth, trusted clocks, global absence, signed-checkpoint authenticity, legal effect, financial authorization, settlement or permission to mutate external state.
+
+TLC execution is required before the model is described as model-checked. Cross-language implementation parity and independent source/checkpoint authentication remain separate gates.
