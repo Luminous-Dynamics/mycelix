@@ -46,3 +46,11 @@ Timely/Differential Dataflow uses partially ordered timestamps and antichain fro
 - https://timelydataflow.github.io/timely-dataflow/chapter_2/chapter_2_4.html
 - https://timelydataflow.github.io/timely-dataflow/chapter_5/chapter_5_2.html
 - https://timelydataflow.github.io/differential-dataflow/chapter_3/chapter_3_4.html
+
+## Benchmark contract
+
+`progress_benchmark_test.go` covers antichain widths 0/1/2/4/8/16/64/256 and owner dimensions 1/10/100/1,000/10,000 where width does not exceed the declared owner count. It separates validation, query-cut evaluation and monotone advancement, and reports allocations plus explicit owners/op and points/op metrics.
+
+The current benchmark is a local in-memory algebra smoke test. It excludes capabilities, networking, clock/event-time conversion, proof dependencies, source authentication, checkpoint verification and a production dataflow engine. Use repeated warm trials and publish raw samples/p50/p95/p99 before making performance claims.
+
+Malformed inputs are committed into deterministic failure receipts using a separate domain-separated submission digest. This matters because an Indeterminate result for two different malformed antichains or query cuts must not collapse into the same certificate just because they share a failure reason.
