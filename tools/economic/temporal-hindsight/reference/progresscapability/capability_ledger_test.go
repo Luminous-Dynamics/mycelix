@@ -268,6 +268,32 @@ func TestDistinctMalformedSubmissionsHaveDistinctReceipts(t *testing.T){
 	if first.SubmittedEventsDigest==second.SubmittedEventsDigest||first.CertificateDigest==second.CertificateDigest{t.Fatal("different malformed submissions collapsed to same receipt")}
 }
 
+func TestRevokeConsumesCapabilityAndRemovesProgressPoint(t *testing.T) {
+	scope := fixtureScope("owner:A")
+	mint := fixtureTransition(TransitionMint, "cap:revocable", 1, "", map[string]uint64{"owner:A": 12})
+	events := fixtureAppend(t, scope, nil, "mint", OutcomeCommitted, &mint, "")
+	minted := fixtureReplay(t, scope, events)
+	if len(minted.ActiveCapabilities) != 1 {
+		t.Fatalf("mint failed: %+v", minted)
+	}
+	revoke := fixtureTransition(
+		TransitionRevoke,
+		"cap:revocable",
+		2,
+		minted.ActiveCapabilities[0].TransitionDigest,
+		map[string]uint64{"owner:A": 12},
+	)
+	events = fixtureAppend(t, scope, events, "revoke", OutcomeCommitted, &revoke, "")
+	revoked := fixtureReplay(t, scope, events)
+	if revoked.Disposition != LedgerValid || len(revoked.ActiveCapabilities) != 0 {
+		t.Fatalf("revoke did not consume capability: %+v", revoked)
+	}
+	progress := DeriveProgressAntichainV1(scope, revoked)
+	if progress.Disposition != ProgressDeclaredClosed || len(progress.ProgressPoints) != 0 {
+		t.Fatalf("revoked capability still contributes progress: %+v", progress)
+	}
+}
+
 func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 	scope := fixtureScope("owner:A")
 	tooMany := ReplayResultV1{
