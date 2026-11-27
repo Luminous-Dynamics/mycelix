@@ -61,3 +61,16 @@ Adversarial tests cover truncated chains, page-index gaps, cursor discontinuitie
 The formal directory also contains `TemporalEnumerationContinuity.tla` and a separate truncated-page mutant. The correct finite model requires all three modeled pages to be observed in order, the continuation cursor to close, and exactly the final page to be terminal before `chainWellFormed` can become true. The mutant declares completion after page zero and must violate `CompletePageSet`.
 
 This model checks only the bounded three-page abstraction. It does not authenticate cursor tokens, page signatures, source identity, registry snapshot completeness, or arbitrary-length enumerations. Those trust obligations remain external and are not promoted by the Go structural page-chain result.
+
+
+### Enumeration page-chain benchmark
+
+`BenchmarkEnumerationPageChain` exercises page-chain validation at 1 / 10 / 100 / 1,000 / 10,000 pages, with one distinct required owner candidate per page. It reports allocations and bytes processed and is deliberately separate from `BenchmarkScopeFrontierReconciliation`.
+
+This benchmark measures only in-memory structural page-chain verification and canonical commitment work. It excludes live directory pagination, network latency/retries, cursor-token issuance/authentication, cryptographic receipt/checkpoint verification, registry completeness, and owner-log/temporal-query proof work. Run it with:
+
+```sh
+go test -run '^$' -bench 'Benchmark(ScopeFrontierReconciliation|EnumerationPageChain)' -benchmem -benchtime=1x ./...
+```
+
+The one-iteration setting is a CI smoke measurement. Publish serious performance claims only from repeated warm runs with raw samples, p50/p95/p99, pinned hardware/toolchain and a matched full-recomputation baseline.
