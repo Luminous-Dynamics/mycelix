@@ -50,6 +50,20 @@ python3 -m venv "$OUT_DIR/pm4py-venv"
 
 PM4Py 2.7.23.15's `stable` extra pins the project's tested baseline dependency versions. The exact PM4Py wheel SHA-256 is `6bc2a053dab98e555b33b6d2ba966972bfcadace7b75bb7afaf788a846ff7139` (PyPI, uploaded 2026-11-24). This still does not provide a full hash-locked environment receipt for every transitive wheel or the Python interpreter. Treat it as an executable exploratory oracle, not an exact-head CI qualification, until the independent-oracle workflow has a reviewed lock/constraints file and emits its own reproducible environment receipt. Python and PM4Py remain outside the Rust production dependency graph.
 
+### Rust OCEL scale probe
+
+The harness now includes `src/bin/ocel_scale_bench.rs`, a measurement-only executable that generates a deterministic synthetic OCEL log and measures the current whole-document Rust validator plus canonicalizer. It reports input/canonical byte counts, input and canonical SHA-256, p50/p95 validation-plus-canonicalization latency, event throughput and Linux `VmHWM` peak RSS when available.
+
+Run from the repository root after materialization:
+
+```sh
+cargo +1.96.0 run --release --manifest-path "$OUT_DIR/Cargo.toml" \
+  -p craft-water-cross-core-harness --bin ocel-scale-bench -- \
+  100000 "$OUT_DIR/ocel-100k.json" 5
+```
+
+Benchmark separately at 1,000, 100,000 and 1,000,000 events; reserve 10,000,000 events for a suitably provisioned isolated host, not ordinary CI. This probes the current whole-document memory behaviour; it is not a streaming result. No performance result is claimed until the exact command, source SHA, generator, CPU/RAM/OS, Rust toolchain and raw JSON output are recorded.
+
 ## Claim boundary
 
 A green result establishes that the six pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.
@@ -100,7 +114,7 @@ The follow-on branch [research/craft-water-ocel-interoperability-v0.1-20261127](
 - fixture: [ocel-water-service-v1.json](./ocel/ocel-water-service-v1.json), with 13 object types, 11 event types, 17 object instances and 12 events;
 - validator/canonicalizer: `harness/src/ocel_profile.rs`;
 - dual-frontier replay: `harness/src/temporal_replay.rs`;
-- public module: `craft_water_cross_core_harness::ocel_profile`;
+- public modules: `craft_water_cross_core_harness::ocel_profile` and `craft_water_cross_core_harness::temporal_replay`;
 - declared OCEL dependencies: pinned `serde_json` and `sha2`;
 - materializer: copies the complete harness source directory and records the SHA-256 of every copied Rust source file, not only `lib.rs`.
 
