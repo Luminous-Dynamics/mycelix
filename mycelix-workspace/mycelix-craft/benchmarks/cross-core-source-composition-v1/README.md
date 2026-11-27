@@ -47,7 +47,7 @@ The harness calls the public APIs of all six pinned owners and runs an independe
 
 The Need Intake test constructs a valid synthetic community proposal and confirms it remains Draft without community/domain/provenance/safety review and explicit local ratification. Project Formation receives a consenting participant with no capability evidence and returns UnknownEvidence rather than a negative judgement or qualification.
 
-The oracle is deliberately independent of the owner evaluators. The executable slice currently covers four of the 16 frozen cases (WSR-001, WSR-004, WSR-006, WSR-009) plus expiry propagation (including an unaffected-source precision control) and common-cause independence. It does **not** claim the other 14 known-answer cases or all 20 registered mutations have executed.
+The oracle is deliberately independent of the owner evaluators. The executable slice currently exercises seven named cases among the 16 frozen WSR cases (WSR-001, WSR-004, WSR-006, WSR-009, WSR-010, WSR-011, WSR-012), using ten harness tests. It also checks expiry propagation with an unaffected-source precision control and common-cause independence. It does **not** claim the other nine WSR cases or all 20 registered mutations have executed.
 
 ## Claim boundary
 
@@ -58,13 +58,17 @@ The green result demonstrates this exact source composition plus the listed synt
 
 See [WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md](WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md) for the baseline matrix, full-corpus qualification targets, independent-oracle requirements, water-service outcome metrics, performance reporting and field-pilot limits. It distinguishes the six-test executable slice from the remaining WSR corpus and the 20 proposed metamorphic transformations.
 
+
+
+**WSR-010 claim ceiling:** the present harness adapter verifies that observations carry the caller-supplied authorization digest/revision, episode, scope and action ID. It does not itself recompute that digest from the canonical action set or authenticate the issuer. Treat this as an integration smoke test, not the immutable-denominator theorem. The digest-sealing owner prototype and its exact-head qualification are tracked separately in [#6792](https://github.com/Luminous-Dynamics/mycelix/issues/6792); the harness should switch to that public owner API before WSR-010 is marked fully qualified.
+
 ## Exact-head qualification result
 
-Workflow [run #46001747298](https://github.com/Luminous-Dynamics/mycelix/actions/runs/46001747298) passed on harness head `93eadac660638db3110d8ff0190777a868768804`.
+Workflow [run #46005931741](https://github.com/Luminous-Dynamics/mycelix/actions/runs/46005931741) passed on harness head `cd5affd6ff41c48aa8e6653170d22d8b4af5d37a`.
 
 - Six source branch heads and both source blob IDs per owner were verified before materialization.
 - Six owner crates passed their combined-workspace unit tests: 159 tests total.
-- Six cross-core tests passed: WSR-001, WSR-004, WSR-006, WSR-009, expiry propagation with unaffected-source preservation, and common-cause independence.
+- Ten cross-core harness tests passed across seven named WSR cases: WSR-001, WSR-004, WSR-006, WSR-009, WSR-010 (two tests), WSR-011 and WSR-012, plus source-expiry propagation with an unaffected-source precision control and common-cause independence.
 - Exact-head formatting and combined-workspace Clippy passed.
 - Generated Cargo.lock SHA-256: `d87aaed918e666446a61dbdb784b1c8fcb252d27d57e4fbce16320be6ae7da63`.
 - Source-manifest SHA-256: `fc0a70c72967cbc366abe9aac866c097dfa96c1cf9648baad9e2a4bf685bb9fe`.
