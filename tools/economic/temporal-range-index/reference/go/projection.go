@@ -22,7 +22,8 @@ const (
 )
 
 // AcceptedReceiptProjectionV1 is the decoded semantic projection of one accepted receipt.
-// Receipt authenticity/admission is an upstream precondition and is not established here.
+// Canonical receipt bytes are recomputed against the declared RFC 9162 log root.
+// Checkpoint/log-root trust and the semantic derivation of the interval projection remain external.
 type AcceptedReceiptProjectionV1 struct {
 	ReceiptLogLeafIndex       uint64
 	OwnerSequence             uint64
@@ -52,12 +53,18 @@ type ReceiptInventoryAuthenticationV1 string
 
 const (
 	ProjectionMatchesSuppliedAcceptedInventoryV1 ProjectionReplayDispositionV1 = "ProjectionMatchesSuppliedAcceptedInventory"
-	ReceiptInventoryAuthenticationNotEvaluatedV1  ReceiptInventoryAuthenticationV1 = "NotEvaluated"
+	ReceiptInventoryAuthenticationNotEvaluatedV1 ReceiptInventoryAuthenticationV1 = "NotEvaluated"
+	ReceiptLogRootRecomputedButTrustExternalV1 ReceiptInventoryAuthenticationV1 = "LogRootRecomputedButTrustExternal"
 )
+
+type ProjectionMappingAuthenticationV1 string
+
+const ProjectionMappingAuthenticationNotEvaluatedV1 ProjectionMappingAuthenticationV1 = "NotEvaluated"
 
 type OwnerProjectionReplayAuditV1 struct {
 	Disposition                  ProjectionReplayDispositionV1
 	ReceiptInventoryAuthentication ReceiptInventoryAuthenticationV1
+	ProjectionMappingAuthentication ProjectionMappingAuthenticationV1
 	OwnerRef                     string
 	OwnerHistoryRef              string
 	OwnerSequenceCut             uint64
@@ -83,11 +90,14 @@ var (
 )
 
 // ComputeOwnerProjectionReplayAuditV1 independently rebuilds the interval index from the
-// supplied decoded receipt inventory and computes its deterministic projection audit digest.
+// supplied canonical owner-log inventory and computes its deterministic projection audit digest.
 //
-// This function does NOT authenticate receipt bytes, signatures, the owner log root, the
-// inventory's prefix completeness, the checkpoint, or the verifier frontier. In particular,
-// a caller cannot promote this result to source-complete merely because this replay succeeds.
+// This function recomputes each canonical receipt digest and the RFC 9162 Merkle Tree Hash
+// over all declared log leaves. It therefore proves that the supplied ordered receipt bytes
+// match the claimed owner-log root. It does NOT authenticate that root's checkpoint/signature,
+// nor does it independently derive the supplied temporal projection from the assertion payload.
+// The checkpoint/frontier layer must authenticate the root; a separately qualified mapper must
+// establish the interval projection semantics before source-complete reliance is permitted.
 func ComputeOwnerProjectionReplayAuditV1(
 	scope IntervalScopeV1,
 	binding OwnerIntervalIndexBindingV1,
@@ -201,6 +211,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 	return OwnerProjectionReplayAuditV1{
 		Disposition: ProjectionMatchesSuppliedAcceptedInventoryV1,
 		ReceiptInventoryAuthentication: ReceiptLogRootRecomputedButTrustExternalV1,
+		ProjectionMappingAuthentication: ProjectionMappingAuthenticationNotEvaluatedV1,
 		OwnerRef: binding.OwnerRef,
 		OwnerHistoryRef: binding.OwnerHistoryRef,
 		OwnerSequenceCut: binding.OwnerSequence,
