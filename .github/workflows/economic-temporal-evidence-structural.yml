@@ -41,13 +41,20 @@ jobs:
         run: |
           set -euo pipefail
           jq -e . docs/economic/temporal/schemas/temporal-evidence-envelope.v1.schema.json >/dev/null
+          jq -e . docs/economic/temporal/schemas/temporal-evidence-envelope.v1.1.schema.json >/dev/null
           jq -e . docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json >/dev/null
+          jq -e . docs/economic/temporal/fixtures/temporal-evidence-envelope.v1.1.json >/dev/null
           jq -e . docs/economic/temporal/benchmarks/temporal-evidence-adversarial-corpus.v0.1.json >/dev/null
+
+      - name: Preserve legacy temporal envelope v1.0 compatibility
+        run: |
+          set -euo pipefail
+          jq -e '(.profile == "MYCELIX-TEMPORAL-EVIDENCE-V1") and (.version == "1.0") and (.assertions | type == "array")' docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json >/dev/null
 
       - name: Validate temporal assertion envelope and correction lineage
         run: |
           set -euo pipefail
-          FILE=docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json
+          FILE=docs/economic/temporal/fixtures/temporal-evidence-envelope.v1.1.json
           jq -e '
             def key($a): $a.assertion_id;
             def cycle_from($edges; $origin; $current; $visited):
