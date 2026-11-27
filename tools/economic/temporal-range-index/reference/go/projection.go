@@ -28,9 +28,9 @@ const (
 	ReceiptIsNonTemporalV1              ReceiptProjectionClassV1 = 2
 )
 
-// AcceptedReceiptProjectionV1 is the decoded semantic projection of one accepted receipt.
-// Canonical receipt bytes are recomputed against the declared RFC 9162 log root.
-// Checkpoint/log-root trust and the semantic derivation of the interval projection remain external.
+// AcceptedReceiptProjectionV1 is the claimed semantic projection of one canonical knowledge
+// receipt leaf. Receipt bytes and the full owner-log RFC 9162 root are recomputed; derivation
+// of interval fields from the underlying assertion payload remains an external obligation.
 type AcceptedReceiptProjectionV1 struct {
 	ReceiptLogLeafIndex       uint64
 	OwnerSequence             uint64
@@ -43,8 +43,9 @@ type AcceptedReceiptProjectionV1 struct {
 	ValidTo                   IntervalEndV1
 }
 
-// AcceptedReceiptInventoryV1 is a claimed complete owner-local receipt-log prefix.
-// This package verifies its internal structure and projection, not its log proof or completeness.
+// AcceptedReceiptInventoryV1 carries every leaf in a declared owner-log prefix, including
+// non-receipt entries. This package recomputes the RFC 9162 root against the declared root
+// digest, but does not authenticate the checkpoint that makes that root authoritative.
 type OwnerLogLeafV1 struct {
 	LeafIndex    uint64
 	OwnerSequence uint64
@@ -180,6 +181,10 @@ func ComputeOwnerProjectionReplayAuditV1(
 
 		projection, hasProjection := projectionsByLeaf[leaf.LeafIndex]
 		isKnowledgeReceipt := bytes.HasPrefix(leaf.EntryBytes, []byte(canonicalKnowledgeReceiptMagicV1))
+		looksLikeKnowledgeReceipt := bytes.HasPrefix(leaf.EntryBytes, []byte(canonicalKnowledgeReceiptStemV1))
+		if looksLikeKnowledgeReceipt && !isKnowledgeReceipt {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
+		}
 		if !isKnowledgeReceipt {
 			if hasProjection {
 				return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
