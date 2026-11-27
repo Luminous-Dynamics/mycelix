@@ -15,7 +15,7 @@
       "const": "MYCELIX-TEMPORAL-EVIDENCE-V1"
     },
     "version": {
-      "const": "1.1"
+      "const": "1.0"
     },
     "status": {
       "type": "string",
@@ -155,12 +155,6 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2048
-        },
-        "validity_interval_ref": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "description": "Stable identity of one validity episode; all VALID_FROM/VALID_TO endpoints and their corrections share the same exact reference."
         }
       },
       "allOf": [
@@ -205,73 +199,5 @@
         }
       ]
     }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "version": {
-            "const": "1.1"
-          }
-        },
-        "required": [
-          "version"
-        ]
-      },
-      "then": {
-        "properties": {
-          "assertions": {
-            "items": {
-              "allOf": [
-                {
-                  "if": {
-                    "properties": {
-                      "dimension": {
-                        "enum": [
-                          "VALID_FROM",
-                          "VALID_TO"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "dimension"
-                    ]
-                  },
-                  "then": {
-                    "required": [
-                      "validity_interval_ref"
-                    ]
-                  }
-                },
-                {
-                  "if": {
-                    "properties": {
-                      "dimension": {
-                        "not": {
-                          "enum": [
-                            "VALID_FROM",
-                            "VALID_TO"
-                          ]
-                        }
-                      }
-                    },
-                    "required": [
-                      "dimension"
-                    ]
-                  },
-                  "then": {
-                    "not": {
-                      "required": [
-                        "validity_interval_ref"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
-    }
-  ]
+  }
 }
