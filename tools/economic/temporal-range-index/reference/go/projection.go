@@ -45,7 +45,7 @@ type AcceptedReceiptProjectionV1 struct {
 }
 
 // AcceptedReceiptInventoryV1 carries every leaf in a declared owner-log prefix, including
-// non-receipt entries. This package recomputes the RFC 9162 root against the declared root
+// entries not using the V1 knowledge-receipt envelope. This package recomputes the RFC 9162 root against the declared root
 // digest, but does not authenticate the checkpoint that makes that root authoritative.
 type OwnerLogLeafV1 struct {
 	LeafIndex    uint64
@@ -86,7 +86,7 @@ type OwnerProjectionReplayAuditV1 struct {
 	OwnerSequenceCut             uint64
 	TreeSize                     uint64
 	ReceiptCount                 uint64
-	NonReceiptLogLeafCount       uint64
+	NonKnowledgeReceiptLeafCount       uint64
 	IntervalAssertionCount       uint64
 	NonTemporalReceiptCount      uint64
 	InventoryDigest              [32]byte
@@ -159,7 +159,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 	logEntries := make([][]byte, 0, len(inventory.LogLeaves))
 	var totalLogBytes uint64
 	var nonTemporal uint64
-	var nonReceiptLeaves uint64
+	var nonKnowledgeReceiptLeaves uint64
 	var previousSequence uint64
 	for i, leaf := range inventory.LogLeaves {
 		if leaf.LeafIndex != uint64(i) {
@@ -173,10 +173,11 @@ func ComputeOwnerProjectionReplayAuditV1(
 		if !ok || expectedLeafIndex != uint64(i) {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionSequenceOrder
 		}
-		totalLogBytes += uint64(len(leaf.EntryBytes))
-		if totalLogBytes > maxProjectionReceiptBytesV1 {
+		leafBytes := uint64(len(leaf.EntryBytes))
+		if leafBytes > maxProjectionReceiptBytesV1-totalLogBytes {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
 		}
+		totalLogBytes += leafBytes
 		logEntries = append(logEntries, leaf.EntryBytes)
 		previousSequence = leaf.OwnerSequence
 
@@ -190,7 +191,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 			if hasProjection {
 				return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 			}
-			nonReceiptLeaves++
+			nonKnowledgeReceiptLeaves++
 			continue
 		}
 		if !hasProjection {
@@ -259,7 +260,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 	inventoryDigest := hashAcceptedReceiptInventoryV1(scope, binding, inventory)
 	auditDigest := hashOwnerProjectionAuditV1(
 		scope, binding, inventoryDigest, tree.RootHash(),
-		uint64(len(inventory.Receipts)), nonReceiptLeaves, uint64(len(records)), nonTemporal,
+		uint64(len(inventory.Receipts)), nonKnowledgeReceiptLeaves, uint64(len(records)), nonTemporal,
 	)
 	hasGaps := len(binding.Gaps) > 0
 	return OwnerProjectionReplayAuditV1{
@@ -271,7 +272,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 		OwnerSequenceCut: binding.OwnerSequence,
 		TreeSize: binding.TreeSize,
 		ReceiptCount: uint64(len(inventory.Receipts)),
-		NonReceiptLogLeafCount: nonReceiptLeaves,
+		NonKnowledgeReceiptLeafCount: nonKnowledgeReceiptLeaves,
 		IntervalAssertionCount: uint64(len(records)),
 		NonTemporalReceiptCount: nonTemporal,
 		InventoryDigest: inventoryDigest,
