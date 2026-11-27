@@ -1483,11 +1483,7 @@ mod tests {
         excluded.applicability = ElementApplicabilityV1::NotApplicable {
             decision_id: "exception-does-not-apply".to_owned(),
             decision_digest: [19; 32],
-            authority: authority_for(
-                "exception-authority",
-                "exception-does-not-apply",
-                [19; 32],
-            ),
+            authority: authority_for("exception-authority", "exception-does-not-apply", [19; 32]),
         };
         let result = evaluate_decision_closure(
             &packet(vec![mapping(
