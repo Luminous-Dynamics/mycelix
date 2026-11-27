@@ -627,13 +627,13 @@ mod tests {
             decoded["metadata"]["profile_extensions"]["valid_time_vs_recorded_time"],
             true
         );
-        assert_eq!(
-            decoded["events"][0]["attributes"][0]["name"],
-            "source_recorded_at"
-        );
-        assert_eq!(
-            decoded["events"][0]["attributes"].as_array().unwrap().len(),
-            5
-        );
+        let event_attributes = decoded["events"][0]["attributes"].as_array().unwrap();
+        let attribute_names: BTreeSet<_> = event_attributes
+            .iter()
+            .filter_map(|attribute| attribute["name"].as_str())
+            .collect();
+        assert!(attribute_names.contains("source_recorded_at"));
+        assert!(attribute_names.contains("host_sequence"));
+        assert_eq!(event_attributes.len(), 5);
     }
 }
