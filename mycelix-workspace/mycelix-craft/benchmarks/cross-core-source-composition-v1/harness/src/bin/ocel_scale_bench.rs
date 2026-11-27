@@ -22,6 +22,7 @@ use craft_water_cross_core_harness::temporal_replay::{
 
 const FIXTURE: &str = include_str!("../../../ocel/ocel-water-service-v1.json");
 const MAX_EVENTS: usize = 10_000_000;
+const WARMUP_RUNS: usize = 2;
 
 fn set_attribute(event: &mut Value, name: &str, value: Value) -> Result<(), Box<dyn Error>> {
     let attributes = event
@@ -134,14 +135,23 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
     if event_count == 0 || event_count > MAX_EVENTS {
         return Err(format!("events must be between 1 and {MAX_EVENTS}").into());
     }
-    if repeats == 0 || repeats > 100 {
-        return Err("repeats must be between 1 and 100".into());
+    if repeats < 5 || repeats > 100 {
+        return Err("repeats must be between 5 and 100".into());
     }
 
     generate_log(&output, event_count)?;
     let input_bytes = fs::metadata(&output)?.len();
     let input_sha256 = sha256_file(&output)?;
     let input = fs::read_to_string(&output)?;
+    let warmup_cut = TemporalReplayCutV1 {
+        valid_time_as_of: "2026-11-27T23:59:59Z".to_owned(),
+        known_through_sequence: event_count as u64,
+    };
+    for _ in 0..WARMUP_RUNS {
+        let _ = validate_ocel20_water_profile(&input)?;
+        let _ = replay_temporal_frontier(&input, &warmup_cut)
+            .map_err(|error| format!("temporal replay warm-up failed: {error:?}"))?;
+    }
 
     let mut elapsed_ns = Vec::with_capacity(repeats);
     let mut first_receipt = None;
@@ -163,10 +173,7 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         }
     }
 
-    let cut = TemporalReplayCutV1 {
-        valid_time_as_of: "2026-11-27T23:59:59Z".to_owned(),
-        known_through_sequence: event_count as u64,
-    };
+    let cut = warmup_cut;
     let mut replay_elapsed_ns = Vec::with_capacity(repeats);
     let mut first_replay = None;
     for _ in 0..repeats {
@@ -230,7 +237,8 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         "replay_sha256": replay_sha256,
         "replay_visible_event_count": visible_event_count,
         "replay_effective_event_count": effective_event_count,
-        "repeats": repeats,
+        "warmup_runs": WARMUP_RUNS,
+        "measured_repeats": repeats,
         "validation_plus_canonicalization_p50_ns": p50,
         "validation_plus_canonicalization_p95_ns": p95,
         "events_per_second_at_p50": events_per_second,
@@ -260,7 +268,7 @@ fn main() {
     };
     let output = PathBuf::from(&args[1]);
     let repeats = match args.get(2).map(|value| value.parse::<usize>()).transpose() {
-        Ok(value) => value.unwrap_or(5),
+        Ok(value) => value.unwrap_or(20),
         Err(error) => {
             eprintln!("invalid repeat count: {error}");
             std::process::exit(2);
