@@ -1,0 +1,14 @@
+[package]
+name = "maritime-productive-capability"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Synthetic-first exact reference for maritime regional productive capability"
+
+[lib]
+name = "maritime_productive_capability"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mpcb-audit"
+path = "src/main.rs"

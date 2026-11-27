@@ -1,0 +1,15 @@
+# Synthetic exact micro-instance v0.1
+# OPTION <work_package> <option_id> <source_region> <qualified> <cost_units> <lead_days> <embodied_co2_units> <regional_value_added_units> <resource_reservations>
+# RESOURCE <resource_id> <site_id> <period_id> <capacity> <unit>
+# RESOURCE_USE encoding: resource_id:site_id:period_id:quantity:unit
+# All costs, emissions and regional-value units are synthetic benchmark units.
+INSTANCE	MPCB-TINY-001	v0.1
+RESOURCE	REGIONAL-PLATE	YARD-A	P1	3	t
+RESOURCE	REGIONAL-WELD	YARD-A	P1	12	h
+RESOURCE	REGIONAL-NDT	YARD-A	P1	2	job
+WORK_PACKAGE	WP-A	FABRICATED-DECK-PANEL	P1
+WORK_PACKAGE	WP-B	CRANE-SUPPORT-BRACKET	P1
+OPTION	WP-A	A-LOCAL	REGIONAL	true	120	6	8	75	REGIONAL-PLATE:YARD-A:P1:2:t;REGIONAL-WELD:YARD-A:P1:8:h;REGIONAL-NDT:YARD-A:P1:1:job
+OPTION	WP-A	A-IMPORT	IMPORTED	true	95	18	14	10	-
+OPTION	WP-B	B-LOCAL	REGIONAL	true	90	5	6	55	REGIONAL-PLATE:YARD-A:P1:2:t;REGIONAL-WELD:YARD-A:P1:8:h;REGIONAL-NDT:YARD-A:P1:1:job
+OPTION	WP-B	B-IMPORT	IMPORTED	true	70	16	12	8	-
