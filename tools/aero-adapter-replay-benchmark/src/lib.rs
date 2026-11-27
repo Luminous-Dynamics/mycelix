@@ -338,7 +338,7 @@ fn rights_status_key(status: aero_adapter_run_receipt::RightsStatus) -> &'static
         aero_adapter_run_receipt::RightsStatus::ClearedForTesting => "CLEARED_FOR_TESTING",
         aero_adapter_run_receipt::RightsStatus::ClearedForRedistribution => {
             "CLEARED_FOR_REDISTRIBUTION"
-        },
+        }
         aero_adapter_run_receipt::RightsStatus::NotReviewed => "NOT_REVIEWED",
         aero_adapter_run_receipt::RightsStatus::Restricted => "RESTRICTED",
     }
