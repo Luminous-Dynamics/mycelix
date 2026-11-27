@@ -1,0 +1,116 @@
+{
+  "schema": "AeroAdapterRunReceiptV1",
+  "run_id": "synthetic-run-001",
+  "benchmark_id": "AERO-ADAPTER-REPLAY-001",
+  "case_id": "synthetic-ap242-qif-001",
+  "adapter": {
+    "adapter_id": "synthetic-step-to-qif",
+    "version": "0.1.0",
+    "executable": {
+      "reference": {
+        "id": "sha256:2c78684bbce9e4a714c337d848eb938a5ce64fe85d052f53adb7e617eeffa6c0",
+        "kind": "adapter_executable"
+      },
+      "sha256": "2c78684bbce9e4a714c337d848eb938a5ce64fe85d052f53adb7e617eeffa6c0",
+      "byte_length": 44,
+      "media_type": "application/octet-stream",
+      "format_id": "SYNTHETIC_ADAPTER_BINARY_V1"
+    },
+    "build_provenance": null
+  },
+  "inputs": [
+    {
+      "role": "ap242_product_definition",
+      "artifact": {
+        "reference": {
+          "id": "sha256:8362e44d47f7f89da4a972ecd585d851f6ca3abcf5735294bc7737d3554c1d33",
+          "kind": "step_file"
+        },
+        "sha256": "8362e44d47f7f89da4a972ecd585d851f6ca3abcf5735294bc7737d3554c1d33",
+        "byte_length": 43,
+        "media_type": "application/step",
+        "format_id": "ISO_10303_242:2025"
+      },
+      "rights_status": "CLEARED_FOR_TESTING"
+    },
+    {
+      "role": "adapter_configuration",
+      "artifact": {
+        "reference": {
+          "id": "sha256:2118dab37365c4e792db91933d0f12c6f3c0acb1bdb734b5c0fa4a85f95902fd",
+          "kind": "adapter_config"
+        },
+        "sha256": "2118dab37365c4e792db91933d0f12c6f3c0acb1bdb734b5c0fa4a85f95902fd",
+        "byte_length": 48,
+        "media_type": "application/json",
+        "format_id": "AERO_ADAPTER_CONFIG_V1"
+      },
+      "rights_status": "CLEARED_FOR_TESTING"
+    }
+  ],
+  "invocation": {
+    "arguments": {
+      "reference": {
+        "id": "sha256:6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a",
+        "kind": "adapter_arguments"
+      },
+      "sha256": "6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a",
+      "byte_length": 83,
+      "media_type": "application/json",
+      "format_id": "AERO_ARGUMENT_VECTOR_V1"
+    },
+    "environment_profile": {
+      "reference": {
+        "id": "sha256:9839f815354d2ff6f0033e1161d7fce6a74f9d85eccac1ce1bfe0e80bff21c19",
+        "kind": "environment_profile"
+      },
+      "sha256": "9839f815354d2ff6f0033e1161d7fce6a74f9d85eccac1ce1bfe0e80bff21c19",
+      "byte_length": 60,
+      "media_type": "application/json",
+      "format_id": "AERO_ENVIRONMENT_PROFILE_V1"
+    },
+    "configuration_sha256": "2118dab37365c4e792db91933d0f12c6f3c0acb1bdb734b5c0fa4a85f95902fd",
+    "locale": "C",
+    "timezone": "UTC",
+    "network_policy": "disabled",
+    "declared_egress": [],
+    "observed_egress": [],
+    "timeout_ms": 30000
+  },
+  "outputs": [
+    {
+      "role": "raw_artifact",
+      "artifact": {
+        "reference": {
+          "id": "sha256:8c1ed8f48415cb83a5459ed2128ce8543b39ad158f9d71b798447670b73f8029",
+          "kind": "qif_result"
+        },
+        "sha256": "8c1ed8f48415cb83a5459ed2128ce8543b39ad158f9d71b798447670b73f8029",
+        "byte_length": 78,
+        "media_type": "application/xml",
+        "format_id": "ISO_23952:2020"
+      },
+      "rights_status": "CLEARED_FOR_TESTING"
+    },
+    {
+      "role": "normalized_assertions",
+      "artifact": {
+        "reference": {
+          "id": "sha256:7853b080f48dc021262a844a5fcb0b05844202cb0300449aac404e1afd234003",
+          "kind": "semantic_assertions"
+        },
+        "sha256": "7853b080f48dc021262a844a5fcb0b05844202cb0300449aac404e1afd234003",
+        "byte_length": 330,
+        "media_type": "application/json",
+        "format_id": "AeroSemanticAssertionV1"
+      },
+      "rights_status": "CLEARED_FOR_TESTING"
+    }
+  ],
+  "status": "succeeded",
+  "exit_code": 0,
+  "elapsed_ms": 125,
+  "warnings": [],
+  "unsupported_assertions": [],
+  "receipt_sha256": "6d1b14d1aacdaa92fc7c03fdba626191e9c4c7d1132131c88fe106161c273ea1"
+}

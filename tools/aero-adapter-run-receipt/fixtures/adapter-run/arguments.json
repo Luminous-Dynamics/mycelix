@@ -1,0 +1,1 @@
+["--input","source.step","--config","adapter-config.json","--output","output.qif"]
