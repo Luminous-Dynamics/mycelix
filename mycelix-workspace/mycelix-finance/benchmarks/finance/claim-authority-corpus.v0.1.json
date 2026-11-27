@@ -1,0 +1,391 @@
+{
+  "benchmark": "Mycelix claim admission authority, uniqueness and spendability",
+  "schema_version": "0.1",
+  "issue": 6593,
+  "status": "normative_authority_profile_corpus_not_execution_evidence",
+  "profiles": [
+    "SingleWriterOwnerChainV1",
+    "ByzantineWitnessQuorumV1",
+    "PartitionedCapabilityV1"
+  ],
+  "quorum_baseline": {
+    "n": "3f+1",
+    "threshold": "2f+1",
+    "max_byzantine": "f",
+    "claim": "conditional quorum intersection; not implementation evidence"
+  },
+  "invariants": [
+    "stable identity does not itself authorize first admission",
+    "one singleton effect role has at most one certified fingerprint per qualified authority history",
+    "no owner effect commits without valid admission under its declared profile",
+    "no two conflicting claims become spendable under declared fault assumptions",
+    "minority, stale, revoked and wrong-epoch certificates cannot authorize effects",
+    "quorum loss cannot lower the safety threshold",
+    "honest witness refuses conflicting durable certificates for the same singleton claim",
+    "incomplete DHT or history views cannot promote to spendable",
+    "owner forks and unresolved equivocation freeze affected spendability",
+    "authority epoch transitions cannot allow conflicting old and new certificates",
+    "partitioned capability allocations are disjoint and value conserving",
+    "reallocation consumes or revokes the prior capability before new authority becomes spendable"
+  ],
+  "cases": [
+    {
+      "id": "CA-001",
+      "profile": "SingleWriterOwnerChainV1",
+      "setup": "No claim exists; one authenticated owner history is authoritative under the declared runtime profile.",
+      "stimulus": "Two same-owner requests race from the same source-chain predecessor with identical operation ID and fingerprint.",
+      "expected": "AtMostOneLocalCommit",
+      "assertions": [
+        "At most one claim/effect transaction commits.",
+        "Losing request resolves the winner or remains Indeterminate."
+      ]
+    },
+    {
+      "id": "CA-002",
+      "profile": "SingleWriterOwnerChainV1",
+      "setup": "A local singleton claim already binds operation ID to fingerprint A.",
+      "stimulus": "Retry with the same operation ID and fingerprint A.",
+      "expected": "ReplayOriginal",
+      "assertions": [
+        "Return original claim and effect references.",
+        "No additional effect."
+      ]
+    },
+    {
+      "id": "CA-003",
+      "profile": "SingleWriterOwnerChainV1",
+      "setup": "A local singleton claim binds fingerprint A.",
+      "stimulus": "Retry with the same operation ID and fingerprint B.",
+      "expected": "Conflict",
+      "assertions": [
+        "Reject changed intent.",
+        "Preserve original claim/effect."
+      ]
+    },
+    {
+      "id": "CA-004",
+      "profile": "SingleWriterOwnerChainV1",
+      "setup": "Owner source-chain authority view is incomplete or runtime cannot establish a unique active history.",
+      "stimulus": "Attempt first admission.",
+      "expected": "Indeterminate",
+      "assertions": [
+        "NoBindingObserved is not admission authority.",
+        "No effect becomes spendable."
+      ]
+    },
+    {
+      "id": "CA-005",
+      "profile": "SingleWriterOwnerChainV1",
+      "setup": "Two restored/forked histories present conflicting owner successors for the same predecessor.",
+      "stimulus": "Project local claim spendability.",
+      "expected": "ConflictFrozen",
+      "assertions": [
+        "Do not select latest DHT observation.",
+        "Freeze both conflicting outputs."
+      ]
+    },
+    {
+      "id": "CA-006",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "n=3f+1 enrolled witnesses, at most f Byzantine, durable non-equivocating journals; no claim yet.",
+      "stimulus": "Submit a valid claim and collect 2f+1 distinct signatures.",
+      "expected": "Certified",
+      "assertions": [
+        "Certificate binds exact operation ID, fingerprint, role, owner and epoch.",
+        "Signer identities are unique and members of the named set."
+      ]
+    },
+    {
+      "id": "CA-007",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "Only 2f signatures are available for an authority set requiring 2f+1.",
+      "stimulus": "Submit certificate for verification.",
+      "expected": "RejectMinority",
+      "assertions": [
+        "Do not lower threshold to restore liveness.",
+        "No effect admission."
+      ]
+    },
+    {
+      "id": "CA-008",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A certificate has 2f+1 signatures, but one signer identity is duplicated in the envelope.",
+      "stimulus": "Verify the certificate.",
+      "expected": "RejectInvalidCertificate",
+      "assertions": [
+        "Count distinct authenticated signers, not signature records.",
+        "No effect admission."
+      ]
+    },
+    {
+      "id": "CA-009",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "One honest witness durably recorded fingerprint A for a singleton role.",
+      "stimulus": "Ask that witness to sign conflicting fingerprint B in the same epoch.",
+      "expected": "RefuseAndRecordEquivocationAttempt",
+      "assertions": [
+        "Honest witness does not double-sign.",
+        "Attempt is auditable without replacing original vote."
+      ]
+    },
+    {
+      "id": "CA-010",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A witness signs a claim but crashes before its vote is durably flushed.",
+      "stimulus": "Restart witness and request conflicting claim.",
+      "expected": "IndeterminateOrRefuse",
+      "assertions": [
+        "The implementation must define signing/durable-write atomicity.",
+        "No assumption that an acknowledged but volatile vote is safe."
+      ]
+    },
+    {
+      "id": "CA-011",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A stale certificate is validly signed by a prior authority epoch that has been closed.",
+      "stimulus": "Submit it for a new effect.",
+      "expected": "RejectStaleEpoch",
+      "assertions": [
+        "Signature validity alone is insufficient.",
+        "The epoch transition barrier is checked."
+      ]
+    },
+    {
+      "id": "CA-012",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A signer set transition from epoch e to e+1 is proposed, but the old-set closure or new-set activation proof is incomplete.",
+      "stimulus": "Accept certificates from both epochs.",
+      "expected": "Indeterminate",
+      "assertions": [
+        "No overlapping authority histories become spendable.",
+        "Freeze the namespace until transition proof is complete."
+      ]
+    },
+    {
+      "id": "CA-013",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "Two witness subsets are partitioned and each has fewer than 2f+1 signatures.",
+      "stimulus": "Each partition attempts to certify conflicting fingerprints.",
+      "expected": "NoCertificate",
+      "assertions": [
+        "Neither minority partition certifies.",
+        "Safety is preferred over availability."
+      ]
+    },
+    {
+      "id": "CA-014",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A network partition leaves one side with exactly 2f+1 signers, while the other side has fewer than quorum; at most f are Byzantine overall.",
+      "stimulus": "Issue a claim on the quorum side and a conflicting claim on the minority side.",
+      "expected": "OneCertifiedAtMost",
+      "assertions": [
+        "Quorum intersection assumptions are respected.",
+        "Minority side remains Pending/Indeterminate."
+      ]
+    },
+    {
+      "id": "CA-015",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "The fault set grows to f+1 Byzantine witnesses.",
+      "stimulus": "Attempt to rely on the original 2f+1 quorum theorem.",
+      "expected": "GuaranteeOutOfProfile",
+      "assertions": [
+        "Do not claim the f-fault theorem still holds.",
+        "Detect or contain known equivocation and freeze affected claims."
+      ]
+    },
+    {
+      "id": "CA-016",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A valid certificate is observed through a delayed or incomplete DHT view without the current signer-set checkpoint.",
+      "stimulus": "Attempt to promote claim to Spendable.",
+      "expected": "Indeterminate",
+      "assertions": [
+        "Certificate membership and epoch must be independently verified.",
+        "DHT absence/presence alone is insufficient."
+      ]
+    },
+    {
+      "id": "CA-017",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A valid claim certificate exists; beneficiary owner has not committed its own output claim.",
+      "stimulus": "Request cross-owner settlement projection.",
+      "expected": "ClaimPending",
+      "assertions": [
+        "Certificate is not beneficiary credit.",
+        "No beneficiary spendability."
+      ]
+    },
+    {
+      "id": "CA-018",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "A valid quorum certificate exists for role A; an effect owner other than the named owner requests mutation.",
+      "stimulus": "Attempt to apply the effect.",
+      "expected": "RejectUnauthorizedOwner",
+      "assertions": [
+        "Certificate is scoped to exact effect owner and role.",
+        "No remote-account mutation by assertion."
+      ]
+    },
+    {
+      "id": "CA-019",
+      "profile": "ByzantineWitnessQuorumV1",
+      "setup": "An authority epoch transition has been validly finalized and old epoch closed.",
+      "stimulus": "Replay an old certificate with valid old signatures.",
+      "expected": "RejectStaleEpoch",
+      "assertions": [
+        "Old certificate cannot authorize a new effect.",
+        "Historical effect evidence remains retained."
+      ]
+    },
+    {
+      "id": "CA-020",
+      "profile": "PartitionedCapabilityV1",
+      "setup": "Two capabilities are allocated from a fixed value-note pool.",
+      "stimulus": "Verify the allocated note/capability sets.",
+      "expected": "DisjointAllocation",
+      "assertions": [
+        "No note or value unit appears in both partitions.",
+        "Total allocated value does not exceed available value."
+      ]
+    },
+    {
+      "id": "CA-021",
+      "profile": "PartitionedCapabilityV1",
+      "setup": "A capability is allocated to owner A and not yet consumed/revoked.",
+      "stimulus": "Attempt to allocate the same capability to owner B.",
+      "expected": "Conflict",
+      "assertions": [
+        "No overlapping authority.",
+        "No new spendable allocation for B."
+      ]
+    },
+    {
+      "id": "CA-022",
+      "profile": "PartitionedCapabilityV1",
+      "setup": "Owner A capability is being revoked and reallocated to owner B, but the old owner view is incomplete.",
+      "stimulus": "Activate B's allocation.",
+      "expected": "Indeterminate",
+      "assertions": [
+        "Do not activate overlapping authority.",
+        "Preserve the hold until revocation is proven."
+      ]
+    },
+    {
+      "id": "CA-023",
+      "profile": "PartitionedCapabilityV1",
+      "setup": "Owner A has a valid disjoint capability, but its source history is forked.",
+      "stimulus": "Spend from both fork branches.",
+      "expected": "ConflictFrozen",
+      "assertions": [
+        "Capability partitioning does not eliminate fork risk.",
+        "Neither conflicting history becomes spendable."
+      ]
+    },
+    {
+      "id": "CA-024",
+      "profile": "all",
+      "setup": "A valid claim decision is durable but the owner effect commit response is lost.",
+      "stimulus": "Restart and retry the same operation/effect identity.",
+      "expected": "ReconcileOriginal",
+      "assertions": [
+        "The authority decision is not regenerated under a new ID.",
+        "Owner effect is at most one and response is reconstructed."
+      ]
+    },
+    {
+      "id": "CA-025",
+      "profile": "all",
+      "setup": "Authority quorum/writer service is unavailable.",
+      "stimulus": "Submit a new claim.",
+      "expected": "Indeterminate",
+      "assertions": [
+        "Do not issue a weaker claim.",
+        "Liveness loss cannot weaken safety."
+      ]
+    },
+    {
+      "id": "CA-026",
+      "profile": "all",
+      "setup": "A certificate has already been accepted, but a later authenticated contradiction or equivocation proof is observed.",
+      "stimulus": "Recompute downstream spendability.",
+      "expected": "ConflictFrozen",
+      "assertions": [
+        "Do not delete historical evidence.",
+        "Freeze affected descendants pending adjudication."
+      ]
+    },
+    {
+      "id": "CA-027",
+      "profile": "all",
+      "setup": "The same physical certificate/signature bundle is delivered repeatedly.",
+      "stimulus": "Process 100 duplicate deliveries.",
+      "expected": "ReplayOriginal",
+      "assertions": [
+        "Duplicate delivery does not multiply claim weight or effect count.",
+        "Signer identities counted once."
+      ]
+    },
+    {
+      "id": "CA-028",
+      "profile": "all",
+      "setup": "A signer set changes key but the old key has not been revoked in the authoritative epoch.",
+      "stimulus": "Accept signatures from both keys.",
+      "expected": "Indeterminate",
+      "assertions": [
+        "Key rotation follows a verified transition.",
+        "No silent double identity."
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "CA-M01",
+      "name": "conflicting_spendable_claims",
+      "target": "0",
+      "stage": "absolute_safety"
+    },
+    {
+      "id": "CA-M02",
+      "name": "minority_certificate_acceptance",
+      "target": "0",
+      "stage": "absolute_safety"
+    },
+    {
+      "id": "CA-M03",
+      "name": "stale_epoch_effect_acceptance",
+      "target": "0",
+      "stage": "absolute_safety"
+    },
+    {
+      "id": "CA-M04",
+      "name": "incomplete_view_to_spendable_promotions",
+      "target": "0",
+      "stage": "absolute_safety"
+    },
+    {
+      "id": "CA-M05",
+      "name": "quorum_certificate_p95_ms",
+      "target": "measure_under_matched_profiles",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "CA-M06",
+      "name": "indeterminate_hold_rate",
+      "target": "measure_by_fault_schedule",
+      "stage": "availability"
+    },
+    {
+      "id": "CA-M07",
+      "name": "equivocation_detection_seconds",
+      "target": "measure_distribution",
+      "stage": "security_response"
+    },
+    {
+      "id": "CA-M08",
+      "name": "cost_per_qualified_effect",
+      "target": "measure_under_matched_profiles",
+      "stage": "performance_after_safety"
+    }
+  ]
+}

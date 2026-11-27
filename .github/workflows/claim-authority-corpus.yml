@@ -1,0 +1,103 @@
+name: Claim authority corpus structural qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/claim-authority-corpus.yml"
+      - "docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md"
+      - "mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json"
+  push:
+    branches:
+      - "research/fin-effect-002-claim-authority-v0.1-20261124"
+    paths:
+      - ".github/workflows/claim-authority-corpus.yml"
+      - "docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md"
+      - "mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claim-authority-corpus-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  corpus-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Validate exact-head corpus, schema and mirrors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          corpus="mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json"
+          schema="mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json"
+          doc="docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .benchmark == "Mycelix claim admission authority, uniqueness and spendability" and
+            .schema_version == "0.1" and .issue == 6593 and
+            .status == "normative_authority_profile_corpus_not_execution_evidence" and
+            (.profiles | length) == 3 and
+            (.invariants | length) >= 10 and
+            (.cases | length) == 28 and
+            ([.cases[].id] | unique | length) == 28 and
+            all(.cases[];
+              (.id | test("^CA-[0-9]{3}$")) and
+              (.setup | type == "string" and length > 0) and
+              (.stimulus | type == "string" and length > 0) and
+              (.expected | IN(
+                "AtMostOneLocalCommit","ReplayOriginal","Conflict","Indeterminate",
+                "ConflictFrozen","Certified","RejectMinority","RejectInvalidCertificate",
+                "RefuseAndRecordEquivocationAttempt","IndeterminateOrRefuse",
+                "RejectStaleEpoch","NoCertificate","OneCertifiedAtMost",
+                "GuaranteeOutOfProfile","ClaimPending","RejectUnauthorizedOwner",
+                "DisjointAllocation","ReconcileOriginal"
+              )) and
+              (.assertions | type == "array" and length > 0)
+            ) and
+            (.metrics | length) == 8 and
+            ([.metrics[].id] | unique | length) == 8
+          ' "$corpus" >/dev/null
+          cmp docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_002_CLAIM_ADMISSION_AUTHORITY_V0_1.md
+          cmp mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.json
+          cmp mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/claim-authority-corpus.v0.1.schema.json
+          grep -q "not an admission grant" "$doc"
+          grep -q "does not claim" "$doc"
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "corpus_sha256=$(sha256sum "$corpus" | cut -d' ' -f1)"
+            echo "schema_sha256=$(sha256sum "$schema" | cut -d' ' -f1)"
+            echo "case_count=$(jq '.cases | length' "$corpus")"
+            echo "unique_case_ids=$(jq '[.cases[].id] | unique | length' "$corpus")"
+            echo "metric_count=$(jq '.metrics | length' "$corpus")"
+            echo "claim=structural corpus validation only; no BFT, Rust or Holochain runtime proof"
+          } | tee "$RUNNER_TEMP/claim-authority-manifest.txt"
+          cat "$RUNNER_TEMP/claim-authority-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact-head authority corpus manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: claim-authority-corpus-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/claim-authority-manifest.txt
+          if-no-files-found: error
+          retention-days: 30
