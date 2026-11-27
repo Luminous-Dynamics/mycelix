@@ -2,6 +2,7 @@ package progresscapability
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -203,6 +204,57 @@ func TestMissingAuthorityMetadataRejected(t *testing.T){
 	scope:=fixtureScope("owner:A");mint:=fixtureTransition(TransitionMint,"cap:A",1,"",map[string]uint64{"owner:A":1});mint.AuthorityGrantRef=""
 	events:=fixtureAppend(t,scope,nil,"mint",OutcomeCommitted,&mint,"")
 	if got:=fixtureReplay(t,scope,events);got.Disposition!=LedgerIndeterminate{t.Fatal("missing authority grant reference accepted")}
+}
+
+
+func TestEarlyCountAndTailFailuresBindSubmittedEventStream(t *testing.T) {
+	scope := fixtureScope("owner:A")
+	mintA := fixtureTransition(TransitionMint, "cap:A", 1, "", map[string]uint64{"owner:A": 1})
+	mintB := fixtureTransition(TransitionMint, "cap:B", 1, "", map[string]uint64{"owner:A": 1})
+	eventsA := fixtureAppend(t, scope, nil, "event:A", OutcomeCommitted, &mintA, "")
+	eventsB := fixtureAppend(t, scope, nil, "event:B", OutcomeCommitted, &mintB, "")
+	goodTail := eventsA[0].EventDigest
+
+	countA := ReplayCapabilityLedgerV1(scope, eventsA, 2, goodTail)
+	countB := ReplayCapabilityLedgerV1(scope, eventsB, 2, goodTail)
+	if countA.Disposition != LedgerIndeterminate || countB.Disposition != LedgerIndeterminate {
+		t.Fatal("event count mismatch unexpectedly passed")
+	}
+	if countA.SubmittedEventsDigest == countB.SubmittedEventsDigest || countA.CertificateDigest == countB.CertificateDigest {
+		t.Fatal("count-mismatch receipts did not bind their submitted event streams")
+	}
+
+	tailA := ReplayCapabilityLedgerV1(scope, eventsA, 1, fixtureQueryScope)
+	tailB := ReplayCapabilityLedgerV1(scope, eventsB, 1, fixtureQueryScope)
+	if tailA.SubmittedEventsDigest == tailB.SubmittedEventsDigest || tailA.CertificateDigest == tailB.CertificateDigest {
+		t.Fatal("invalid-tail receipts did not bind their submitted event streams")
+	}
+}
+
+func TestInvalidScopeFailureStillBindsSubmittedEvents(t *testing.T) {
+	goodScope := fixtureScope("owner:A")
+	mint := fixtureTransition(TransitionMint, "cap:A", 1, "", map[string]uint64{"owner:A": 1})
+	events := fixtureAppend(t, goodScope, nil, "event:A", OutcomeCommitted, &mint, "")
+	badScope := goodScope
+	badScope.RegistryRef = ""
+	got := ReplayCapabilityLedgerV1(badScope, events, 1, events[0].EventDigest)
+	if got.Disposition != LedgerIndeterminate || got.SubmittedEventsDigest == "" {
+		t.Fatalf("invalid scope did not retain bounded event submission commitment: %+v", got)
+	}
+}
+
+func TestLedgerEncodingBudgetRejectsBeforeRawHashing(t *testing.T) {
+	scope := fixtureScope("owner:A")
+	mint := fixtureTransition(TransitionMint, "cap:A", 1, "", map[string]uint64{"owner:A": 1})
+	events := fixtureAppend(t, scope, nil, "event:A", OutcomeCommitted, &mint, "")
+	events[0].EventID = strings.Repeat("x", MaxIdentifierBytes+1)
+	got := ReplayCapabilityLedgerV1(scope, events, 1, events[0].EventDigest)
+	if got.Disposition != LedgerIndeterminate || got.Reason != "ledger event encoding byte budget exceeded" {
+		t.Fatalf("oversized event did not fail at bounded preflight: %+v", got)
+	}
+	if got.SubmittedEventsDigest != "" {
+		t.Fatal("oversized event should not be fully raw-hashed before preflight rejects it")
+	}
 }
 
 func TestDistinctMalformedSubmissionsHaveDistinctReceipts(t *testing.T){
