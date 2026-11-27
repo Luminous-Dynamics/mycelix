@@ -268,6 +268,31 @@ func TestDistinctMalformedSubmissionsHaveDistinctReceipts(t *testing.T){
 	if first.SubmittedEventsDigest==second.SubmittedEventsDigest||first.CertificateDigest==second.CertificateDigest{t.Fatal("different malformed submissions collapsed to same receipt")}
 }
 
+func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
+	scope := fixtureScope("owner:A")
+	tooMany := ReplayResultV1{
+		Disposition: LedgerValid,
+		ActiveCapabilities: make([]ActiveCapabilityV1, MaxActiveCapabilities+1),
+	}
+	if got := DeriveProgressAntichainV1(scope, tooMany); got.Disposition != ProgressUnavailable {
+		t.Fatalf("excessive active capability count accepted: %+v", got)
+	}
+
+	largeAntichain := ReplayResultV1{
+		Disposition: LedgerValid,
+		ActiveCapabilities: make([]ActiveCapabilityV1, 5000),
+	}
+	for i := range largeAntichain.ActiveCapabilities {
+		largeAntichain.ActiveCapabilities[i].OwnerCut = []OwnerCoordinateV1{
+			{OwnerRef: "owner:A", Sequence: uint64(i)},
+		}
+	}
+	if got := DeriveProgressAntichainV1(scope, largeAntichain); got.Disposition != ProgressUnavailable ||
+		!strings.Contains(got.Reason, "comparison budget") {
+		t.Fatalf("excessive antichain comparisons were not blocked: %+v", got)
+	}
+}
+
 func TestAuthenticationAndCompletenessNeverPromoted(t *testing.T){
 	scope:=fixtureScope("owner:A");mint:=fixtureTransition(TransitionMint,"cap:A",1,"",map[string]uint64{"owner:A":1})
 	events:=fixtureAppend(t,scope,nil,"mint",OutcomeCommitted,&mint,"");replay:=fixtureReplay(t,scope,events)
