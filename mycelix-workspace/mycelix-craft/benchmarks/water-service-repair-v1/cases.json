@@ -478,7 +478,15 @@
             "digest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
             "digest_kind": "synthetic_test_placeholder"
           }
-        ]
+        ],
+        "authorized_work_scope": {
+          "scope_id": "WORK-SCOPE-SYN-010",
+          "revision": 1,
+          "scope_digest": "abababababababababababababababababababababababababababababababab",
+          "scope_digest_kind": "synthetic_test_placeholder",
+          "expected_action_count": 5,
+          "authorization_state": "approved"
+        }
       },
       "expected": {
         "provider_assertion": "reported_complete",
