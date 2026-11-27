@@ -1,0 +1,70 @@
+name: Terra Preta sparse passive ROM reference
+
+on:
+  pull_request:
+    branches: [main, 'research/terra-sparse-passive-rom-v0.1']
+    paths:
+      - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
+      - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
+  push:
+    branches: ['research/terra-sparse-passive-rom-v0.1']
+    paths:
+      - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
+      - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sparse-passive-rom-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Apply pinned rustfmt normalization
+        run: cargo fmt --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml
+      - name: Export normalized Rust source
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-sparse-passive-rom-rustfmt-source
+          path: research/terra-preta/tools/sparse-passive-rom-reference/src/main.rs
+          if-no-files-found: error
+          retention-days: 1
+      - name: Verify normalized formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Execute manufactured sparse ROM fixture
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- \
+            research/terra-preta/tools/sparse-passive-rom-reference/fixtures/two-interior-node-chain.json \
+            "$RUNNER_TEMP/sparse-rom-report.json"
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            (.interior_node_count == 2) and
+            (.basis_dimension == 2) and
+            (.dc_relative_error < 1e-10) and
+            (.feedthrough_limit_relative_error < 1e-9) and
+            (.maximum_sampled_response_error < 1e-9) and
+            (.structural_passivity_certificate_valid == true) and
+            (.lambda_0_passivity_tolerance > 0) and
+            (.maximum_cg_relative_residual < 1e-10) and
+            ([.frequency_samples[] | select(.relative_response_error < 1e-9)] | length == 5)
+          ' "$RUNNER_TEMP/sparse-rom-report.json"
+      - name: Reject output overwrite
+        run: |
+          before=$(sha256sum "$RUNNER_TEMP/sparse-rom-report.json" | cut -d ' ' -f 1)
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- \
+            research/terra-preta/tools/sparse-passive-rom-reference/fixtures/two-interior-node-chain.json \
+            "$RUNNER_TEMP/sparse-rom-report.json"; then
+            echo "unexpected overwrite success" >&2
+            exit 1
+          fi
+          after=$(sha256sum "$RUNNER_TEMP/sparse-rom-report.json" | cut -d ' ' -f 1)
+          test "$before" = "$after"
