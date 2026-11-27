@@ -2,6 +2,7 @@
 
 pub mod ocel_profile;
 pub mod temporal_replay;
+pub mod temporal_relationships;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
