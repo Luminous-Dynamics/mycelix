@@ -271,7 +271,9 @@ pub fn temporal_relation_claim_digest(claim: &TemporalRelationClaimV1) -> [u8; 3
             hasher.update([1]);
             hash_field(&mut hasher, value);
         }
-        None => hasher.update([0]),
+        None => {
+            hasher.update([0]);
+        }
     }
     hash_field(&mut hasher, &claim.source_recorded_at);
     hasher.update(claim.accepted_sequence.to_be_bytes());
@@ -396,7 +398,9 @@ fn snapshot_digest(
                 hasher.update([1]);
                 hash_field(&mut hasher, value);
             }
-            None => hasher.update([0]),
+            None => {
+                hasher.update([0]);
+            }
         }
     }
     hasher.update((superseded.len() as u64).to_be_bytes());
