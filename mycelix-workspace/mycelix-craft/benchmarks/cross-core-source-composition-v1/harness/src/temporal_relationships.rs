@@ -617,8 +617,12 @@ mod tests {
         );
 
         let known_before_correction =
-            project_temporal_relationships(&[original.clone(), replacement.clone()], &[correction.clone()], &cut(T11, 2))
-                .unwrap();
+            project_temporal_relationships(
+                &[original.clone(), replacement.clone()],
+                &[correction.clone()],
+                &cut(T11, 2),
+            )
+            .unwrap();
         assert_eq!(known_before_correction.active_relations.len(), 2);
         assert_eq!(known_before_correction.conflicts.len(), 1);
 
@@ -631,6 +635,120 @@ mod tests {
         assert_eq!(
             known_after_correction.superseded_relation_ids,
             vec!["rel-asset-zone-old"]
+        );
+    }
+
+    #[test]
+    fn supersession_chains_are_sequence_ordered_and_permutation_invariant() {
+        let original = claim(
+            "rel-zone-original",
+            "asset-17",
+            "member_of_zone",
+            "zone-A",
+            T08,
+            1,
+        );
+        let replacement = claim(
+            "rel-zone-replacement",
+            "asset-17",
+            "member_of_zone",
+            "zone-B",
+            T10,
+            2,
+        );
+        let final_relation = claim(
+            "rel-zone-final",
+            "asset-17",
+            "member_of_zone",
+            "zone-C",
+            T12,
+            4,
+        );
+        let first_mutation = mutation(
+            "event-zone-correction-1",
+            &original,
+            TemporalRelationMutationKindV1::Supersede,
+            T10,
+            3,
+            Some("rel-zone-replacement"),
+        );
+        let second_mutation = mutation(
+            "event-zone-correction-2",
+            &replacement,
+            TemporalRelationMutationKindV1::Supersede,
+            T12,
+            5,
+            Some("rel-zone-final"),
+        );
+
+        let ordered_claims = vec![
+            original.clone(),
+            replacement.clone(),
+            final_relation.clone(),
+        ];
+        let ordered_mutations = vec![first_mutation.clone(), second_mutation.clone()];
+        let canonical =
+            project_temporal_relationships(&ordered_claims, &ordered_mutations, &cut(T13, 5))
+                .unwrap();
+
+        let mut reversed_claims = ordered_claims;
+        reversed_claims.reverse();
+        let reversed_mutations = vec![second_mutation, first_mutation];
+        let permuted =
+            project_temporal_relationships(&reversed_claims, &reversed_mutations, &cut(T13, 5))
+                .unwrap();
+
+        assert_eq!(canonical, permuted);
+        assert_eq!(canonical.active_relations.len(), 1);
+        assert_eq!(canonical.active_relations[0].relation_id, "rel-zone-final");
+        assert_eq!(
+            canonical.superseded_relation_ids,
+            vec!["rel-zone-original", "rel-zone-replacement"]
+        );
+    }
+
+    #[test]
+    fn supersession_cannot_reactivate_an_already_retired_relation() {
+        let original = claim(
+            "rel-zone-original",
+            "asset-17",
+            "member_of_zone",
+            "zone-A",
+            T08,
+            1,
+        );
+        let replacement = claim(
+            "rel-zone-replacement",
+            "asset-17",
+            "member_of_zone",
+            "zone-B",
+            T10,
+            2,
+        );
+        let first_mutation = mutation(
+            "event-zone-correction-1",
+            &original,
+            TemporalRelationMutationKindV1::Supersede,
+            T10,
+            3,
+            Some("rel-zone-replacement"),
+        );
+        let attempted_reactivation = mutation(
+            "event-zone-correction-2",
+            &replacement,
+            TemporalRelationMutationKindV1::Supersede,
+            T12,
+            4,
+            Some("rel-zone-original"),
+        );
+
+        assert_eq!(
+            project_temporal_relationships(
+                &[original, replacement],
+                &[attempted_reactivation, first_mutation],
+                &cut(T13, 4),
+            ),
+            Err(TemporalRelationshipErrorV1::InvalidReplacement)
         );
     }
 
@@ -742,7 +860,8 @@ mod tests {
         let mut expiring = claim("rel-1", "asset-1", "in_zone", "zone-1", T08, 1);
         expiring.valid_to = Some(T10.to_owned());
 
-        let before = project_temporal_relationships(&[expiring.clone()], &[], &cut(T08, 1)).unwrap();
+        let before =
+            project_temporal_relationships(&[expiring.clone()], &[], &cut(T08, 1)).unwrap();
         let at_expiry = project_temporal_relationships(&[expiring], &[], &cut(T10, 1)).unwrap();
         assert_eq!(before.active_relations.len(), 1);
         assert!(at_expiry.active_relations.is_empty());
