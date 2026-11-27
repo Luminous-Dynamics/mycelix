@@ -71,7 +71,8 @@ func BenchmarkEnumerationPageChain(b *testing.B) {
 		b.Run(fmt.Sprintf("pages=%d", pageCount), func(b *testing.B) {
 			manifest, pages := benchmarkEnumerationFixture(b, pageCount)
 			b.ReportAllocs()
-			b.SetBytes(int64(pageCount))
+			b.ReportMetric(float64(pageCount), "pages/op")
+			b.ReportMetric(float64(pageCount), "owners/op")
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				result := VerifyEnumerationPageChainV1(manifest, pages)
