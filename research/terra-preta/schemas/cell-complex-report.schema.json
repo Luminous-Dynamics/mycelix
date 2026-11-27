@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cell-complex-report.schema.json",
+  "title": "Mixed-dimensional cell complex linear transport report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "source_artifact_sha256",
+    "cell_counts",
+    "boundary_identity_checks",
+    "process_results",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "cell-complex-reference-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "cell_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "zero_cells",
+        "one_cells",
+        "two_cells",
+        "three_cells"
+      ],
+      "properties": {
+        "zero_cells": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "one_cells": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "two_cells": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "three_cells": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "boundary_identity_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checked_faces",
+        "checked_volumes",
+        "nonzero_boundary_of_boundary_terms"
+      ],
+      "properties": {
+        "checked_faces": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checked_volumes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nonzero_boundary_of_boundary_terms": {
+          "const": 0
+        }
+      }
+    },
+    "process_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "process_id",
+          "process_name",
+          "potential_name",
+          "potential_unit",
+          "flux_name",
+          "flux_unit",
+          "conductance_name",
+          "conductance_unit",
+          "node_potentials",
+          "edge_fluxes",
+          "source_flux",
+          "sink_flux",
+          "relative_boundary_balance_error",
+          "max_interior_divergence_abs",
+          "conductance_quadratic_form",
+          "quadratic_form_unit"
+        ],
+        "properties": {
+          "process_id": {
+            "type": "string"
+          },
+          "process_name": {
+            "type": "string"
+          },
+          "potential_name": {
+            "type": "string"
+          },
+          "potential_unit": {
+            "type": "string"
+          },
+          "flux_name": {
+            "type": "string"
+          },
+          "flux_unit": {
+            "type": "string"
+          },
+          "conductance_name": {
+            "type": "string"
+          },
+          "conductance_unit": {
+            "type": "string"
+          },
+          "node_potentials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node_id",
+                "potential_value",
+                "incidence_balance",
+                "boundary_role"
+              ],
+              "properties": {
+                "node_id": {
+                  "type": "string"
+                },
+                "potential_value": {
+                  "type": "number"
+                },
+                "incidence_balance": {
+                  "type": "number"
+                },
+                "boundary_role": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "edge_fluxes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "edge_id",
+                "tail_node_id",
+                "head_node_id",
+                "conductance_value",
+                "flux_value"
+              ],
+              "properties": {
+                "edge_id": {
+                  "type": "string"
+                },
+                "tail_node_id": {
+                  "type": "string"
+                },
+                "head_node_id": {
+                  "type": "string"
+                },
+                "conductance_value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "flux_value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "source_flux": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sink_flux": {
+            "type": "number",
+            "minimum": 0
+          },
+          "relative_boundary_balance_error": {
+            "type": "number",
+            "minimum": 0
+          },
+          "max_interior_divergence_abs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conductance_quadratic_form": {
+            "type": "number",
+            "minimum": 0
+          },
+          "quadratic_form_unit": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
