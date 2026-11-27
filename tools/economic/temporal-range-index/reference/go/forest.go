@@ -259,8 +259,7 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 		if validateForestStringV1(owner.OwnerRef) != nil ||
 			validateForestStringV1(owner.OwnerHistoryRef) != nil ||
 			validateForestDigestV1(owner.OwnerLogRootDigest) != nil ||
-			(owner.ProjectionAuditDigest != "" && validateForestDigestV1(owner.ProjectionAuditDigest) != nil) ||
-			owner.TreeSize > owner.OwnerSequence {
+			(owner.ProjectionAuditDigest != "" && validateForestDigestV1(owner.ProjectionAuditDigest) != nil) {
 			return ErrForestMalformed
 		}
 		if i > 0 && manifest.Owners[i-1].OwnerRef >= owner.OwnerRef {
