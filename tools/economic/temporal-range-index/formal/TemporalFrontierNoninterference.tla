@@ -27,7 +27,7 @@ CorrectionFor(owner) ==
     IF owner = OwnerA THEN CorrectionA ELSE CorrectionB
 
 (* F0 is a vector of owner-local cuts, not a scalar/global sequence. *)
-HistoricalCut == [OwnerA |-> 1, OwnerB |-> 1]
+HistoricalCut == [owner \in Owners |-> 1]
 
 Prefix(world, cut) ==
     {receipt \in world :
