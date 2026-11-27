@@ -333,3 +333,46 @@ func TestOversizedQueryCoordinateFailsClosed(t *testing.T) {
 		t.Fatalf("oversized query coordinate accepted: %+v", result)
 	}
 }
+
+func TestProgressWorkBudgetMultiplicationIsOverflowSafe(t *testing.T) {
+	if !exceedsProgressWorkBudget(maxProgressCoordinateComparisons, 1000, 1000) {
+		t.Fatal("work above the comparison limit was not rejected")
+	}
+	if exceedsProgressWorkBudget(maxProgressCoordinateComparisons, 100, 1000) {
+		t.Fatal("work below the comparison limit was rejected")
+	}
+	if !exceedsProgressWorkBudget(maxProgressCoordinateComparisons, ^uint64(0), 2) {
+		t.Fatal("overflowing work product was not rejected")
+	}
+	if !exceedsProgressWorkBudget(maxProgressVectorCoordinates, 10000, 600) {
+		t.Fatal("vector materialization above the limit was not rejected")
+	}
+}
+
+func TestPairwiseComparisonBudgetFailsBeforePointMaterialization(t *testing.T) {
+	owners := make([]string, 10000)
+	for i := range owners {
+		owners[i] = fmt.Sprintf("owner:%05d", i)
+	}
+	antichain := ProgressAntichainV1{
+		Scope: testScope(owners...),
+		Points: make([]ProgressCutV1, 128),
+	}
+	if _, err := ValidateProgressAntichainV1(antichain); err == nil || !strings.Contains(err.Error(), "pairwise-comparison budget") {
+		t.Fatalf("pairwise comparison budget did not fail closed: %v", err)
+	}
+}
+
+func TestVectorMaterializationBudgetFailsBeforePointMaterialization(t *testing.T) {
+	owners := make([]string, 10000)
+	for i := range owners {
+		owners[i] = fmt.Sprintf("owner:%05d", i)
+	}
+	antichain := ProgressAntichainV1{
+		Scope: testScope(owners...),
+		Points: make([]ProgressCutV1, 600),
+	}
+	if _, err := ValidateProgressAntichainV1(antichain); err == nil || !strings.Contains(err.Error(), "vector-materialization budget") {
+		t.Fatalf("vector materialization budget did not fail closed: %v", err)
+	}
+}
