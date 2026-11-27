@@ -147,14 +147,24 @@ fn valid_timestamp(value: &str) -> bool {
             .ok()
     };
 
+    let year = number(0, 4).unwrap_or(0);
     let month = number(5, 7).unwrap_or(0);
     let day = number(8, 10).unwrap_or(0);
     let hour = number(11, 13).unwrap_or(u32::MAX);
     let minute = number(14, 16).unwrap_or(u32::MAX);
     let second = number(17, 19).unwrap_or(u32::MAX);
+    let leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap_year => 29,
+        2 => 28,
+        _ => 0,
+    };
 
-    if !(1..=12).contains(&month)
-        || !(1..=31).contains(&day)
+    if year == 0
+        || day == 0
+        || day > days_in_month
         || hour > 23
         || minute > 59
         || second > 60
