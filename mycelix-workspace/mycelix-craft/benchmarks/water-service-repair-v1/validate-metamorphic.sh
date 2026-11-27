@@ -27,7 +27,7 @@ if ! jq -n -e --slurpfile cases "$CASES" --slurpfile mutations "$MUTATIONS" '
     and (.from != .to)
     and (.expected_invariant | type == "string" and length > 0)
     and (.expected_effect | type == "string" and length > 0)
-    and (["weaken","boundary","invalid"] | index(.risk_direction) != null)
+    and (.risk_direction as $risk | ["weaken","boundary","invalid"] | index($risk) != null)
     and (.execution_status == "vector_defined_not_executed")
     and (.requires == "cross-core-adapter-and-independent-oracle")
   )
