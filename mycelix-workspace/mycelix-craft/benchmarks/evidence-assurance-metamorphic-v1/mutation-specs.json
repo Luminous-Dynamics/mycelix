@@ -205,7 +205,10 @@
         "human_review": "none",
         "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
         "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
-      }
+      },
+      "additional_write_paths": [
+        "owner_views.evidence_lineage.events"
+      ]
     },
     {
       "mutation_id": "M-EVIDENCE-WITHDRAW",
@@ -256,7 +259,10 @@
         "human_review": "none",
         "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
         "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
-      }
+      },
+      "additional_write_paths": [
+        "owner_views.evidence_lifecycle.events"
+      ]
     },
     {
       "mutation_id": "M-MERGE-COMMON-CAUSE-GROUPS",
@@ -2043,7 +2049,10 @@
         "human_review": "none",
         "invalid_outcome": "invalid_mutation_excluded_from_detection_denominator",
         "ambiguous_selection_outcome": "invalid_mutation_excluded_from_detection_denominator"
-      }
+      },
+      "additional_write_paths": [
+        "decision_closure.authority_decision"
+      ]
     },
     {
       "mutation_id": "N-ADD-SEPARATE-RESTORATION-TIMESTAMP",
