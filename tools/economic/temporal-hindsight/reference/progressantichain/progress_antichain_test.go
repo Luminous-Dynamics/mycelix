@@ -235,3 +235,44 @@ func TestMalformedFailureCertificateIsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+func TestDistinctMalformedSubmissionsHaveDistinctFailureCertificates(t *testing.T) {
+	scope := testScope("owner:A", "owner:B")
+	first := ProgressAntichainV1{Scope: scope, Points: []ProgressCutV1{testCut(map[string]uint64{"owner:A": 1})}}
+	second := ProgressAntichainV1{Scope: scope, Points: []ProgressCutV1{testCut(map[string]uint64{"owner:A": 2})}}
+	a := EvaluateProgressAtV1(first, testCut(map[string]uint64{"owner:A": 3, "owner:B": 3}))
+	b := EvaluateProgressAtV1(second, testCut(map[string]uint64{"owner:A": 3, "owner:B": 3}))
+	if a.Disposition != ProgressIndeterminate || b.Disposition != ProgressIndeterminate {
+		t.Fatalf("malformed antichain unexpectedly evaluated: a=%+v b=%+v", a, b)
+	}
+	if a.CertificateDigest == b.CertificateDigest || a.ProgressAntichainDigest == b.ProgressAntichainDigest {
+		t.Fatal("distinct malformed antichain submissions collapsed to one receipt")
+	}
+}
+
+func TestMalformedQueryCutIsBoundIntoFailureCertificate(t *testing.T) {
+	antichain := testAntichain(testScope("owner:A", "owner:B"), map[string]uint64{"owner:A": 1, "owner:B": 1})
+	first := EvaluateProgressAtV1(antichain, testCut(map[string]uint64{"owner:A": 2}))
+	second := EvaluateProgressAtV1(antichain, testCut(map[string]uint64{"owner:A": 3}))
+	if first.Disposition != ProgressIndeterminate || second.Disposition != ProgressIndeterminate {
+		t.Fatalf("malformed query cut unexpectedly evaluated: first=%+v second=%+v", first, second)
+	}
+	if first.CertificateDigest == second.CertificateDigest || first.QueryCutDigest == second.QueryCutDigest {
+		t.Fatal("distinct malformed query cuts collapsed to one receipt")
+	}
+}
+
+func TestMalformedAdvanceSubmissionsAreBoundIntoCertificate(t *testing.T) {
+	scope := testScope("owner:A", "owner:B")
+	oldA := ProgressAntichainV1{Scope: scope, Points: []ProgressCutV1{testCut(map[string]uint64{"owner:A": 1})}}
+	oldB := ProgressAntichainV1{Scope: scope, Points: []ProgressCutV1{testCut(map[string]uint64{"owner:A": 2})}}
+	next := testAntichain(scope, map[string]uint64{"owner:A": 3, "owner:B": 3})
+	a := AdvanceProgressAntichainV1(oldA, next)
+	b := AdvanceProgressAntichainV1(oldB, next)
+	if a.Disposition != AdvanceIndeterminate || b.Disposition != AdvanceIndeterminate {
+		t.Fatalf("malformed previous antichain unexpectedly advanced: a=%+v b=%+v", a, b)
+	}
+	if a.CertificateDigest == b.CertificateDigest || a.PreviousAntichainDigest == b.PreviousAntichainDigest {
+		t.Fatal("distinct malformed previous antichains collapsed to one receipt")
+	}
+}
