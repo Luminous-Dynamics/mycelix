@@ -111,6 +111,8 @@ The replay disposition is `ProjectionMatchesSuppliedAcceptedInventory`. The resu
 
 This establishes that the supplied ordered bytes reconstruct the claimed owner-log root. It does **not** authenticate the signed checkpoint/tree head or prove that the expected root is accepted by the verifier. That remains the responsibility of the existing signed-checkpoint/key/witness/frontier owners.
 
+The full owner-log replay now also carries the exact assertion payload bytes identified by each receipt's `assertion_digest`. It recomputes SHA-256 over each payload, compares it to the receipt commitment, enforces 1 MiB per-payload and 64 MiB total bounds, and includes the bytes in the deterministic inventory digest. This proves payload-byte commitment consistency, not temporal interpretation: the parser still does not derive `valid_from`, `valid_to` or the temporal/non-temporal class from payload semantics.
+
 The result also reports:
 
 `ProjectionMappingAuthentication = NotEvaluated`
@@ -167,3 +169,13 @@ No result establishes global absence, event truth, trusted time, legal effect, p
 - [COSE Receipts for MMRs, draft-ietf-scitt-receipts-mmr-profile-00 (21 November 2026)](https://datatracker.ietf.org/doc/draft-ietf-scitt-receipts-mmr-profile/)
 
 The MMR profile is an Internet-Draft, not an RFC. It concerns append-only log receipts, not temporal-index completeness or causal frontier composition.
+
+
+## 10. Additional benchmark dimensions
+
+Two new benchmark families separate costs previously hidden by interval-query timings:
+
+- `BenchmarkFrontierForestV1`: 1, 10, 100 and 1,000 owners; forest construction and declared-forest verification; total per-owner interval proof bytes.
+- `BenchmarkOwnerProjectionReplayV1`: 100, 1k, 10k and 100k owner-log leaves; full RFC 9162 tree-hash reconstruction, assertion payload byte-digest validation, and deterministic interval-index rebuild.
+
+The hosted workflow invokes these with one iteration solely as a smoke check. They are not latency distributions or performance qualification. The production benchmark programme still requires controlled repeated samples, owner-size skew, non-receipt event ratios, proof transport costs, and independently verified frontier/checkpoint costs.
