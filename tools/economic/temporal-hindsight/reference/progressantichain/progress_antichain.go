@@ -95,6 +95,55 @@ func validDigestV1(value string) bool {
 	return err == nil
 }
 
+func rawProgressScopeDigestV1(scope ProgressScopeV1) string {
+	var b bytes.Buffer
+	writeStringV1(&b, "MYCELIX-PROGRESS-SCOPE-SUBMISSION-V1")
+	for _, value := range []string{
+		scope.SourceRef, scope.RegistryRef, scope.RegistryEpoch,
+		scope.ProfileRef, scope.QueryScopeDigest,
+	} {
+		writeStringV1(&b, value)
+	}
+	_ = binary.Write(&b, binary.BigEndian, uint32(len(scope.OwnerRefs)))
+	for _, owner := range scope.OwnerRefs {
+		writeStringV1(&b, owner)
+	}
+	d := sha256.Sum256(b.Bytes())
+	return hex.EncodeToString(d[:])
+}
+
+// rawProgressAntichainDigestV1 commits the exact submitted shape and ordering.
+// It is used only when canonical validation fails, so distinct malformed
+// submissions cannot collapse to the same failure certificate.
+func rawProgressAntichainDigestV1(antichain ProgressAntichainV1) string {
+	var b bytes.Buffer
+	writeStringV1(&b, "MYCELIX-PROGRESS-ANTICHAIN-SUBMISSION-V1")
+	writeStringV1(&b, rawProgressScopeDigestV1(antichain.Scope))
+	_ = binary.Write(&b, binary.BigEndian, uint32(len(antichain.Points)))
+	for _, point := range antichain.Points {
+		_ = binary.Write(&b, binary.BigEndian, uint32(len(point.Owners)))
+		for _, coordinate := range point.Owners {
+			writeStringV1(&b, coordinate.OwnerRef)
+			_ = binary.Write(&b, binary.BigEndian, coordinate.Sequence)
+		}
+	}
+	d := sha256.Sum256(b.Bytes())
+	return hex.EncodeToString(d[:])
+}
+
+func rawProgressCutDigestV1(scopeDigest string, cut ProgressCutV1) string {
+	var b bytes.Buffer
+	writeStringV1(&b, "MYCELIX-PROGRESS-CUT-SUBMISSION-V1")
+	writeStringV1(&b, scopeDigest)
+	_ = binary.Write(&b, binary.BigEndian, uint32(len(cut.Owners)))
+	for _, coordinate := range cut.Owners {
+		writeStringV1(&b, coordinate.OwnerRef)
+		_ = binary.Write(&b, binary.BigEndian, coordinate.Sequence)
+	}
+	d := sha256.Sum256(b.Bytes())
+	return hex.EncodeToString(d[:])
+}
+
 func canonicalOwnersV1(scope ProgressScopeV1) ([]string, error) {
 	if strings.TrimSpace(scope.SourceRef) == "" ||
 		strings.TrimSpace(scope.RegistryRef) == "" ||
@@ -273,7 +322,14 @@ func EvaluateProgressAtV1(antichain ProgressAntichainV1, queryCut ProgressCutV1)
 	}
 	scopeDigest, antichainDigest, points, err := validateProgressAntichainV1(antichain)
 	result.ScopeDigest = scopeDigest
+	if result.ScopeDigest == "" {
+		result.ScopeDigest = rawProgressScopeDigestV1(antichain.Scope)
+	}
 	result.ProgressAntichainDigest = antichainDigest
+	if result.ProgressAntichainDigest == "" {
+		result.ProgressAntichainDigest = rawProgressAntichainDigestV1(antichain)
+	}
+	result.QueryCutDigest = rawProgressCutDigestV1(result.ScopeDigest, queryCut)
 	if err != nil {
 		result.Reason = err.Error()
 		return finalizeProgressResultV1(result)
@@ -329,6 +385,18 @@ func AdvanceProgressAntichainV1(previous, next ProgressAntichainV1) ProgressAdva
 	}
 	oldScope, oldDigest, oldPoints, oldErr := validateProgressAntichainV1(previous)
 	newScope, newDigest, newPoints, newErr := validateProgressAntichainV1(next)
+	if oldScope == "" {
+		oldScope = rawProgressScopeDigestV1(previous.Scope)
+	}
+	if newScope == "" {
+		newScope = rawProgressScopeDigestV1(next.Scope)
+	}
+	if oldDigest == "" {
+		oldDigest = rawProgressAntichainDigestV1(previous)
+	}
+	if newDigest == "" {
+		newDigest = rawProgressAntichainDigestV1(next)
+	}
 	result.ScopeDigest = oldScope
 	result.PreviousAntichainDigest = oldDigest
 	result.NextAntichainDigest = newDigest
