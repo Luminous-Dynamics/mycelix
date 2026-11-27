@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
+use craft_action_denominator_v1 as action_denominator;
 use craft_claim_support_v1 as claim_support;
 use craft_decision_closure_v1 as decision_closure;
 use craft_evidence_lineage_v1 as evidence_lineage;
@@ -58,138 +58,6 @@ pub fn independent_oracle(episode: WaterEpisode) -> ExpectedDisposition {
         ExpectedDisposition::NotEligible
     }
 }
-/// Exact, authority-referenced set of actions for one service episode.
-///
-/// The digest and revision are supplied by the owner that approved the
-/// denominator. This adapter checks that every observation is bound to that
-/// exact authorization; it does not authenticate the authority or mint it.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AuthorizedActionSetV1 {
-    pub episode_id: String,
-    pub scope_id: String,
-    pub authorization_id: String,
-    pub authorization_revision: u64,
-    pub authorization_digest: [u8; 32],
-    pub action_ids: Vec<String>,
-}
-
-/// A recorded action observation bound to the authorization under which it was
-/// permitted. Duplicate observations are retained as input but count only once.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ObservedAuthorizedActionV1 {
-    pub episode_id: String,
-    pub scope_id: String,
-    pub authorization_id: String,
-    pub authorization_revision: u64,
-    pub authorization_digest: [u8; 32],
-    pub action_id: String,
-}
-
-/// Deterministic, unit-preserving action coverage receipt.
-///
-/// The denominator comes only from the authorized action set. Extra observed
-/// actions cannot expand the denominator or inflate the covered numerator.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActionCoverageReceiptV1 {
-    pub episode_id: String,
-    pub scope_id: String,
-    pub authorization_id: String,
-    pub authorization_revision: u64,
-    pub authorization_digest: [u8; 32],
-    pub numerator: usize,
-    pub denominator: usize,
-    pub missing_authorized_action_ids: Vec<String>,
-    pub unmatched_observed_action_ids: Vec<String>,
-    pub duplicate_observation_count: usize,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ActionCoverageErrorV1 {
-    EmptyAuthorizationIdentity,
-    EmptyActionSet,
-    DuplicateAuthorizedAction,
-    EmptyActionIdentifier,
-    WrongEpisodeScopeOrAuthorization,
-    ZeroAuthorizationDigest,
-}
-
-/// Evaluate observed action coverage against the immutable, authority-provided
-/// denominator. It never infers the denominator from observed or completed work.
-pub fn evaluate_action_coverage(
-    authorized: &AuthorizedActionSetV1,
-    observations: &[ObservedAuthorizedActionV1],
-) -> Result<ActionCoverageReceiptV1, ActionCoverageErrorV1> {
-    if authorized.episode_id.trim().is_empty()
-        || authorized.scope_id.trim().is_empty()
-        || authorized.authorization_id.trim().is_empty()
-        || authorized.authorization_revision == 0
-    {
-        return Err(ActionCoverageErrorV1::EmptyAuthorizationIdentity);
-    }
-    if authorized.authorization_digest == [0; 32] {
-        return Err(ActionCoverageErrorV1::ZeroAuthorizationDigest);
-    }
-    if authorized.action_ids.is_empty() {
-        return Err(ActionCoverageErrorV1::EmptyActionSet);
-    }
-
-    let mut denominator = BTreeSet::new();
-    for action_id in &authorized.action_ids {
-        if action_id.trim().is_empty() {
-            return Err(ActionCoverageErrorV1::EmptyActionIdentifier);
-        }
-        if !denominator.insert(action_id.as_str()) {
-            return Err(ActionCoverageErrorV1::DuplicateAuthorizedAction);
-        }
-    }
-
-    let mut covered = BTreeSet::new();
-    let mut unmatched = BTreeSet::new();
-    let mut seen_observations = BTreeSet::new();
-    let mut duplicate_observation_count = 0usize;
-
-    for observation in observations {
-        if observation.episode_id != authorized.episode_id
-            || observation.scope_id != authorized.scope_id
-            || observation.authorization_id != authorized.authorization_id
-            || observation.authorization_revision != authorized.authorization_revision
-            || observation.authorization_digest != authorized.authorization_digest
-        {
-            return Err(ActionCoverageErrorV1::WrongEpisodeScopeOrAuthorization);
-        }
-        if observation.action_id.trim().is_empty() {
-            return Err(ActionCoverageErrorV1::EmptyActionIdentifier);
-        }
-        if !seen_observations.insert(observation.action_id.as_str()) {
-            duplicate_observation_count += 1;
-            continue;
-        }
-        if denominator.contains(observation.action_id.as_str()) {
-            covered.insert(observation.action_id.as_str());
-        } else {
-            unmatched.insert(observation.action_id.clone());
-        }
-    }
-
-    let missing_authorized_action_ids = denominator
-        .difference(&covered)
-        .map(|action_id| (*action_id).to_owned())
-        .collect();
-
-    Ok(ActionCoverageReceiptV1 {
-        episode_id: authorized.episode_id.clone(),
-        scope_id: authorized.scope_id.clone(),
-        authorization_id: authorized.authorization_id.clone(),
-        authorization_revision: authorized.authorization_revision,
-        authorization_digest: authorized.authorization_digest,
-        numerator: covered.len(),
-        denominator: denominator.len(),
-        missing_authorized_action_ids,
-        unmatched_observed_action_ids: unmatched.into_iter().collect(),
-        duplicate_observation_count,
-    })
-}
-
 pub fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
     let mut packet = claim_support_helpers::packet();
     packet.claim.claim_id = claim_id.to_owned();
@@ -1182,6 +1050,89 @@ pub mod impact_helpers {
 mod tests {
     use super::*;
 
+    fn wsr_action_denominator_action(
+        action_id: &str,
+        prerequisites: &[&str],
+    ) -> action_denominator::AuthorizedActionV1 {
+        action_denominator::AuthorizedActionV1 {
+            action_id: action_id.to_owned(),
+            action_type: format!("water-service:{action_id}"),
+            risk: action_denominator::ActionRiskV1::Consequential,
+            responsible_role: "municipal-water-maintainer".to_owned(),
+            required_qualification_refs: vec!["qualification:current".to_owned()],
+            required_permit_refs: vec!["permit:current".to_owned()],
+            prerequisite_action_ids: prerequisites.iter().map(|value| (*value).to_owned()).collect(),
+            evidence_profile_ref: "water-service-action-evidence-v1".to_owned(),
+            evidence_profile_digest: [0xa1; 32],
+            minimum_independent_groups: 1,
+        }
+    }
+
+    fn wsr_action_denominator_draft(
+        revision: u64,
+        supersedes: Option<action_denominator::DigestV1>,
+        authority_decision_ref: &str,
+        authority_decision_digest: [u8; 32],
+        action_ids: &[&str],
+    ) -> action_denominator::ActionPlanDraftV1 {
+        action_denominator::ActionPlanDraftV1 {
+            plan_ref: "wsr-plan:episode-010".to_owned(),
+            episode_ref: "wsr-010-episode".to_owned(),
+            plan_revision: revision,
+            supersedes_plan_digest: supersedes,
+            authority: action_denominator::AuthorityRefV1 {
+                authority_ref: "authority:synthetic-local-water-office".to_owned(),
+                decision_ref: authority_decision_ref.to_owned(),
+                decision_digest: authority_decision_digest,
+            },
+            scope: action_denominator::ServiceScopeV1 {
+                episode_ref: "wsr-010-episode".to_owned(),
+                zone_ref: "zone-synthetic-a".to_owned(),
+                jurisdiction_ref: "jurisdiction:synthetic".to_owned(),
+                context_digest: [0xa2; 32],
+            },
+            policy_profile_ref: "water-service-action-policy-v1".to_owned(),
+            policy_profile_digest: [0xa3; 32],
+            issued_at: 10,
+            valid_until: 1_000,
+            actions: action_ids
+                .iter()
+                .map(|action_id| wsr_action_denominator_action(action_id, &[]))
+                .collect(),
+        }
+    }
+
+    fn wsr_action_denominator_observation(
+        plan: &action_denominator::AuthorizedActionPlanV1,
+        observation_id: &str,
+        action_id: &str,
+        independence_group: &str,
+    ) -> action_denominator::ActionObservationV1 {
+        let action = plan
+            .actions()
+            .iter()
+            .find(|action| action.action_id == action_id)
+            .expect("test observation references an action in the sealed plan");
+        action_denominator::ActionObservationV1 {
+            observation_id: observation_id.to_owned(),
+            plan_digest: plan.digest(),
+            episode_ref: plan.episode_ref().to_owned(),
+            action_id: action_id.to_owned(),
+            zone_ref: plan.scope().zone_ref.clone(),
+            jurisdiction_ref: plan.scope().jurisdiction_ref.clone(),
+            context_digest: plan.scope().context_digest,
+            source_ref: format!("source:{independence_group}"),
+            source_revision: 1,
+            evidence_digest: [0xb1; 32],
+            evidence_profile_digest: action.evidence_profile_digest,
+            independence_group: independence_group.to_owned(),
+            verifier_ref: "verifier:synthetic-water-review".to_owned(),
+            observed_at: 100,
+            valid_until: 900,
+            status: action_denominator::ObservationStatusV1::VerifiedComplete,
+        }
+    }
+
     #[test]
     fn wsr001_provider_completion_alone_never_establishes_restoration_or_quality() {
         let receipt = evaluate_episode(
@@ -1389,113 +1340,199 @@ mod tests {
         assert_eq!(result, SupportSufficiencyV1::InsufficientEvidence);
     }
 
-    fn authorized_action_set(
-        revision: u64,
-        digest: [u8; 32],
-        action_ids: Vec<&str>,
-    ) -> AuthorizedActionSetV1 {
-        AuthorizedActionSetV1 {
-            episode_id: "wsr-010-episode".to_owned(),
-            scope_id: "zone-synthetic-a".to_owned(),
-            authorization_id: "authorization-wsr-010".to_owned(),
-            authorization_revision: revision,
-            authorization_digest: digest,
-            action_ids: action_ids.into_iter().map(str::to_owned).collect(),
-        }
-    }
-
-    fn observed_action(
-        action_id: &str,
-        revision: u64,
-        digest: [u8; 32],
-    ) -> ObservedAuthorizedActionV1 {
-        ObservedAuthorizedActionV1 {
-            episode_id: "wsr-010-episode".to_owned(),
-            scope_id: "zone-synthetic-a".to_owned(),
-            authorization_id: "authorization-wsr-010".to_owned(),
-            authorization_revision: revision,
-            authorization_digest: digest,
-            action_id: action_id.to_owned(),
-        }
-    }
-
     #[test]
-    fn wsr010_action_coverage_uses_the_immutable_authorized_denominator() {
-        let authorized = authorized_action_set(
-            1,
-            [80; 32],
-            vec!["isolate", "repair", "pressure-check", "quality-sample"],
-        );
-        let observations = vec![
-            observed_action("isolate", 1, [80; 32]),
-            observed_action("repair", 1, [80; 32]),
-            observed_action("repair", 1, [80; 32]),
-            observed_action("unapproved-extra-work", 1, [80; 32]),
-        ];
+    fn wsr010_action_coverage_uses_the_canonical_immutable_denominator_owner() {
+        let plan = action_denominator::AuthorizedActionPlanV1::seal(
+            wsr_action_denominator_draft(
+                1,
+                None,
+                "authority-decision:wsr010:p1",
+                [0x81; 32],
+                &["isolate", "repair", "pressure-check", "quality-sample"],
+            ),
+        )
+        .expect("the initial four-action denominator is canonical and valid");
 
-        let receipt = evaluate_action_coverage(&authorized, &observations)
-            .expect("observations reference the exact approved episode, scope and denominator");
-        assert_eq!(receipt.numerator, 2);
-        assert_eq!(receipt.denominator, 4);
+        let isolate = wsr_action_denominator_observation(
+            &plan,
+            "obs:isolate",
+            "isolate",
+            "independent:field-crew",
+        );
+        let repair = wsr_action_denominator_observation(
+            &plan,
+            "obs:repair",
+            "repair",
+            "independent:field-crew",
+        );
+        let extra = wsr_action_denominator_observation(
+            &plan,
+            "obs:extra",
+            "unapproved-extra-work",
+            "independent:field-crew",
+        );
+        let observations = vec![isolate, repair.clone(), repair, extra];
+        let receipt =
+            action_denominator::evaluate_action_coverage_v1(&plan, &observations, 200)
+                .expect("owner evaluates a plan-bound observation set");
+        assert_eq!(receipt.denominator_count, 4);
+        assert_eq!(receipt.covered_count, 2);
+        assert_eq!(receipt.coverage_basis_points, 5_000);
         assert_eq!(
-            receipt.missing_authorized_action_ids,
+            receipt.uncovered_action_ids,
             vec!["pressure-check", "quality-sample"]
         );
-        assert_eq!(
-            receipt.unmatched_observed_action_ids,
-            vec!["unapproved-extra-work"]
-        );
-        assert_eq!(receipt.duplicate_observation_count, 1);
+        assert_eq!(receipt.identical_duplicate_observations_ignored, 1);
+        assert!(receipt.rejected_observations.iter().any(|rejected| {
+            rejected.action_id == "unapproved-extra-work"
+                && rejected.reason == action_denominator::RejectionReasonV1::UnknownAction
+        }));
 
-        let mut with_more_unapproved_work = observations.clone();
-        with_more_unapproved_work.push(observed_action("another-unapproved-action", 1, [80; 32]));
-        let expanded = evaluate_action_coverage(&authorized, &with_more_unapproved_work)
-            .expect("extra observations remain outside the authorized denominator");
-        assert_eq!(expanded.numerator, receipt.numerator);
-        assert_eq!(expanded.denominator, receipt.denominator);
+        let mut expanded_observations = observations;
+        expanded_observations.push(wsr_action_denominator_observation(
+            &plan,
+            "obs:another-extra",
+            "another-unapproved-action",
+            "independent:field-crew",
+        ));
+        let expanded =
+            action_denominator::evaluate_action_coverage_v1(&plan, &expanded_observations, 200)
+                .unwrap();
+        assert_eq!(expanded.covered_count, receipt.covered_count);
+        assert_eq!(expanded.denominator_count, receipt.denominator_count);
     }
 
     #[test]
     fn wsr010_denominator_revision_cannot_reuse_observations_from_prior_authority() {
-        let original = authorized_action_set(
-            1,
-            [81; 32],
-            vec!["isolate", "repair", "pressure-check", "quality-sample"],
-        );
+        let original = action_denominator::AuthorizedActionPlanV1::seal(
+            wsr_action_denominator_draft(
+                1,
+                None,
+                "authority-decision:wsr010:p1",
+                [0x82; 32],
+                &["isolate", "repair", "pressure-check", "quality-sample"],
+            ),
+        )
+        .unwrap();
         let original_observations = vec![
-            observed_action("isolate", 1, [81; 32]),
-            observed_action("repair", 1, [81; 32]),
-        ];
-        let original_receipt = evaluate_action_coverage(&original, &original_observations).unwrap();
-
-        let revised = authorized_action_set(
-            2,
-            [82; 32],
-            vec![
+            wsr_action_denominator_observation(
+                &original,
+                "p1:obs:isolate",
                 "isolate",
+                "independent:field-crew",
+            ),
+            wsr_action_denominator_observation(
+                &original,
+                "p1:obs:repair",
                 "repair",
-                "pressure-check",
-                "quality-sample",
-                "monitoring-handover",
-            ],
-        );
-        assert_eq!(
-            evaluate_action_coverage(&revised, &original_observations),
-            Err(ActionCoverageErrorV1::WrongEpisodeScopeOrAuthorization),
-            "prior observations must not be silently rebound to a revised authorization"
-        );
+                "independent:field-crew",
+            ),
+        ];
+        let original_receipt =
+            action_denominator::evaluate_action_coverage_v1(&original, &original_observations, 200)
+                .unwrap();
+
+        let amended = action_denominator::AuthorizedActionPlanV1::seal_amendment(
+            &original,
+            wsr_action_denominator_draft(
+                2,
+                Some(original.digest()),
+                "authority-decision:wsr010:p2",
+                [0x83; 32],
+                &[
+                    "isolate",
+                    "repair",
+                    "pressure-check",
+                    "quality-sample",
+                    "monitoring-handover",
+                ],
+            ),
+        )
+        .expect("the amended plan is a new authority-bound denominator revision");
+
+        let historical_replay =
+            action_denominator::evaluate_action_coverage_v1(&original, &original_observations, 200)
+                .unwrap();
+        assert_eq!(historical_replay, original_receipt);
+
+        let prior_on_amended =
+            action_denominator::evaluate_action_coverage_v1(&amended, &original_observations, 200)
+                .unwrap();
+        assert_eq!(prior_on_amended.covered_count, 0);
+        assert_eq!(prior_on_amended.denominator_count, 5);
+        assert!(prior_on_amended.rejected_observations.iter().all(|rejected| {
+            rejected.reason == action_denominator::RejectionReasonV1::WrongPlan
+        }));
 
         let revised_observations = vec![
-            observed_action("isolate", 2, [82; 32]),
-            observed_action("repair", 2, [82; 32]),
+            wsr_action_denominator_observation(
+                &amended,
+                "p2:obs:isolate",
+                "isolate",
+                "independent:field-crew",
+            ),
+            wsr_action_denominator_observation(
+                &amended,
+                "p2:obs:repair",
+                "repair",
+                "independent:field-crew",
+            ),
         ];
-        let revised_receipt = evaluate_action_coverage(&revised, &revised_observations).unwrap();
-        assert_eq!(original_receipt.numerator, revised_receipt.numerator);
-        assert_eq!(original_receipt.denominator, 4);
-        assert_eq!(revised_receipt.denominator, 5);
-        assert!(
-            revised_receipt.numerator * original_receipt.denominator
-                <= original_receipt.numerator * revised_receipt.denominator
+        let revised_receipt =
+            action_denominator::evaluate_action_coverage_v1(&amended, &revised_observations, 200)
+                .unwrap();
+        assert_eq!(revised_receipt.covered_count, 2);
+        assert_eq!(revised_receipt.denominator_count, 5);
+        assert_eq!(original_receipt.denominator_count, 4);
+    }
+
+    #[test]
+    fn wsr010_complete_action_coverage_does_not_auto_close_the_service_episode() {
+        let plan = action_denominator::AuthorizedActionPlanV1::seal(
+            wsr_action_denominator_draft(
+                1,
+                None,
+                "authority-decision:wsr010:complete",
+                [0x84; 32],
+                &["isolate", "repair", "pressure-check", "quality-sample"],
+            ),
+        )
+        .unwrap();
+        let observations: Vec<_> = plan
+            .actions()
+            .iter()
+            .map(|action| {
+                wsr_action_denominator_observation(
+                    &plan,
+                    &format!("obs:{}", action.action_id),
+                    &action.action_id,
+                    &format!("independent:{}", action.action_id),
+                )
+            })
+            .collect();
+        let coverage =
+            action_denominator::evaluate_action_coverage_v1(&plan, &observations, 200).unwrap();
+        assert_eq!(
+            coverage.disposition,
+            action_denominator::CoverageDispositionV1::CompleteForAuthorizedPlan
+        );
+
+        let service = evaluate_episode(
+            "WSR-010",
+            WaterEpisode {
+                provider_reported_complete: true,
+                current_pressure_restoration: true,
+                current_water_quality: true,
+            },
+            1,
+        );
+        assert_eq!(
+            service.owner_dispositions.decision_closure,
+            decision_closure::DecisionClosureDispositionV1::MappingReviewRequired
+        );
+        assert_ne!(
+            service.owner_dispositions.decision_closure,
+            decision_closure::DecisionClosureDispositionV1::Closed
         );
     }
 
