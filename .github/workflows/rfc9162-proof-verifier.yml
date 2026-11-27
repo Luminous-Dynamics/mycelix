@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - "mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/**"
+      - "tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+      - "tools/economic/temporal-hindsight/reference/rfc9162vectors/**"
       - ".github/workflows/rfc9162-proof-verifier.yml"
   push:
     branches: [main]
     paths:
       - "mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/**"
+      - "tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+      - "tools/economic/temporal-hindsight/reference/rfc9162vectors/**"
       - ".github/workflows/rfc9162-proof-verifier.yml"
 
 permissions:
