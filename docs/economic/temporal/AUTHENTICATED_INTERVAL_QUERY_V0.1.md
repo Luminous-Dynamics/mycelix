@@ -260,6 +260,24 @@ RFC 9162 remains the append-only log proof layer: it supplies inclusion and cons
 
 The proposed interval profile must remain explicitly experimental. If it matures, specify exact proof encodings and register/standardize a VDS/VDP profile through the appropriate standards process. Do not label it RFC 9162 or claim RFC 9942 conformance prematurely.
 
-## 11. Nonclaims
+## 11. Canonical wire encoding
+
+The Go reference now provides a bounded V1 encoder/decoder in `tools/economic/temporal-range-index/reference/go/wire.go`.
+
+- Frame magic: `MYCITPQ1`.
+- Six exact query-scope strings, each UTF-8 with u32be length prefix.
+- Query instant: i64be seconds, u32be nanoseconds.
+- Proof record count: u64be.
+- Node tags: `0x01` pruned subtree, `0x02` expanded branch, `0x03` returned leaf.
+- A pruned node carries count, authenticated summary and subtree hash.
+- A branch carries exactly its left and right children; its count, summary and hash are reconstructed.
+- A leaf carries only its canonical assertion record; its summary/hash are reconstructed.
+- A finite end is tag `0x00` plus an instant; an open end is tag `0x01` alone.
+
+Decoder limits are 64 MiB per proof, 1,000,000 total records, 2,000,001 proof nodes, recursion depth 64 and 1,024 bytes per string. It rejects invalid UTF-8, malformed nanos/end tags, unsupported node tags, truncation, extra bytes and semantically malformed proof trees. The expected index root is intentionally not embedded in the wire frame; it must come from the separately authenticated checkpoint/frontier.
+
+The wire format is an experimental Mycelix encoding, not a registered RFC 9942 VDP profile. Only the Go reference exists at this stage; Rust parity and interoperable profile registration remain outstanding.
+
+## 12. Nonclaims
 
 A passing tree verifier proves only a mathematically complete interval-stabbing answer relative to one supplied scoped root. It does not authenticate that root, establish the source frontier's completeness or truth, prove global absence, establish trusted time, or grant financial/operational authority.
