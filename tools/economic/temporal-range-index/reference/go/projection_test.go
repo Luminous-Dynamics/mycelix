@@ -90,8 +90,11 @@ func TestProjectionReplayMatchesExactSuppliedInventory(t *testing.T) {
 	if computed.Disposition != ProjectionMatchesSuppliedAcceptedInventoryV1 {
 		t.Fatalf("wrong disposition: %s", computed.Disposition)
 	}
-	if computed.ReceiptInventoryAuthentication != ReceiptInventoryAuthenticationNotEvaluatedV1 {
-		t.Fatalf("receipt inventory auth was promoted: %s", computed.ReceiptInventoryAuthentication)
+	if computed.ReceiptInventoryAuthentication != ReceiptLogRootRecomputedButTrustExternalV1 || !computed.OwnerLogRootMatches {
+		t.Fatalf("owner log root was not independently reconstructed: %+v", computed)
+	}
+	if computed.ProjectionMappingAuthentication != ProjectionMappingAuthenticationNotEvaluatedV1 {
+		t.Fatalf("projection semantics were overclaimed: %s", computed.ProjectionMappingAuthentication)
 	}
 	if computed.ReceiptCount != 2 || computed.IntervalAssertionCount != 1 || computed.NonTemporalReceiptCount != 1 {
 		t.Fatalf("wrong projection counts: %+v", computed)
@@ -178,6 +181,10 @@ func TestProjectionReplayRejectsWrongOwnerHistoryCutAndReceiptSequence(t *testin
 	regressed := inventory
 	regressed.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
 	regressed.Receipts[1].OwnerSequence = regressed.Receipts[0].OwnerSequence
+	regressed.Receipts[1].CanonicalReceiptEntryBytes = canonicalReceiptFixtureV1(
+		scope, "receipt:8", "metadata:receipt-8", intervalDigestV1(71), "owner:grants", 2,
+	)
+	regressed.Receipts[1].ReceiptDigest = receiptDigestFixtureV1(regressed.Receipts[1].CanonicalReceiptEntryBytes)
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, regressed); err != ErrProjectionSequenceOrder {
 		t.Fatalf("non-increasing receipt sequence: %v", err)
 	}
@@ -200,9 +207,12 @@ func TestProjectionReplayRejectsMalformedNonTemporalAndDuplicateAssertions(t *te
 	}
 	duplicate := inventory
 	duplicate.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	duplicateBytes := canonicalReceiptFixtureV1(scope, "receipt:8", "assertion:grant-42", intervalDigestV1(44), "owner:grants", 8)
 	duplicate.Receipts[1] = AcceptedReceiptProjectionV1{
 		ReceiptLogLeafIndex: 1, OwnerSequence: 8,
-		ReceiptDigest: intervalDigestV1(44),
+		ReceiptDigest: receiptDigestFixtureV1(duplicateBytes),
+		CanonicalReceiptEntryBytes: duplicateBytes,
+		AssertionID: "assertion:grant-42",
 		Class: ReceiptProjectsIntervalAssertionV1,
 		AssertionRef: "assertion:grant-42",
 		ValidFrom: intervalPointV1(11, 0), ValidTo: intervalFiniteV1(40, 0),
@@ -238,7 +248,7 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	emptyBinding := OwnerIntervalIndexBindingV1{
 		OwnerRef: "owner:empty", OwnerHistoryRef: "history:empty",
 		OwnerSequence: 0, TreeSize: 0,
-		OwnerLogRootDigest: intervalDigestV1(50),
+		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", sha256.Sum256(nil)),
 		IntervalIndexRoot: emptyTree.RootHash(),
 	}
 	emptyInventory := AcceptedReceiptInventoryV1{
@@ -261,15 +271,20 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	allBinding := OwnerIntervalIndexBindingV1{
 		OwnerRef: "owner:metadata", OwnerHistoryRef: "history:metadata",
 		OwnerSequence: 1, TreeSize: 1,
-		OwnerLogRootDigest: intervalDigestV1(51),
+		OwnerLogRootDigest: "",
 		IntervalIndexRoot: allNonTemporalTree.RootHash(),
 	}
+	allBytes := canonicalReceiptFixtureV1(scope, "receipt:1", "metadata:1", intervalDigestV1(52), "owner:metadata", 1)
+	allBinding.OwnerLogRootDigest = fmt.Sprintf("sha256:%x", rfc9162TreeHashV1([][]byte{allBytes}))
 	allInventory := AcceptedReceiptInventoryV1{
 		OwnerRef: allBinding.OwnerRef, OwnerHistoryRef: allBinding.OwnerHistoryRef,
 		OwnerSequenceCut: 1, TreeSize: 1, OwnerLogRootDigest: allBinding.OwnerLogRootDigest,
 		Receipts: []AcceptedReceiptProjectionV1{{
 			ReceiptLogLeafIndex: 0, OwnerSequence: 1,
-			ReceiptDigest: intervalDigestV1(52), Class: ReceiptIsNonTemporalV1,
+			ReceiptDigest: receiptDigestFixtureV1(allBytes),
+			CanonicalReceiptEntryBytes: allBytes,
+			AssertionID: "metadata:1",
+			Class: ReceiptIsNonTemporalV1,
 		}},
 	}
 	allAudit, err := ComputeOwnerProjectionReplayAuditV1(scope, allBinding, allInventory)
