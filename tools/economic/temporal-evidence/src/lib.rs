@@ -1568,6 +1568,20 @@ mod tests {
         }
     }
 
+    fn fact_in_interval(
+        id: &str,
+        claim: &str,
+        subject: &str,
+        dimension: TemporalDimensionV1,
+        value: &str,
+        supersedes: Option<&str>,
+        validity_interval_ref: &str,
+    ) -> TemporalAssertionV1 {
+        let mut assertion = fact(id, claim, subject, dimension, value, supersedes);
+        assertion.validity_interval_ref = Some(validity_interval_ref.into());
+        assertion
+    }
+
     fn knowledge(
         id: &str,
         claim: &str,
@@ -1779,6 +1793,231 @@ mod tests {
     }
 
     #[test]
+    fn validity_episode_identity_prevents_cross_period_pairing() {
+        let mut assertions = Vec::new();
+        for (suffix, interval_ref, start, end) in [
+            ("a", "grant:episode-a", "2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"),
+            ("b", "grant:episode-b", "2026-11-22T00:00:00Z", "2026-11-24T00:00:00Z"),
+        ] {
+            let from_id = format!("from-{suffix}");
+            let to_id = format!("to-{suffix}");
+            assertions.push(fact_in_interval(
+                &from_id,
+                "grant-episodes",
+                "grant:42",
+                TemporalDimensionV1::ValidFrom,
+                start,
+                None,
+                interval_ref,
+            ));
+            assertions.push(fact_in_interval(
+                &to_id,
+                "grant-episodes",
+                "grant:42",
+                TemporalDimensionV1::ValidTo,
+                end,
+                None,
+                interval_ref,
+            ));
+            assertions.push(knowledge(
+                &format!("known-from-{suffix}"),
+                "grant-episodes",
+                "grant:42",
+                &from_id,
+                VERIFIER,
+                "2026-11-25T00:00:00Z",
+            ));
+            assertions.push(knowledge(
+                &format!("known-to-{suffix}"),
+                "grant-episodes",
+                "grant:42",
+                &to_id,
+                VERIFIER,
+                "2026-11-25T00:00:00Z",
+            ));
+        }
+        let evidence = TemporalEvidenceSetV1 { assertions };
+        evidence.validate().unwrap();
+        let scan = TemporalEvidenceScanV1::new(evidence.clone()).unwrap();
+        let index = TemporalEvidenceIndexV1::new(evidence.clone()).unwrap();
+
+        for (interval_ref, instant, expected_from, expected_to) in [
+            (
+                "grant:episode-a",
+                "2026-11-19T00:00:00Z",
+                "from-a",
+                "to-a",
+            ),
+            (
+                "grant:episode-b",
+                "2026-11-23T00:00:00Z",
+                "from-b",
+                "to-b",
+            ),
+        ] {
+            let expected = evidence
+                .evaluate_validity_interval_at(
+                    "grant-episodes",
+                    interval_ref,
+                    VERIFIER,
+                    instant,
+                    "2026-11-26T00:00:00Z",
+                )
+                .unwrap();
+            assert_eq!(expected.disposition, QueryDispositionV1::ValidAtQuery);
+            assert_eq!(expected.valid_from_assertion.as_deref(), Some(expected_from));
+            assert_eq!(expected.valid_to_assertion.as_deref(), Some(expected_to));
+            assert_eq!(
+                expected,
+                scan.evaluate_validity_interval_at(
+                    "grant-episodes",
+                    interval_ref,
+                    VERIFIER,
+                    instant,
+                    "2026-11-26T00:00:00Z",
+                )
+                .unwrap()
+            );
+            assert_eq!(
+                expected,
+                index
+                    .evaluate_validity_interval_at(
+                        "grant-episodes",
+                        interval_ref,
+                        VERIFIER,
+                        instant,
+                        "2026-11-26T00:00:00Z",
+                    )
+                    .unwrap()
+            );
+        }
+
+        let unscoped = evidence
+            .evaluate_valid_at(
+                "grant-episodes",
+                VERIFIER,
+                "2026-11-19T00:00:00Z",
+                "2026-11-26T00:00:00Z",
+                false,
+            )
+            .unwrap();
+        assert_eq!(unscoped.disposition, QueryDispositionV1::Conflict);
+    }
+
+    #[test]
+    fn endpoint_identity_mismatch_and_legacy_untagged_pair_are_indeterminate() {
+        let mut from = fact_in_interval(
+            "from-a",
+            "grant-cross-pair",
+            "grant:43",
+            TemporalDimensionV1::ValidFrom,
+            "2026-11-18T00:00:00Z",
+            None,
+            "grant:episode-a",
+        );
+        let to = fact_in_interval(
+            "to-b",
+            "grant-cross-pair",
+            "grant:43",
+            TemporalDimensionV1::ValidTo,
+            "2026-11-24T00:00:00Z",
+            None,
+            "grant:episode-b",
+        );
+        let mut evidence = TemporalEvidenceSetV1 {
+            assertions: vec![
+                from.clone(),
+                to,
+                knowledge(
+                    "from-known",
+                    "grant-cross-pair",
+                    "grant:43",
+                    "from-a",
+                    VERIFIER,
+                    "2026-11-25T00:00:00Z",
+                ),
+                knowledge(
+                    "to-known",
+                    "grant-cross-pair",
+                    "grant:43",
+                    "to-b",
+                    VERIFIER,
+                    "2026-11-25T00:00:00Z",
+                ),
+            ],
+        };
+        evidence.validate().unwrap();
+        let crossed = evidence
+            .evaluate_valid_at(
+                "grant-cross-pair",
+                VERIFIER,
+                "2026-11-19T00:00:00Z",
+                "2026-11-26T00:00:00Z",
+                false,
+            )
+            .unwrap();
+        assert_eq!(crossed.disposition, QueryDispositionV1::Indeterminate);
+        assert_eq!(
+            evidence
+                .evaluate_validity_interval_at(
+                    "grant-cross-pair",
+                    "grant:episode-a",
+                    VERIFIER,
+                    "2026-11-19T00:00:00Z",
+                    "2026-11-26T00:00:00Z",
+                )
+                .unwrap()
+                .disposition,
+            QueryDispositionV1::Indeterminate
+        );
+
+        from.validity_interval_ref = None;
+        evidence.assertions[0] = from;
+        evidence.assertions[1].validity_interval_ref = None;
+        evidence.validate().unwrap();
+        let legacy = evidence
+            .evaluate_valid_at(
+                "grant-cross-pair",
+                VERIFIER,
+                "2026-11-19T00:00:00Z",
+                "2026-11-26T00:00:00Z",
+                true,
+            )
+            .unwrap();
+        assert_eq!(legacy.disposition, QueryDispositionV1::Indeterminate);
+    }
+
+    #[test]
+    fn validity_correction_cannot_change_episode_identity() {
+        let evidence = TemporalEvidenceSetV1 {
+            assertions: vec![
+                fact_in_interval(
+                    "from-v1",
+                    "grant-correction",
+                    "grant:44",
+                    TemporalDimensionV1::ValidFrom,
+                    "2026-11-18T00:00:00Z",
+                    None,
+                    "grant:episode-a",
+                ),
+                fact_in_interval(
+                    "from-v2",
+                    "grant-correction",
+                    "grant:44",
+                    TemporalDimensionV1::ValidFrom,
+                    "2026-11-19T00:00:00Z",
+                    Some("from-v1"),
+                    "grant:episode-b",
+                ),
+            ],
+        };
+        assert_eq!(
+            evidence.validate(),
+            Err(TemporalKernelErrorV1::ValidityIntervalIdentityMismatch)
+        );
+    }
+
+    #[test]
     fn occurrence_correction_is_selected_only_after_verifier_knows_it() {
         let assertions = TemporalEvidenceSetV1 {
             assertions: vec![
@@ -1950,7 +2189,7 @@ mod tests {
     }
 
     #[test]
-    fn open_ended_valid_to_requires_explicit_caller_policy() {
+    fn caller_policy_alone_does_not_establish_an_open_validity_episode() {
         let mut assertions = valid_fixture();
         assertions.assertions.retain(|assertion| {
             assertion.assertion_id != "to-v1" && assertion.assertion_id != "to-known"
@@ -1975,7 +2214,7 @@ mod tests {
                 true,
             )
             .unwrap();
-        assert_eq!(open.disposition, QueryDispositionV1::ValidAtQuery);
+        assert_eq!(open.disposition, QueryDispositionV1::Indeterminate);
     }
 
     #[test]
