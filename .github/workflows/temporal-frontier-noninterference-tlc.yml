@@ -6,6 +6,7 @@ on:
       - "tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference*"
       - "tools/economic/temporal-hindsight/**"
       - "docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md"
+      - "docs/economic/temporal/TEMPORAL_OWNER_UNIVERSE_CLOSURE_V0.1.md"
       - ".github/workflows/temporal-frontier-noninterference-tlc.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference*"
       - "tools/economic/temporal-hindsight/**"
       - "docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md"
+      - "docs/economic/temporal/TEMPORAL_OWNER_UNIVERSE_CLOSURE_V0.1.md"
       - ".github/workflows/temporal-frontier-noninterference-tlc.yml"
   workflow_dispatch:
 
@@ -25,9 +27,9 @@ concurrency:
 
 jobs:
   model-check:
-    name: Independent Go oracle plus TLC correct spec and mutant negative control
+    name: Independent Go oracles and bounded TLC models
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Check out exact PR head
         uses: actions/checkout@v7
@@ -41,6 +43,12 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set up exact Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+
       - name: Download and verify pinned TLA+ tools
         shell: bash
         run: |
@@ -52,9 +60,9 @@ jobs:
           printf '%s  %s\n' \
             "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88" \
             "$jar" | sha256sum --check --status
-          echo "Verified tla2tools v1.7.4 SHA-256"
           java -version
           java -cp "$jar" tlc2.TLC -help >/dev/null
+          echo "TLA+ tools v1.7.4 checksum verified"
 
       - name: Assert exact source head
         env:
@@ -65,13 +73,7 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD" "$actual"
           test "$actual" = "$EXPECTED_HEAD"
 
-      - name: Set up exact Go reference toolchain
-        uses: actions/setup-go@v7
-        with:
-          go-version: "1.23.2"
-          cache: false
-
-      - name: Qualify independent historical-replay oracle
+      - name: Qualify historical replay oracle
         working-directory: tools/economic/temporal-hindsight/reference/go
         shell: bash
         run: |
@@ -81,7 +83,20 @@ jobs:
           go test -race ./...
           go vet ./...
           go test -run 'TestSuffixNoninterference|TestBackdatedSuffix|TestLatestStateMutant' -count=30 ./...
-          go test -run '^
+          go test -run '^$' -bench 'BenchmarkReplay' -benchmem -benchtime=1x ./...
+
+      - name: Qualify owner-universe scope closure oracle
+        working-directory: tools/economic/temporal-hindsight/reference/scopeclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go test -race ./...
+          go vet ./...
+          go test -run 'TestValidFrontierOverOmittedOwner|TestManifestCannotSelfDeclareAnIncompleteRoster|TestLaterRegistryEpochDoesNotRewriteHistoricalCertificate|TestMultipleOmissionsProduceDeterministicFailureCertificate' -count=30 ./...
+          go test -run '^$' -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=1x ./...
+
+      - name: Check historical frontier noninterference specification
         working-directory: tools/economic/temporal-range-index/formal
         shell: bash
         run: |
@@ -93,7 +108,28 @@ jobs:
             -config TemporalFrontierNoninterference.cfg \
             TemporalFrontierNoninterference.tla
 
-      - name: Check owner-universe closure specification
+      - name: Require historical replay mutant to produce the expected counterexample
+        working-directory: tools/economic/temporal-range-index/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$RUNNER_TEMP/tlc-noninterference-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-noninterference-mutant" \
+            -config TemporalFrontierNoninterference-Mutant.cfg \
+            TemporalFrontierNoninterference.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "The deliberately faulty no-hindsight mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -E "Invariant (HistoricalReplayBound|ExactHistoricalCertificateBinding) is violated" "$log"
+          echo "Expected no-hindsight counterexample observed."
+
+      - name: Check temporal owner-universe closure specification
         working-directory: tools/economic/temporal-hindsight/formal
         shell: bash
         run: |
@@ -123,115 +159,5 @@ jobs:
             echo "The deliberately incomplete-roster mutant unexpectedly passed."
             exit 1
           fi
-          if ! grep -E "Invariant RosterUniverseEquality is violated" "$log"; then
-            echo "TLC failed, but not for the expected omitted-owner counterexample."
-            exit 1
-          fi
+          grep -E "Invariant RosterUniverseEquality is violated" "$log"
           echo "Expected omitted-owner counterexample observed."
-
-      - name: Require the deliberately faulty mutant to fail safely
-        working-directory: tools/economic/temporal-range-index/formal
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          log="$RUNNER_TEMP/tlc-noninterference-mutant.log"
-          status=0
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
-            -workers 1 -seed 1 \
-            -metadir "$RUNNER_TEMP/tlc-noninterference-mutant" \
-            -config TemporalFrontierNoninterference-Mutant.cfg \
-            TemporalFrontierNoninterference.tla >"$log" 2>&1 || status=$?
-          cat "$log"
-          if [ "$status" -eq 0 ]; then
-            echo "The deliberately faulty mutant unexpectedly passed."
-            exit 1
-          fi
-          if ! grep -E "Invariant (HistoricalReplayBound|ExactHistoricalCertificateBinding) is violated" "$log"; then
-            echo "TLC failed, but not for the expected hindsight/relabel invariant."
-            exit 1
-          fi
-          echo "Expected counterexample observed; negative control is effective."
- -bench 'BenchmarkReplay' -benchmem -benchtime=1x ./...
-
-      - name: Qualify owner-universe scope closure oracle
-        working-directory: tools/economic/temporal-hindsight/reference/scopeclosure
-        shell: bash
-        run: |
-          set -euo pipefail
-          go test ./...
-          go test -race ./...
-          go vet ./...
-          go test -run 'TestValidFrontierOverOmittedOwner|TestManifestCannotSelfDeclareAnIncompleteRoster|TestLaterRegistryEpochDoesNotRewriteHistoricalCertificate|TestMultipleOmissionsProduceDeterministicFailureCertificate' -count=30 ./...
-          go test -run '^
-        working-directory: tools/economic/temporal-range-index/formal
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
-            -workers 1 -seed 1 \
-            -metadir "$RUNNER_TEMP/tlc-noninterference-correct" \
-            -config TemporalFrontierNoninterference.cfg \
-            TemporalFrontierNoninterference.tla
-
-      - name: Require the deliberately faulty mutant to fail safely
-        working-directory: tools/economic/temporal-range-index/formal
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          log="$RUNNER_TEMP/tlc-noninterference-mutant.log"
-          status=0
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
-            -workers 1 -seed 1 \
-            -metadir "$RUNNER_TEMP/tlc-noninterference-mutant" \
-            -config TemporalFrontierNoninterference-Mutant.cfg \
-            TemporalFrontierNoninterference.tla >"$log" 2>&1 || status=$?
-          cat "$log"
-          if [ "$status" -eq 0 ]; then
-            echo "The deliberately faulty mutant unexpectedly passed."
-            exit 1
-          fi
-          if ! grep -E "Invariant (HistoricalReplayBound|ExactHistoricalCertificateBinding) is violated" "$log"; then
-            echo "TLC failed, but not for the expected hindsight/relabel invariant."
-            exit 1
-          fi
-          echo "Expected counterexample observed; negative control is effective."
- -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=1x ./...
-
-      - name: Check correct noninterference specification
-        working-directory: tools/economic/temporal-range-index/formal
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
-            -workers 1 -seed 1 \
-            -metadir "$RUNNER_TEMP/tlc-noninterference-correct" \
-            -config TemporalFrontierNoninterference.cfg \
-            TemporalFrontierNoninterference.tla
-
-      - name: Require the deliberately faulty mutant to fail safely
-        working-directory: tools/economic/temporal-range-index/formal
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
-          log="$RUNNER_TEMP/tlc-noninterference-mutant.log"
-          status=0
-          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
-            -workers 1 -seed 1 \
-            -metadir "$RUNNER_TEMP/tlc-noninterference-mutant" \
-            -config TemporalFrontierNoninterference-Mutant.cfg \
-            TemporalFrontierNoninterference.tla >"$log" 2>&1 || status=$?
-          cat "$log"
-          if [ "$status" -eq 0 ]; then
-            echo "The deliberately faulty mutant unexpectedly passed."
-            exit 1
-          fi
-          if ! grep -E "Invariant (HistoricalReplayBound|ExactHistoricalCertificateBinding) is violated" "$log"; then
-            echo "TLC failed, but not for the expected hindsight/relabel invariant."
-            exit 1
-          fi
-          echo "Expected counterexample observed; negative control is effective."
