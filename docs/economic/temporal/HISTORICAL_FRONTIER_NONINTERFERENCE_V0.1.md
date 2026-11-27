@@ -124,6 +124,12 @@ For each run, publish the raw trace and corpus digest, exact source SHA, toolcha
   - https://learn.microsoft.com/en-us/sql/relational-databases/tables/querying-data-in-a-system-versioned-temporal-table
 - **Event sourcing/workflow replay:** compare deterministic reconstruction and correction processing over the same frozen event streams. Do not compare an unverified latest-state scan against a proof-carrying path as though their guarantees were equivalent.
 
+### VTRQ and temporal/spatial range-query baselines
+
+A second 2026 comparator is **VTRQ** (Yao et al., 21 August 2026). It uses separate authenticated spatial and temporal structures, including a temporal interval tree, and a spatio-temporal edge aggregation phase. Its evaluation spans three trajectory datasets; the Chengdu corpus includes 284,608 trajectories and roughly 220 million trajectory points. The authors report lower query latency than their three baselines and roughly an order of magnitude lower verification time in most cases; the temporal structure is only one part of the full spatial workload. Its construction evaluation also shows that index-build cost and the spatial structure can dominate total cost. Treat it as an adjacent authenticated temporal-index and maintenance baseline—not as a direct comparator for verifier-relative causal history. [VTRQ paper](https://arxiv.org/abs/2608.21314).
+
+This suggests a specific stress test for Mycelix: owner-count and interval-count scaling must be crossed, not varied separately. Benchmark matrices should include sparse/high-owner workloads (many small histories), dense/low-owner workloads (few large histories), and skewed owners (one hot owner plus many quiet owners). A global average can conceal a single owner's index or replay becoming the latency and availability bottleneck.
+
 ### VeriTS results that should shape our benchmark
 
 The published VeriTS evaluation is a useful caution against optimizing only for asymptotic node counts or bytes:
