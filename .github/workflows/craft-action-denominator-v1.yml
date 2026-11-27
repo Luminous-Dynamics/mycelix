@@ -1,0 +1,60 @@
+name: Craft immutable action denominator exact-head qualification
+
+on:
+  push:
+    branches:
+      - research/craft-action-denominator-v1-20261127
+    paths:
+      - 'mycelix-workspace/mycelix-craft/research/action-denominator-v1/**'
+      - '.github/workflows/craft-action-denominator-v1.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-craft/research/action-denominator-v1/**'
+      - '.github/workflows/craft-action-denominator-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact-head immutable action denominator reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Install pinned Rust toolchain and components
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup component add rustfmt clippy --toolchain 1.96.0
+
+      - name: Lock dependencies
+        run: cargo +1.96.0 generate-lockfile --manifest-path mycelix-workspace/mycelix-craft/research/action-denominator-v1/Cargo.toml
+
+      - name: Rust formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/mycelix-craft/research/action-denominator-v1/Cargo.toml --all -- --check
+
+      - name: Unit and adversarial tests
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/mycelix-craft/research/action-denominator-v1/Cargo.toml --locked
+
+      - name: Clippy
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/mycelix-craft/research/action-denominator-v1/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' 'PASS = exact-head canonical denominator, revision binding, evidence scope, duplicate/common-cause, expiry, dependency and historical replay tests.'
+          printf '%s\n' 'NONCLAIM = issuer authority, source truth, real action completion, legal permission and field-service improvement are not authenticated.'
