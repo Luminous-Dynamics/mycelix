@@ -1,0 +1,9 @@
+[package]
+name = "mycelix-rfc9162-proof-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "RFC 9162 SHA-256 Merkle Tree Hash inclusion and consistency proof verification"
+
+[dependencies]
+sha2 = "=0.10.9"
