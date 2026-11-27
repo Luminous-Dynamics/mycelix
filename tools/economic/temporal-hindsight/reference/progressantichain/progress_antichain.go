@@ -15,6 +15,8 @@ const (
 	maxProgressStringBytes = 4096
 	maxProgressOwners      = 100000
 	maxProgressPoints      = 4096
+	maxProgressVectorCoordinates uint64 = 25000000
+	maxProgressCoordinateComparisons uint64 = 50000000
 
 	ProgressProvisional ProgressDispositionV1 = "Provisional"
 	ProgressStableRelativeToDeclared ProgressDispositionV1 = "StableRelativeToDeclaredProgress"
@@ -97,6 +99,20 @@ func validDigestV1(value string) bool {
 	}
 	_, err := hex.DecodeString(value)
 	return err == nil
+}
+
+func exceedsProgressWorkBudget(limit uint64, factors ...uint64) bool {
+	product := uint64(1)
+	for _, factor := range factors {
+		if factor == 0 {
+			return false
+		}
+		if product > limit/factor {
+			return true
+		}
+		product *= factor
+	}
+	return product > limit
 }
 
 func rawProgressScopeDigestV1(scope ProgressScopeV1) string {
@@ -269,6 +285,15 @@ func validateProgressAntichainV1(antichain ProgressAntichainV1) (string, string,
 	if err != nil {
 		return "", "", nil, err
 	}
+	width := uint64(len(antichain.Points))
+	dimension := uint64(len(owners))
+	if exceedsProgressWorkBudget(maxProgressVectorCoordinates, width, dimension) {
+		return rawProgressScopeDigestV1(antichain.Scope), "", nil, errors.New("progress antichain vector-materialization budget exceeded")
+	}
+	pairCount := width * (width - 1) / 2
+	if exceedsProgressWorkBudget(maxProgressCoordinateComparisons, pairCount, dimension) {
+		return rawProgressScopeDigestV1(antichain.Scope), "", nil, errors.New("progress antichain pairwise-comparison budget exceeded")
+	}
 	scopeDigest, err := ProgressScopeDigestV1(antichain.Scope)
 	if err != nil {
 		return "", "", nil, err
@@ -434,6 +459,11 @@ func AdvanceProgressAntichainV1(previous, next ProgressAntichainV1) ProgressAdva
 	}
 	if oldScope != newScope {
 		result.Reason = "progress advancement crosses source, registry epoch, profile, query scope or owner-universe identity"
+		return finalizeProgressAdvanceV1(result)
+	}
+	dimension := uint64(len(previous.Scope.OwnerRefs))
+	if exceedsProgressWorkBudget(maxProgressCoordinateComparisons, uint64(len(oldPoints)), uint64(len(newPoints)), dimension) {
+		result.Reason = "progress advancement comparison budget exceeded"
 		return finalizeProgressAdvanceV1(result)
 	}
 	for _, nextPoint := range newPoints {
