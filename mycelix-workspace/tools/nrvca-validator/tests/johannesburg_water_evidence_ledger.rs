@@ -105,9 +105,10 @@ fn validate(root: &Value) -> Result<(), String> {
             return Err(format!("{assertion_id}: assertion improperly promoted to a measurement"));
         }
         let evidence_status = non_empty(item, "evidence_status")?;
-        if evidence_status.contains("sensor")
-            || evidence_status.contains("operator_measured")
-            || evidence_status.contains("independently_measured")
+        if evidence_status.starts_with("sensor_")
+            || evidence_status.starts_with("operator_measured")
+            || evidence_status.starts_with("independently_measured")
+            || evidence_status.starts_with("telemetry_")
         {
             return Err(format!("{assertion_id}: official statements cannot masquerade as telemetry"));
         }
