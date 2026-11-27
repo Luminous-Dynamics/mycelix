@@ -524,7 +524,7 @@ fn evaluate_candidates(
     rule: &SupportRuleV1,
 ) -> Result<SupportSufficiencyV1, SupportSufficiencyErrorV1> {
     if candidates.iter().any(|id| {
-        evidence.get(id).map_or(false, |item| {
+        evidence.get(id).is_some_and(|item| {
             item.state == SupportEvidenceStateV1::Contradicted
         })
     }) {
@@ -536,7 +536,7 @@ fn evaluate_candidates(
             required_evidence_ids,
         } => {
             let all_supported = required_evidence_ids.iter().all(|id| {
-                evidence.get(id).map_or(false, |item| {
+                evidence.get(id).is_some_and(|item| {
                     item.state == SupportEvidenceStateV1::DirectSupport
                 })
             });
@@ -551,7 +551,7 @@ fn evaluate_candidates(
         } => {
             let supported_alternative = alternative_support_sets.iter().any(|set| {
                 set.iter().all(|id| {
-                    evidence.get(id).map_or(false, |item| {
+                    evidence.get(id).is_some_and(|item| {
                         item.state == SupportEvidenceStateV1::DirectSupport
                     })
                 })
