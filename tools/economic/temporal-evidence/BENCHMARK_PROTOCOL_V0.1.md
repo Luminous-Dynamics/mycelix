@@ -130,3 +130,51 @@ The frontier extension must add frontier width, owner cardinality, fork/merge fr
 The current kernel validates assertion structure, digest shape, correction lineage, and verifier-relative selection over caller-supplied data. It does not recompute evidence digests, authenticate signatures or issuers, calibrate clocks, persist knowledge frontiers, or establish legal/financial authority. External data projection, full-schema validation, database adapters, and production replay require independent qualification.
 
 This protocol is designed to make a failed comparison visible. It does not presume that Mycelix wins.
+
+
+## 10. Validity-episode identity extension (v1.1)
+
+A claim may have multiple disjoint or overlapping validity episodes. The benchmark therefore treats `validity_interval_ref` as a first-class join key, not as a display label.
+
+Add deterministic episode workloads at:
+- 1 / 2 / 10 / 100 / 1,000 episodes per claim;
+- disjoint, overlapping, adjacent, nested and equal-boundary intervals;
+- same claim and subject with different episode identities;
+- duplicate start/end assertions within one episode;
+- endpoint corrections that preserve or attempt to change episode identity;
+- same-episode corrections accepted before / after the historical knowledge cutoff;
+- no VALID_TO, unknown VALID_TO, and explicit-open disposition (only when a separately versioned open-end profile is implemented).
+
+Episode-specific correctness gates:
+1. 100% scan / prevalidated-scan / index parity with an independent endpoint-pairing oracle.
+2. Zero cross-episode endpoint pairs.
+3. Zero corrections accepted when they change the predecessor's episode identity.
+4. Zero legacy untagged pairs promoted to episode-complete answers.
+5. Zero missing VALID_TO records treated as OPEN solely due to caller policy.
+6. Zero historical result changes when a correction is only visible after K.
+7. Report ambiguity and abstention separately from false rejection; a conservative Indeterminate is not scored as correct Supported.
+
+For the current v1.1 implementation, explicit open-end disposition is not yet implemented. A missing end remains Indeterminate, including when the legacy caller boolean is true. The benchmark must not award an OPEN success until a separately typed, frontier-bound open-end assertion/profile and its negative controls are implemented.
+
+## 11. Matched-semantics industry comparison
+
+Compare systems at three separate levels and never mix their guarantees:
+
+- **Bitemporal storage/query:** XTDB and SQL Server system-versioned temporal tables. Compare valid-time and system/transaction-time reads, backdated corrections, query latency, index build cost, storage amplification and historical replay. These systems already provide meaningful bitemporal history; Mycelix does not claim to replace that function.
+- **Event/observation semantics:** OpenTelemetry distinguishes source event `Timestamp` from `ObservedTimestamp`. Use it as a mapping baseline for ingestion/observation separation, not as an evidence-authentication or owner-frontier verifier.
+- **Authenticated append-only proofs:** RFC 9162 consistency proofs establish append-only extension between Merkle tree heads and inclusion proofs establish membership under a root. Mycelix adds application-specific owner identity, accepted-frontier coverage and receipt-to-interval projection obligations; those application semantics are not supplied by Certificate Transparency itself.
+
+Run each adapter against the same frozen source events, correction schedule, exact verifier cut, policy revision, and expected output. Native product features must be configured to expose equivalent output claims. Where they cannot express verifier-relative frontier membership or episode pairing, report the missing semantics explicitly rather than silently reducing Mycelix's obligations or declaring the comparator incorrect.
+
+Report:
+- correctness and false-allow counts before performance;
+- p50/p95/p99 query/build/update latencies;
+- storage and memory amplification;
+- independent owner count and receipts examined;
+- proof bytes and verification time;
+- correction-impact fan-out and recomputation cost;
+- abstention/Indeterminate rate and false holds;
+- mutation detection by risk tier;
+- complete raw measurements, hardware/software versions and commit SHAs.
+
+A defensible SOTA claim requires Mycelix to pass the stronger correctness matrix and to report the added cost of those guarantees. A throughput win is not valid when the compared system was not asked to prove the same historical, completeness, provenance and episode semantics.
