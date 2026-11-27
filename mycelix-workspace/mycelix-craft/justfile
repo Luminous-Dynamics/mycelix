@@ -9,3 +9,7 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run the standalone need-intake reference core
+core-need-intake:
+    cargo test --manifest-path Cargo.toml -p craft-need-intake-v1
