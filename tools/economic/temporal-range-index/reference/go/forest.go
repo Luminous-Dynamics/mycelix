@@ -240,7 +240,7 @@ func validateTemporalFrontierManifestV1(manifest TemporalFrontierIndexManifestV1
 	if validateForestStringV1(manifest.VerifierRef) != nil ||
 		validateForestStringV1(manifest.PolicyEpochRef) != nil ||
 		validateForestDigestV1(manifest.FrontierDigest) != nil ||
-		validateForestStringV1(manifest.IntervalProfile) != nil {
+		manifest.IntervalProfile != intervalProfileV1 {
 		return ErrForestMalformed
 	}
 	if manifest.QueryScope.VerifierRef != manifest.VerifierRef ||
