@@ -50,3 +50,8 @@ The oracle is deliberately independent of the owner evaluators. The first execut
 ## Claim boundary
 
 The green result demonstrates this exact source composition plus the listed synthetic, typed cross-core flows. It is not a full WSR benchmark score, field validation, professional water-quality certification, legal authorization or permission to close a municipal service incident. The harness uses synthetic reviewer and authority references; no real authority or resident data is present.
+
+
+## Benchmark protocol
+
+See [WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md](WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md) for the baseline matrix, full-corpus qualification targets, independent-oracle requirements, water-service outcome metrics, performance reporting and field-pilot limits. It distinguishes the four-test executable slice from the remaining WSR corpus and the 20 proposed metamorphic transformations.
