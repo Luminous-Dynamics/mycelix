@@ -335,16 +335,16 @@ fn evaluate_selection(instance: &Instance, selected: &[&SourcingOption]) -> Cand
     }
 
     for (key, quantity) in reservations {
-        if let Some(resource) = instance.resources.get(&key) {
-            if quantity > resource.capacity + EPSILON {
-                reasons.insert(format!(
-                    "CAPACITY_EXCEEDED:{}:used={:.3}:capacity={:.3}:unit={}",
-                    key.render(),
-                    quantity,
-                    resource.capacity,
-                    resource.unit
-                ));
-            }
+        if let Some(resource) = instance.resources.get(&key)
+            && quantity > resource.capacity + EPSILON
+        {
+            reasons.insert(format!(
+                "CAPACITY_EXCEEDED:{}:used={:.3}:capacity={:.3}:unit={}",
+                key.render(),
+                quantity,
+                resource.capacity,
+                resource.unit
+            ));
         }
     }
 
