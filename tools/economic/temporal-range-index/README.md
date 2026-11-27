@@ -47,3 +47,22 @@ Current status: Go reference prototype with exact endpoint and adversarial unit 
 Not yet implemented: Rust implementation, independent cross-language conformance, canonical proof wire encoding/decoder, source receipt projection completeness, signed checkpoint binding, range-proof formal model, and measured repeated-run performance distributions.
 
 Do not use this prototype to authorize journal, payment or external mutations.
+
+
+## Frontier-index forest experiment
+
+`forest.go` composes one authenticated interval root per owner into a canonical manifest bound to:
+
+- verifier identity and policy epoch;
+- accepted frontier digest;
+- interval-query profile and scope;
+- owner reference and stable history identity;
+- owner-local sequence cut and separate append-only log tree size;
+- owner receipt-log root, interval-index root and projection-audit digest;
+- explicit unresolved owner gap ranges.
+
+The caller must supply the exact owner set and forest root obtained from the separately verified frontier/checkpoint layer. Owner identifiers are sorted only for canonical encoding; sequence values from different owners are never compared or treated as a global time order.
+
+The verifier returns only `CompleteForDeclaredIndexForest`: every result relative to the exact declared owner-index roots has been verified. `ProjectionCompletenessNotEvaluated` is always returned because this module does not verify that every accepted owner receipt was projected into the index. Gap metadata is retained in `HasOwnerGaps`; a forest result cannot silently hide it.
+
+This is a composition prototype. It does not authenticate the frontier/checkpoint root, verify log consistency proofs, verify the projection-audit receipt, or grant a `CompleteForAcceptedFrontier` disposition.
