@@ -132,3 +132,23 @@ func TestCandidateOrderingDoesNotChangeReconciliationCertificate(t *testing.T) {
 		t.Fatalf("non-canonical input ordering changed result: baseline=%+v got=%+v", baseline, got)
 	}
 }
+
+
+func TestMultipleUnknownCandidatesHaveDeterministicFailureReason(t *testing.T) {
+	s, m, u, f := fixture()
+	u.Candidates = append(u.Candidates,
+		OwnerCandidate{OwnerRef:"owner:C",HistoryRef:"history:C:v1",Disposition:CandidateUnknown},
+		OwnerCandidate{OwnerRef:"owner:D",HistoryRef:"history:D:v1",Disposition:CandidateWithheld},
+	)
+	m.Candidates = append([]OwnerCandidate(nil), u.Candidates...)
+	m.CandidateRoot, _ = CandidateRoot(m.Candidates)
+	first := Reconcile(s,m,u,f)
+	for i:=0;i<100;i++ {
+		u.Candidates[0],u.Candidates[1]=u.Candidates[1],u.Candidates[0]
+		m.Candidates=append([]OwnerCandidate(nil),u.Candidates...)
+		got:=Reconcile(s,m,u,f)
+		if got.Reason!=first.Reason || got.CertificateDigest!=first.CertificateDigest {
+			t.Fatalf("candidate input order changed first failure: first=%+v got=%+v",first,got)
+		}
+	}
+}
