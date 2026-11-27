@@ -5,7 +5,7 @@ This folder contains a frozen, synthetic-only adversarial corpus for the prospec
 - `manifest.json` records public baseline sources, their periods and claim limitations.
 - `integration-map.json` maps each case to existing Mycelix semantic owners; it deliberately avoids a duplicate generic evidence/currentness service.
 - `metamorphic-cases.json` defines twenty proposed counterfactual mutations, including context, freshness, independence, denominator, regulatory-boundary and KPI-definition tests.
-- `../docs/WATER-SERVICE-LIFECYCLE-QUALIFICATION-V1.md` defines the customer-outcome measurement model, event chronology, cross-core handoff contract and prospective pilot protocol.
+- `../../docs/WATER-SERVICE-LIFECYCLE-QUALIFICATION-V1.md` defines the customer-outcome measurement model, event chronology, cross-core handoff contract and prospective pilot protocol.
 - `cases.json` contains sixteen synthetic known-answer cases.
 
 The published 48-hour burst KPI definition is ambiguous: the 2025/26 business plan defines it as on-site response initiated, not necessarily completed repair. The benchmark therefore separates first response, repair completion, pressure restoration and water-quality release instead of treating them as one clock. It also covers statutory alternative supply during interruptions over 48 hours and extended-supply monitoring after one week.
