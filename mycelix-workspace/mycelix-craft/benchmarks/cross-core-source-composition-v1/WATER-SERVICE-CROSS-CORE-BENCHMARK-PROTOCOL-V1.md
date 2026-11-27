@@ -92,7 +92,7 @@ The Rust profile validator checks:
 
 It preserves unrecognized JSON extension values through canonicalization. The canonical digest proves only reproducibility of the declared JSON representation; it is not a source signature, an evidence-authenticity claim, an owner-core result or a semantic service closure.
 
-The profile is deliberately restricted. External validation against the official OCEL 2.0 JSON schema and interoperability round-trips through an independent importer such as Ocelot/PM4Py remain required before claiming general OCEL compatibility. OCEL 2.1.0pre5 serialization is not implemented and remains a separate experimental target.
+The profile is deliberately restricted. Independent importer/exporter round-trips remain required before claiming general OCEL compatibility. The current official OCEL 2.0 JSON documentation defines the four collections and allowed value types, but the JSON-schema URL listed in the 2.0 specification PDF returned HTTP 404 during the 2026-11-27 research pass. The `schemas/schema.json` file in the `OCEL-standard/ocel-support` repository uses legacy `ocel:events` / `ocel:objects` keys and is not an OCEL 2.0 JSON schema. Do not treat that legacy schema as a validator for the modern array-based OCEL 2.0 format. A schema gate must use a verified, versioned OCEL 2.0 schema source or a separately reviewed schema derived from the normative specification, with source URL, commit and digest recorded. OCEL 2.1.0pre5 serialization is not implemented and remains a separate experimental target.
 
 ### Differential interoperability benchmark (next gate)
 
