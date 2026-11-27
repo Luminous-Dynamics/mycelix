@@ -283,3 +283,85 @@ fn node_and_leaf_domains_are_separated() {
     assert_ne!(leaf, raw);
     assert_ne!(node_hash(&leaf, &raw), node_hash(&raw, &leaf));
 }
+
+#[test]
+fn consumes_shared_go_rust_interoperability_vectors() {
+    const VECTORS: &str = include_str!(
+        "../../../../tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+    );
+    let mut leaves = std::collections::BTreeMap::<String, Hash>::new();
+    let mut mth = std::collections::BTreeMap::<usize, Hash>::new();
+    let mut inclusions = Vec::new();
+
+    for (line_number, raw_line) in VECTORS.lines().enumerate() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('#') || line.starts_with("MYCELIX-") {
+            continue;
+        }
+        let fields: Vec<&str> = line.split('|').collect();
+        match fields.first().copied() {
+            Some("leaf") if fields.len() == 4 => {
+                let payload = hex::decode(fields[2]).expect("valid shared vector payload hex");
+                let expected: Hash = hex::decode(fields[3])
+                    .expect("valid shared leaf hash hex")
+                    .try_into()
+                    .expect("32-byte shared leaf hash");
+                assert_eq!(leaf_hash(&payload), expected, "shared leaf vector at line {}", line_number + 1);
+                leaves.insert(fields[1].to_owned(), expected);
+            }
+            Some("mth") if fields.len() == 3 => {
+                let count: usize = fields[1].parse().expect("valid tree size");
+                let expected: Hash = hex::decode(fields[2])
+                    .expect("valid shared MTH hex")
+                    .try_into()
+                    .expect("32-byte shared MTH");
+                mth.insert(count, expected);
+            }
+            Some("include") if fields.len() == 6 => {
+                let index: u64 = fields[2].parse().expect("valid leaf index");
+                let size: u64 = fields[3].parse().expect("valid tree size");
+                let root: Hash = hex::decode(fields[4])
+                    .expect("valid shared inclusion root hex")
+                    .try_into()
+                    .expect("32-byte inclusion root");
+                let path = if fields[5].is_empty() {
+                    Vec::new()
+                } else {
+                    fields[5]
+                        .split(',')
+                        .map(|part| {
+                            hex::decode(part)
+                                .expect("valid inclusion path node hex")
+                                .try_into()
+                                .expect("32-byte inclusion path node")
+                        })
+                        .collect()
+                };
+                inclusions.push((fields[1].to_owned(), index, size, root, path));
+            }
+            other => panic!("invalid shared vector at line {}: {:?}", line_number + 1, other),
+        }
+    }
+
+    let ordered = [
+        *leaves.get("a").expect("shared leaf a"),
+        *leaves.get("b").expect("shared leaf b"),
+        *leaves.get("c").expect("shared leaf c"),
+    ];
+    assert_eq!(leaves.len(), 3);
+    for (size, expected) in mth {
+        assert_eq!(
+            merkle_tree_hash_from_leaf_hashes(&ordered[..size]),
+            expected,
+            "shared MTH({size}) vector"
+        );
+    }
+    for (name, index, size, root, path) in inclusions {
+        let leaf = *leaves.get(&name).expect("shared inclusion leaf");
+        assert_eq!(
+            verify_leaf_inclusion(&leaf, index, size, &root, &path),
+            Ok(InclusionDisposition::InclusionValidRelativeToSuppliedRoot),
+            "shared inclusion vector {name}"
+        );
+    }
+}
