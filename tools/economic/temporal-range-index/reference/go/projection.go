@@ -19,6 +19,8 @@ const canonicalKnowledgeReceiptStemV1 = "MYCELIX-KNOWLEDGE-RECEIPT-V1"
 const (
 	maxProjectionReceiptsV1 = 100_000
 	maxProjectionReceiptBytesV1 = 64 * 1024 * 1024
+	maxProjectionAssertionPayloadBytesV1 = 1 * 1024 * 1024
+	maxProjectionAssertionPayloadTotalBytesV1 = 64 * 1024 * 1024
 	maxProjectionDependenciesV1 = 10_000
 )
 
@@ -37,6 +39,7 @@ type AcceptedReceiptProjectionV1 struct {
 	OwnerSequence              uint64
 	ReceiptDigest              string
 	AssertionDigest            string
+	AssertionPayloadBytes      []byte
 	CanonicalReceiptEntryBytes []byte
 	AssertionID                string
 	Class                      ReceiptProjectionClassV1
@@ -159,6 +162,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 	records := make([]IntervalRecordV1, 0, len(inventory.Receipts))
 	logEntries := make([][]byte, 0, len(inventory.LogLeaves))
 	var totalLogBytes uint64
+	var totalAssertionPayloadBytes uint64
 	var nonTemporal uint64
 	var nonKnowledgeReceiptLeaves uint64
 	var previousSequence uint64
@@ -216,7 +220,18 @@ func ComputeOwnerProjectionReplayAuditV1(
 		}
 		if canonical.ReceiptDigest != projection.ReceiptDigest ||
 			canonical.AssertionDigest != projection.AssertionDigest ||
-			validateIntervalDigestV1(projection.AssertionDigest) != nil {
+			validateIntervalDigestV1(projection.AssertionDigest) != nil ||
+			len(projection.AssertionPayloadBytes) == 0 ||
+			len(projection.AssertionPayloadBytes) > maxProjectionAssertionPayloadBytesV1 {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
+		}
+		payloadBytes := uint64(len(projection.AssertionPayloadBytes))
+		if payloadBytes > maxProjectionAssertionPayloadTotalBytesV1-totalAssertionPayloadBytes {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
+		}
+		totalAssertionPayloadBytes += payloadBytes
+		payloadDigest := sha256.Sum256(projection.AssertionPayloadBytes)
+		if fmt.Sprintf("sha256:%x", payloadDigest) != projection.AssertionDigest {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
 		if projection.Class == ReceiptProjectsIntervalAssertionV1 {
@@ -348,6 +363,8 @@ func hashAcceptedReceiptInventoryV1(
 		_ = binary.Write(&preimage, binary.BigEndian, receipt.OwnerSequence)
 		appendForestStringV1(&preimage, receipt.ReceiptDigest)
 		appendForestStringV1(&preimage, receipt.AssertionDigest)
+		_ = binary.Write(&preimage, binary.BigEndian, uint32(len(receipt.AssertionPayloadBytes)))
+		preimage.Write(receipt.AssertionPayloadBytes)
 		_ = binary.Write(&preimage, binary.BigEndian, uint32(len(receipt.CanonicalReceiptEntryBytes)))
 		preimage.Write(receipt.CanonicalReceiptEntryBytes)
 		appendForestStringV1(&preimage, receipt.AssertionID)
