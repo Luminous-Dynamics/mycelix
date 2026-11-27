@@ -201,7 +201,7 @@ func TestFrontierForestRootBindsOwnerHistoryAndIndexRoot(t *testing.T) {
 	}
 }
 
-func TestFrontierForestRejectsInvalidGapAndOwnerCuts(t *testing.T) {
+func TestFrontierForestKeepsLogTreeSizeIndependentFromOwnerSequence(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	base := TemporalFrontierIndexManifestV1{
 		VerifierRef: scope.VerifierRef, PolicyEpochRef: scope.PolicyEpochRef,
@@ -211,14 +211,14 @@ func TestFrontierForestRejectsInvalidGapAndOwnerCuts(t *testing.T) {
 			forestOwnerBindingV1("owner:A", "history:A", 5, 6, [32]byte{1}, nil),
 		},
 	}
-	if _, err := TemporalFrontierForestRootV1(base); err == nil {
-		t.Fatal("tree size greater than owner sequence passed")
+	if _, err := TemporalFrontierForestRootV1(base); err != nil {
+		t.Fatalf("independent log tree size was compared to owner sequence: %v", err)
 	}
 	base.Owners[0] = forestOwnerBindingV1("owner:A", "history:A", 5, 3, [32]byte{1}, []OwnerGapRangeV1{
 		{First: 3, Last: 4}, {First: 4, Last: 5},
 	})
 	if _, err := TemporalFrontierForestRootV1(base); err == nil {
-		t.Fatal("overlapping gap ranges passed")
+		t.Fatal("overlapping/adjacent gap ranges passed")
 	}
 }
 
