@@ -63,9 +63,9 @@ while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob e
   git -C "$REPO_ROOT" show "$expected_commit:$manifest_path" > "$destination/Cargo.toml"
   git -C "$REPO_ROOT" show "$expected_commit:$source_path" > "$destination/src/lib.rs"
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$pr" "$branch" "$expected_commit" "$crate" \
-    "$expected_manifest_blob" "$expected_lib_blob" >> "$OUT_DIR/source-receipt.tsv"
+    "$expected_manifest_blob" "$expected_lib_blob" "$source_root" >> "$OUT_DIR/source-receipt.tsv"
   count=$((count + 1))
 done < "$MANIFEST"
 
