@@ -717,7 +717,8 @@ mod tests {
             source_bytes: b"ISO-10303-21; synthetic product definition",
             configuration_bytes: b"{\"profile\":\"default\"}\n",
             raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[{"assertion_id":"A1"}]}"#,
+            assertion_bytes:
+                br#"{"schema":"AeroSemanticAssertionV1","assertions":[{"assertion_id":"A1"}]}"#,
             rights_status: RightsStatus::ClearedForTesting,
             status: RunStatus::Succeeded,
         });
