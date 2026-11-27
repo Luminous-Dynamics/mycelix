@@ -98,4 +98,6 @@ if ! jq -n -e --slurpfile cases "$CASES" --slurpfile mapping "$INTEGRATION_MAP" 
   exit 1
 fi
 
-echo "Water Service Repair V1: manifest, 16 synthetic cases, and 16 cross-core owner mappings valid."
+bash "$ROOT/validate-metamorphic.sh"
+
+echo "Water Service Repair V1: manifest, 16 synthetic cases, 16 cross-core owner mappings, and 20 proposed metamorphic vectors structurally valid; cross-core execution remains pending."
