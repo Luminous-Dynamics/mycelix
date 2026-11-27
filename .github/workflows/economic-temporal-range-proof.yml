@@ -7,13 +7,6 @@ on:
       - 'docs/economic/temporal/TEMPORAL_FRONTIER_FOREST_V0.1.md'
       - 'tools/economic/temporal-range-index/**'
       - '.github/workflows/economic-temporal-range-proof.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'docs/economic/temporal/AUTHENTICATED_INTERVAL_QUERY_V0.1.md'
-      - 'docs/economic/temporal/TEMPORAL_FRONTIER_FOREST_V0.1.md'
-      - 'tools/economic/temporal-range-index/**'
-      - '.github/workflows/economic-temporal-range-proof.yml'
   workflow_dispatch:
 
 permissions:
