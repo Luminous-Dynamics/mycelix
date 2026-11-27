@@ -6,10 +6,22 @@ import (
 	"testing"
 )
 
+func checkpointTestIntent() Intent {
+	return Intent{
+		SenderDID:            "did:sender",
+		RecipientDID:         "did:recipient",
+		ClientIdempotencyKey: "client-key-001",
+		PayloadFingerprint:   "sha256:" + strings.Repeat("a", 64),
+		AmountMinor:          100,
+		FeeMinor:             3,
+		Currency:             "SAP",
+	}
+}
+
 func checkpointTestSubject() CheckpointSubjectV1 {
 	return CheckpointSubjectV1{
 		OperationID:           "sap-payment:10:did:sender:14:client-key-001",
-		IntentDigest:          "sha256:" + strings.Repeat("11", 32),
+		IntentDigest:          "sha256:5a6e4c29cb95cee151d9f41ac9a82b6b91f3f4b443f2902a6026c769466f5b07",
 		Owner:                 CheckpointPayments,
 		EventLogID:            "journal:did:sender:payment:001",
 		EventCount:            8,
@@ -44,8 +56,8 @@ func checkpointVectors(t *testing.T) map[string]string {
 		}
 		vectors[key] = value
 	}
-	if len(vectors) != 3 {
-		t.Fatalf("fixture has %d values, want exactly 3", len(vectors))
+	if len(vectors) != 6 {
+		t.Fatalf("fixture has %d values, want exactly 6", len(vectors))
 	}
 	return vectors
 }
@@ -55,15 +67,37 @@ func TestCheckpointSubjectMatchesSharedKnownAnswer(t *testing.T) {
 	if vectors["profile"] != "MXSAP-JOURNAL-CHECKPOINT-SUBJECT-V1" {
 		t.Fatalf("unexpected checkpoint profile %q", vectors["profile"])
 	}
+	intent := checkpointTestIntent()
+	if vectors["intent-profile"] != "MXSAP-PAYMENT-INTENT-V1" {
+		t.Fatalf("unexpected intent profile %q", vectors["intent-profile"])
+	}
+	intentBytes, err := CanonicalIntentBytes(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := hexString(intentBytes); got != vectors["intent-bytes-hex"] {
+		t.Fatalf("intent bytes mismatch:\n got %s\nwant %s", got, vectors["intent-bytes-hex"])
+	}
+	intentDigest, err := CanonicalIntentDigest(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if intentDigest != vectors["intent-digest"] {
+		t.Fatalf("intent digest = %s, want %s", intentDigest, vectors["intent-digest"])
+	}
+
 	subject := checkpointTestSubject()
-	encoded, err := subject.CanonicalBytes()
+	if err := subject.ValidateAgainstIntent(intent); err != nil {
+		t.Fatalf("subject does not bind canonical intent: %v", err)
+	}
+	encoded, err := subject.CanonicalBytesAgainstIntent(intent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := hexString(encoded); got != vectors["subject-bytes-hex"] {
 		t.Fatalf("canonical bytes mismatch:\n got %s\nwant %s", got, vectors["subject-bytes-hex"])
 	}
-	digest, err := subject.CanonicalDigest()
+	digest, err := subject.CanonicalDigestAgainstIntent(intent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,8 +106,44 @@ func TestCheckpointSubjectMatchesSharedKnownAnswer(t *testing.T) {
 	}
 }
 
+func TestCheckpointRejectsSubjectIntentSubstitution(t *testing.T) {
+	intent := checkpointTestIntent()
+	subject := checkpointTestSubject()
+
+	subject.OperationID += "x"
+	if err := subject.ValidateAgainstIntent(intent); err != ErrCheckpointIntentMismatch {
+		t.Fatalf("changed operation ID returned %v", err)
+	}
+
+	subject = checkpointTestSubject()
+	subject.IntentDigest = "sha256:" + strings.Repeat("2", 64)
+	if err := subject.ValidateAgainstIntent(intent); err != ErrCheckpointIntentMismatch {
+		t.Fatalf("changed intent digest returned %v", err)
+	}
+}
+
+func TestCheckpointRejectsDifferentImmutableIntent(t *testing.T) {
+	subject := checkpointTestSubject()
+	mutations := []func(*Intent){
+		func(i *Intent) { i.SenderDID = "did:other-sender" },
+		func(i *Intent) { i.RecipientDID = "did:other-recipient" },
+		func(i *Intent) { i.ClientIdempotencyKey = "client-key-002" },
+		func(i *Intent) { i.PayloadFingerprint = "sha256:" + strings.Repeat("b", 64) },
+		func(i *Intent) { i.AmountMinor++ },
+		func(i *Intent) { i.FeeMinor++ },
+		func(i *Intent) { i.Currency = "EUR" },
+	}
+	for index, mutate := range mutations {
+		intent := checkpointTestIntent()
+		mutate(&intent)
+		if err := subject.ValidateAgainstIntent(intent); err != ErrCheckpointIntentMismatch {
+			t.Fatalf("intent mutation %d returned %v", index, err)
+		}
+	}
+}
+
 func TestEveryCheckpointSubjectDimensionChangesDigest(t *testing.T) {
-	original, err := checkpointTestSubject().CanonicalDigest()
+	original, err := checkpointTestSubject().canonicalDigest()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +160,7 @@ func TestEveryCheckpointSubjectDimensionChangesDigest(t *testing.T) {
 		},
 		func(s *CheckpointSubjectV1) {
 			s.CheckpointSequence = 2
-			s.PriorCheckpointDigest = "sha256:" + strings.Repeat("33", 32)
+			s.PriorCheckpointDigest = "sha256:" + strings.Repeat("44", 32)
 		},
 		func(s *CheckpointSubjectV1) { s.SourceActionHash += "x" },
 		func(s *CheckpointSubjectV1) { s.SourceChainFrontier += "x" },
@@ -102,7 +172,7 @@ func TestEveryCheckpointSubjectDimensionChangesDigest(t *testing.T) {
 	for index, mutate := range mutations {
 		subject := checkpointTestSubject()
 		mutate(&subject)
-		got, err := subject.CanonicalDigest()
+		got, err := subject.canonicalDigest()
 		if err != nil {
 			t.Fatalf("mutation %d invalid: %v", index, err)
 		}
