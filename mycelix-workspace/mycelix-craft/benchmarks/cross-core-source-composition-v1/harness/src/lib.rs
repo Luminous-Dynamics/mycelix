@@ -1113,8 +1113,7 @@ mod tests {
     #[test]
     fn wsr006_wrong_zone_scope_qualifier_cannot_become_direct_support() {
         use claim_support::{
-            ClaimSupportDispositionV1, QualifierRelationV1, ReviewDecisionV1,
-            SemanticDimensionV1,
+            ClaimSupportDispositionV1, QualifierRelationV1, ReviewDecisionV1, SemanticDimensionV1,
         };
 
         let mut packet = claim_packet("water:pressure-restoration");
@@ -1144,10 +1143,7 @@ mod tests {
             result.disposition,
             ClaimSupportDispositionV1::HumanReviewRequired
         );
-        assert_ne!(
-            result.disposition,
-            ClaimSupportDispositionV1::Supported
-        );
+        assert_ne!(result.disposition, ClaimSupportDispositionV1::Supported);
     }
 
     #[test]
