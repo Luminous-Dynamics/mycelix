@@ -238,7 +238,7 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         "temporal_replay_p95_ns": replay_p95,
         "temporal_replay_events_per_second_at_p50": replay_events_per_second,
         "peak_rss_kib": high_water_rss_kib(),
-        "claim_boundary": "Synthetic profile validation and canonicalization only; no OCEL general-conformance, source authenticity, owner-core, process-discovery or field-effectiveness claim."
+        "claim_boundary": "Synthetic profile validation, canonicalization and replay only; no OCEL general-conformance, source authenticity, owner-core, process-discovery or field-effectiveness claim."
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
