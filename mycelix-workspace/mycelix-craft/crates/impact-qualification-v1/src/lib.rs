@@ -231,7 +231,7 @@ fn validate_scope(
         || expected
             .safety_authority
             .as_ref()
-.is_some_and(|authority| !valid_artifact(authority))
+            .is_some_and(|authority| !valid_artifact(authority))
     {
         return Err(ImpactQualificationErrorV1::InvalidArtifactReference);
     }
