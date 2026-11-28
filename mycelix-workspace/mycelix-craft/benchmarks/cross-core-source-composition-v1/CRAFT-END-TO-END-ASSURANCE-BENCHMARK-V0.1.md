@@ -286,3 +286,49 @@ The benchmark should now report the following without pooling them into one scor
 - **Independent auditability:** offline verification success, proof-obligation vector, reviewer disagreement and time to reproduce a historical decision.
 
 Hard assurance gates remain non-compensatory. The target is the largest decision-justified coverage and smallest total assurance burden subject to zero high-consequence false-safe, false-authority, false-completeness, false-independence, unauthorized-effect and unknown-outcome-barrier violations on the frozen qualification corpus.
+
+
+## 14. Decision-separating observation benchmark — 28 November 2026
+
+The benchmark now includes a non-probabilistic observation-partition track, tracked by [issue #6870](https://github.com/Luminous-Dynamics/mycelix/issues/6870) and [draft PR #6871](https://github.com/Luminous-Dynamics/mycelix/pull/6871).
+
+Given a finite declared world set and a candidate deterministic observation mapping, DSOP partitions worlds by outcome and checks each branch independently:
+- robust-safe actions;
+- actions optimal in every world within the branch;
+- minimax loss and minimax regret;
+- worst residual branch minimax regret relative to the pre-observation baseline;
+- mapping completeness over every compatible world;
+- failure-domain overlap, kept separate from decision discrimination.
+
+An observation is decision-separating within the listed worlds only when every non-empty outcome branch contains at least one safe action optimal in every world in that branch. The action may differ between outcomes, enabling an adaptive action policy. A missing outcome mapping is an incomplete model and must not be filled with a default.
+
+No probabilities are assigned to observation outcomes or inferred from the number of worlds in a branch. World-count shares are combinatorial fixture coverage statistics, not probabilities, propensities or expected utility. Acquisition cost, delay and burden are reported separately; DSOP is not EVSI.
+
+### 14.1 Active feature acquisition and decision-focused research baselines
+
+The [IJCAI 2026 survey on Active Feature Acquisition Strategies](https://doi.org/10.24963/ijcai.2026/860) frames acquisition as sequential decision-making / POMDP planning and groups methods into embedded cost-sensitive, model-based, model-free and hybrid families. It also highlights the need for realistic missingness/logging and stronger guarantees for non-myopic acquisition. This is important prior art: Craft should benchmark against those families, not claim the basic idea of sequential acquisition as novel.
+
+The [UAI 2026 robust decision-focused learning paper](https://proceedings.mlr.press/v337/yamao26a.html) studies worst-case regret under measurement uncertainty and distribution shift using uncertainty sets. This is a relevant comparator for the model/loss robustness portion, but it does not by itself establish authenticated source admission, world-set completeness, authority or outcome provenance.
+
+Task separation:
+- **DSOP:** exact branch-wise decision identifiability without assigning outcome probabilities.
+- **EIG:** expected uncertainty reduction under an admitted probabilistic model.
+- **EVSI:** expected decision-loss improvement under an admitted loss and observation model.
+- **Robust EVSI / robust decision-focused optimization:** worst-case decision value or regret over a declared model/uncertainty set.
+- **Sequential EVSI / POMDP baselines:** adaptive acquisition policy under declared transition/observation probabilities and costs.
+
+Do not compare these objectives through one blended score. Match the model assumptions, acquisition candidates, safety constraints, action set, cost budget and observation availability first. Where a baseline requires probabilities, DSOP's probability-free result is complementary rather than a numeric replacement.
+
+### 14.2 Required DSOP controls
+
+- An observation with one outcome for all worlds must not be called decision-separating when that branch retains competing optimal actions.
+- A total observation mapping that yields different, branch-specific invariant actions is a successful adaptive separation.
+- A genuine decision flip within any branch means universal separation fails.
+- Missing mappings, unknown worlds or out-of-domain outcomes remain NotEvaluated or rejected; they are never coerced into a favorable result.
+- Distinct outcomes do not prove independent sources. Shared material failure domains remain visible.
+- A hard-unsafe action cannot enter a branch's robust-safe or identified set.
+- Permuting world, action and observation order must preserve canonical output.
+
+### 14.3 Metrics
+
+Report universal branch-separation rate, identified-world count share, residual worst-branch minimax regret, branch count, incomplete-outcome-model rate, hard-safety exclusions, shared failure-domain overlaps, and acquisition cost/delay/burden independently. Keep zero-tolerance safety and authority metrics outside all aggregate performance scores.
