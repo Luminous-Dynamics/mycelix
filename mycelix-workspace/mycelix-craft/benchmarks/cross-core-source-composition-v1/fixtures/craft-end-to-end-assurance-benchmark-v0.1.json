@@ -151,6 +151,47 @@
         "constrained_portfolio",
         "budgeted_hindsight_upper_bound"
       ]
+    },
+    {
+      "id": "meta_audit_of_inspection_policy",
+      "metrics": [
+        "policy_action_replay_completeness",
+        "selection_bias_analysis",
+        "off_policy_estimation_error",
+        "support_positivity_violation_rate",
+        "propensity_calibration",
+        "importance_weight_effective_sample_size",
+        "rare_region_inspection_coverage",
+        "uninspected_residual_risk",
+        "utility_per_review_hour",
+        "policy_drift_detection_delay",
+        "human_override_rate",
+        "rollback_latency",
+        "policy_version_change_traceability"
+      ],
+      "scenarios": [
+        "historical_high_risk_only_selection",
+        "rare_high_severity_reward_abandonment",
+        "reviewer_outcomes_missing_not_at_random",
+        "zero_propensity_critical_region",
+        "unversioned_selection_policy_change",
+        "adversarial_feature_manipulation_to_avoid_review",
+        "feedback_loop_reinforces_visible_risk"
+      ],
+      "hard_rules": [
+        "unsupported_off_policy_strata_must_be_NotEvaluated",
+        "no_clipped_weight_estimate_may_hide_positivity_failure",
+        "every_selection_and_override_must_be_reconstructable"
+      ],
+      "baselines": [
+        "fixed_threshold",
+        "random_safe_with_exploration",
+        "expert_review_policy",
+        "active_learning",
+        "contextual_bandit",
+        "constrained_EVSI_policy",
+        "budgeted_hindsight_upper_bound"
+      ]
     }
   ],
   "comparators": [
@@ -205,5 +246,22 @@
     "pending",
     "field_physical_not_evaluated"
   ],
-  "scoring_rule": "No composite score may compensate for a zero-tolerance assurance failure."
+  "scoring_rule": "No composite score may compensate for a zero-tolerance assurance failure.",
+  "source_context": [
+    {
+      "id": "selective_monitoring_survey_2026",
+      "citation": "Becerril Villamil et al., 2026, DOI 10.3390/make8080234",
+      "url": "https://www.mdpi.com/2504-4990/8/8/234"
+    },
+    {
+      "id": "ocel_2_1_pre5",
+      "citation": "Berti et al., OCEL 2.1 Specification v2.1.0pre5, 2026-10-01",
+      "url": "https://www.ocel-standard.org/2.1/ocel20_specification.pdf"
+    },
+    {
+      "id": "scitt_rfc_9943",
+      "citation": "IETF RFC 9943, 2026-06",
+      "url": "https://www.rfc-editor.org/rfc/rfc9943.html"
+    }
+  ]
 }
