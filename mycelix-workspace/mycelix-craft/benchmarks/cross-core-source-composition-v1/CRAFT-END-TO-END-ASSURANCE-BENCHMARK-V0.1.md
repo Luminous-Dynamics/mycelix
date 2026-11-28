@@ -188,3 +188,11 @@ The meta-audit track is directly motivated by the 2026 survey's findings that se
 - Berti, A. et al., *OCEL (Object-Centric Event Log) 2.1 Specification*, version 2.1.0pre5, 1 October 2026. Use its object/event/relationship semantics and exchange-format requirements as the interchange baseline; do not reduce all events to a single case identifier.
 - Birkholz, H. et al., IETF RFC 9943, *An Architecture for Trustworthy and Transparent Digital Supply Chains*, June 2026. Use SCITT-compatible signed statements and transparency receipts where relevant; keep authenticity/registration separate from truth and completeness.
 
+
+## 12. OCEL 2.1 cross-format semantic parity
+
+The benchmark now includes a static golden OCEL sample across JSON, single-file CSV and bundled CSV. The logical projection includes two event types, five object types, five E2O edges, two O2O edges, and six object attribute assignments (including a timed Pump state transition). The bundle includes the separate event/object/object-change/E2O/O2O tables and authoritative metadata map.
+
+The current OCEL 2.1.0pre5 single-file CSV profile discriminates event, O2O, object declaration and object-attribute rows using `id`, `activity` and `timestamp`; the bundled profile uses typed tables and `ocel-meta.json`. Therefore, the benchmark compares the reconstructed semantic projection, not byte representation. Every import/export path must preserve endpoints, qualifiers, object types, primitive values and complete attribute histories. See the [OCEL 2.1 CSV profile](https://www.ocel-standard.org/specification/formats/csv/) and [bundled CSV/Parquet profile](https://www.ocel-standard.org/specification/formats/bundled/).
+
+Static fixtures are present; the parser/importer/exporter and round-trip runner are not yet implemented. Bundled Parquet is declared as NotImplemented until a serializer and importer are available. No cross-format test pass is claimed.
