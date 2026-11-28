@@ -11,9 +11,9 @@ import (
 
 const eps=1e-12
 
-type State struct { ID string; Probability float64 }
-type Action struct { ID string; LossByState map[string]float64 }
-type Likelihood struct { ResultID string; Probability float64 }
+type State struct { ID string `+"`"+`json:"id"`+"`"+`; Probability float64 `+"`"+`json:"probability"`+"`"+` }
+type Action struct { ID string `+"`"+`json:"id"`+"`"+`; LossByState map[string]float64 `+"`"+`json:"loss_by_state"`+"`"+` }
+type Likelihood struct { ResultID string `+"`"+`json:"result_id"`+"`"+`; Probability float64 `+"`"+`json:"probability"`+"`"+` }
 type Observation struct {
  ID string
  Cost float64
