@@ -57,4 +57,9 @@ expect_rejected "evidence observed before frontier is omitted from its known set
 expect_rejected "event timestamp occurs after evidence observation" \
   '(.cases[] | select(.case_id == "ITOPS-AH-012") | .evidence[0].event_at) = "2026-11-28T21:06:00Z"'
 
-echo "PASS: all 18 attempt-history mutations were rejected."
+expect_rejected "duplicate-effect evidence for attempt two borrowed from attempt one" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-017") | .evidence[1].attempt_id) = "attempt-1"'
+expect_rejected "no-effect evidence detached from the retried attempt" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-005") | .evidence[0].attempt_id) = "other-attempt"'
+
+echo "PASS: all 20 attempt-history mutations were rejected."
