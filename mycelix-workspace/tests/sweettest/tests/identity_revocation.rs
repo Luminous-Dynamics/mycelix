@@ -133,6 +133,9 @@ async fn test_revoke_credential_lifecycle() {
 
     assert_eq!(status.credential_id, credential_id);
     assert_eq!(status.status, "Revoked", "Credential should be revoked");
+    assert_eq!(status.lookup_status, "RecordObserved");
+    assert!(status.effective_from.is_some());
+    assert!(status.recorded_at.is_some());
     assert!(status.reason.is_some(), "Revocation should include reason");
 }
 
