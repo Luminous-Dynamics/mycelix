@@ -1,0 +1,353 @@
+{
+  "schema": "luminous.finite-normal-form-fixtures",
+  "version": "0.1.0",
+  "payoff_convention": "payoffs are ordered by players; a row key is the ordered strategy choice for each player",
+  "equilibrium_definition": "pure Nash equilibrium iff no player can improve their own payoff through any legal unilateral deviation while all other choices are held fixed",
+  "utility_unit": "abstract_fixture_utility",
+  "claims": {
+    "pure_equilibrium": "finite pure-strategy equilibrium only; no mixed-strategy claim",
+    "human_behavior": "synthetic mathematical fixtures; no claim about empirical human behaviour",
+    "mechanism_properties": "equilibrium alone does not establish budget balance, individual rationality, fairness, legitimacy, Sybil resistance, collusion resistance, or legal enforceability"
+  },
+  "fixtures": [
+    {
+      "id": "prisoners-dilemma-v1",
+      "name": "Prisoner's Dilemma",
+      "players": [
+        {
+          "id": "row",
+          "type": "Rational"
+        },
+        {
+          "id": "column",
+          "type": "Rational"
+        }
+      ],
+      "strategies": [
+        {
+          "id": "cooperate",
+          "legal_for": [
+            "Rational"
+          ]
+        },
+        {
+          "id": "defect",
+          "legal_for": [
+            "Rational"
+          ]
+        }
+      ],
+      "payoffs": [
+        {
+          "profile": [
+            "cooperate",
+            "cooperate"
+          ],
+          "values": [
+            3,
+            3
+          ]
+        },
+        {
+          "profile": [
+            "cooperate",
+            "defect"
+          ],
+          "values": [
+            0,
+            5
+          ]
+        },
+        {
+          "profile": [
+            "defect",
+            "cooperate"
+          ],
+          "values": [
+            5,
+            0
+          ]
+        },
+        {
+          "profile": [
+            "defect",
+            "defect"
+          ],
+          "values": [
+            1,
+            1
+          ]
+        }
+      ],
+      "expected_pure_equilibria": [
+        {
+          "profile": [
+            "defect",
+            "defect"
+          ],
+          "payoffs": [
+            1,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "matching-pennies-v1",
+      "name": "Matching Pennies",
+      "players": [
+        {
+          "id": "row",
+          "type": "Rational"
+        },
+        {
+          "id": "column",
+          "type": "Rational"
+        }
+      ],
+      "strategies": [
+        {
+          "id": "heads",
+          "legal_for": [
+            "Rational"
+          ]
+        },
+        {
+          "id": "tails",
+          "legal_for": [
+            "Rational"
+          ]
+        }
+      ],
+      "payoffs": [
+        {
+          "profile": [
+            "heads",
+            "heads"
+          ],
+          "values": [
+            1,
+            -1
+          ]
+        },
+        {
+          "profile": [
+            "heads",
+            "tails"
+          ],
+          "values": [
+            -1,
+            1
+          ]
+        },
+        {
+          "profile": [
+            "tails",
+            "heads"
+          ],
+          "values": [
+            -1,
+            1
+          ]
+        },
+        {
+          "profile": [
+            "tails",
+            "tails"
+          ],
+          "values": [
+            1,
+            -1
+          ]
+        }
+      ],
+      "expected_pure_equilibria": []
+    },
+    {
+      "id": "stag-hunt-v1",
+      "name": "Stag Hunt",
+      "players": [
+        {
+          "id": "row",
+          "type": "Rational"
+        },
+        {
+          "id": "column",
+          "type": "Rational"
+        }
+      ],
+      "strategies": [
+        {
+          "id": "stag",
+          "legal_for": [
+            "Rational"
+          ]
+        },
+        {
+          "id": "hare",
+          "legal_for": [
+            "Rational"
+          ]
+        }
+      ],
+      "payoffs": [
+        {
+          "profile": [
+            "stag",
+            "stag"
+          ],
+          "values": [
+            4,
+            4
+          ]
+        },
+        {
+          "profile": [
+            "stag",
+            "hare"
+          ],
+          "values": [
+            0,
+            3
+          ]
+        },
+        {
+          "profile": [
+            "hare",
+            "stag"
+          ],
+          "values": [
+            3,
+            0
+          ]
+        },
+        {
+          "profile": [
+            "hare",
+            "hare"
+          ],
+          "values": [
+            2,
+            2
+          ]
+        }
+      ],
+      "expected_pure_equilibria": [
+        {
+          "profile": [
+            "stag",
+            "stag"
+          ],
+          "payoffs": [
+            4,
+            4
+          ]
+        },
+        {
+          "profile": [
+            "hare",
+            "hare"
+          ],
+          "payoffs": [
+            2,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asymmetric-legal-strategy-sets-v1",
+      "name": "Asymmetric legal strategy sets",
+      "players": [
+        {
+          "id": "provider",
+          "type": "Rational"
+        },
+        {
+          "id": "attacker",
+          "type": "Malicious"
+        }
+      ],
+      "strategies": [
+        {
+          "id": "provide",
+          "legal_for": [
+            "Rational"
+          ]
+        },
+        {
+          "id": "withhold",
+          "legal_for": [
+            "Rational"
+          ]
+        },
+        {
+          "id": "attack",
+          "legal_for": [
+            "Malicious"
+          ]
+        },
+        {
+          "id": "abstain",
+          "legal_for": [
+            "Malicious"
+          ]
+        }
+      ],
+      "payoffs": [
+        {
+          "profile": [
+            "provide",
+            "attack"
+          ],
+          "values": [
+            0,
+            3
+          ]
+        },
+        {
+          "profile": [
+            "provide",
+            "abstain"
+          ],
+          "values": [
+            4,
+            0
+          ]
+        },
+        {
+          "profile": [
+            "withhold",
+            "attack"
+          ],
+          "values": [
+            1,
+            2
+          ]
+        },
+        {
+          "profile": [
+            "withhold",
+            "abstain"
+          ],
+          "values": [
+            2,
+            1
+          ]
+        }
+      ],
+      "expected_pure_equilibria": [
+        {
+          "profile": [
+            "withhold",
+            "attack"
+          ],
+          "payoffs": [
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  ]
+}
