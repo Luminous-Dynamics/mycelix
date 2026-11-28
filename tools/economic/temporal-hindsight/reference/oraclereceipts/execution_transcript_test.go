@@ -335,7 +335,7 @@ func TestCorrectionMustAdvanceBeyondSupersededStepReceiptFrontier(t *testing.T) 
 	original.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, original)
 	events := appendExecutionEvent(t, scope, nil, "event:original", ExecutionCommitted, &original, "")
 	correction := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
-		testDigestB, testDigestC, "step:correction", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:original")
+		state, testDigestC, "step:correction", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:original")
 	correction.IVCUpdate.PriorAdviceCommitmentDigest = original.IVCUpdate.NextAdviceCommitmentDigest
 	correction.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
 		scopeDigest, 2, receipts[1].ReceiptDigest, correction.ConsumedReceiptDigests)
@@ -475,7 +475,7 @@ func TestCorrectionAppendsNewStepAndPreservesPriorStep(t *testing.T) {
 	originalEventDigest := events[0].EventDigest
 
 	correction := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
-		testDigestB, testDigestC, "step:recompute", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:original")
+		state0, testDigestC, "step:recompute", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:original")
 	correction.IVCUpdate.PriorAdviceCommitmentDigest = original.IVCUpdate.NextAdviceCommitmentDigest
 	correction.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
 		scopeDigest, correction.ReceiptFrontierSequence, correction.ReceiptFrontierDigest, correction.ConsumedReceiptDigests)
@@ -505,7 +505,7 @@ func TestCorrectionMustSupersedeAnEarlierAppliedStep(t *testing.T) {
 	events := appendExecutionEvent(t, scope, nil, "event:original", ExecutionCommitted, &original, "")
 
 	transition := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
-		testDigestB, testDigestC, "step:correction", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:missing")
+		state, testDigestC, "step:correction", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:missing")
 	transition.IVCUpdate.PriorAdviceCommitmentDigest = original.IVCUpdate.NextAdviceCommitmentDigest
 	transition.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
 		scopeDigest, transition.ReceiptFrontierSequence, transition.ReceiptFrontierDigest, transition.ConsumedReceiptDigests)
@@ -559,9 +559,10 @@ func correctionTransitionForCone(t testing.TB, scope OracleScopeV1, receipts []O
 
 func TestCorrectionMustSupersedeWholeDownstreamLinearSuffix(t *testing.T) {
 	scope, receipts, baseEvents, adviceHead := buildTwoStepCorrectionConeFixture(t)
+	_, _, preImpactState := executionGenesis(t, scope)
 
 	t.Run("partial cone rejected", func(t *testing.T) {
-		partial := correctionTransitionForCone(t, scope, receipts, testDigestA, testDigestB, adviceHead, "step:one")
+		partial := correctionTransitionForCone(t, scope, receipts, preImpactState, testDigestB, adviceHead, "step:one")
 		events := appendExecutionEvent(t, scope, append([]ExecutionEventV1(nil), baseEvents...), "event:correction", ExecutionCommitted, &partial, "")
 		got := replayExecution(t, scope, receipts, events)
 		if got.Disposition != ExecutionChainIndeterminate ||
@@ -571,7 +572,7 @@ func TestCorrectionMustSupersedeWholeDownstreamLinearSuffix(t *testing.T) {
 	})
 
 	t.Run("complete suffix accepted", func(t *testing.T) {
-		complete := correctionTransitionForCone(t, scope, receipts, testDigestA, testDigestB, adviceHead, "step:one", "step:two")
+		complete := correctionTransitionForCone(t, scope, receipts, preImpactState, testDigestB, adviceHead, "step:one", "step:two")
 		events := appendExecutionEvent(t, scope, append([]ExecutionEventV1(nil), baseEvents...), "event:correction", ExecutionCommitted, &complete, "")
 		got := replayExecution(t, scope, receipts, events)
 		if got.Disposition != ExecutionChainStructurallyValid ||
