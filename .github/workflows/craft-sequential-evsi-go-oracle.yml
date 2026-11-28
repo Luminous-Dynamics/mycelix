@@ -1,0 +1,131 @@
+name: Craft sequential EVSI exact finite-horizon oracle
+
+on:
+  push:
+    branches:
+      - research/craft-sequential-evsi-go-oracle-v0.1-20261128
+    paths:
+      - ".github/workflows/craft-sequential-evsi-go-oracle.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/sequential-evsi-go-v0.1/**"
+  pull_request:
+    branches:
+      - research/craft-end-to-end-assurance-benchmark-v0.1-20261128
+    paths:
+      - ".github/workflows/craft-sequential-evsi-go-oracle.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/sequential-evsi-go-v0.1/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: craft-sequential-evsi-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  exact-head:
+    name: Exact-head sequential EVSI known-answer oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      ORACLE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/sequential-evsi-go-v0.1
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact source head and required fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -s "$ORACLE_DIR/go.mod"
+          test -s "$ORACLE_DIR/oracle/planner.go"
+          test -s "$ORACLE_DIR/oracle/planner_test.go"
+          test -s "$ORACLE_DIR/fixtures/sequential-evsi-complementarity-v0.1.json"
+
+      - name: Install pinned Go 1.23.2
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: 1.23.2
+          cache: false
+          check-latest: false
+
+      - name: Check Go formatting
+        id: gofmt
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [[ -n "$unformatted" ]]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Run frozen exact sequential-acquisition KAT suite
+        id: tests
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          go test ./...
+
+      - name: Run Go race detector
+        id: race
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          go test -race ./...
+
+      - name: Run go vet
+        id: vet
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Measure statement coverage
+        id: coverage
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          go test -cover ./...
+
+      - name: Assemble exact-head qualification receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/craft-sequential-evsi"
+          mkdir -p "$out"
+          {
+            printf 'exact_head\t%s\n' "$EXPECTED_HEAD"
+            printf 'go_version\t%s\n' "$(go version 2>&1 || printf UNAVAILABLE)"
+            printf 'gofmt\t%s\n' "${{ steps.gofmt.outcome }}"
+            printf 'known_answer_tests\t%s\n' "${{ steps.tests.outcome }}"
+            printf 'race\t%s\n' "${{ steps.race.outcome }}"
+            printf 'vet\t%s\n' "${{ steps.vet.outcome }}"
+            printf 'coverage\t%s\n' "${{ steps.coverage.outcome }}"
+            printf 'field_calibration\tNotEvaluated\n'
+            printf 'cross_observation_dependency_beyond_declared_factorization\tNotImplemented\n'
+            printf 'production_planner_integration\tNotEvaluated\n'
+            printf 'autonomous_action\tProhibited\n'
+          } > "$out/qualification.tsv"
+          find "$ORACLE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum > "$out/source-sha256.txt"
+          (
+            cd "$out"
+            sha256sum qualification.tsv source-sha256.txt > SHA256SUMS
+          )
+          cat "$out/qualification.tsv"
+          sha256sum "$out/SHA256SUMS"
+
+      - name: Upload exact-head receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: craft-sequential-evsi-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/craft-sequential-evsi/
+          if-no-files-found: error
+          retention-days: 30
