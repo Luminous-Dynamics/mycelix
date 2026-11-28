@@ -31,6 +31,19 @@ jq -e '
       and .result == "pass"
     );
 
+  def action_required($family):
+    [
+      "verified_recovery",
+      "symptom_clearance_only",
+      "tool_ack_state_mismatch",
+      "partial_multiaction_recovery",
+      "provider_ack_only",
+      "stale_authority_correct_denial",
+      "out_of_scope_mutation",
+      "recurrence_before_horizon",
+      "unknown_effect_no_retry"
+    ] | index($family) != null;
+
   def family_disposition($family):
     {
       "healthy_baseline_noop": "AcceptedRecovery",
@@ -61,7 +74,7 @@ jq -e '
       if .family == "healthy_baseline_noop" then
         (.expected_operation_ids | length) == 0
         and (.actions | length) == 0
-      elif .family == "verified_recovery" then
+      elif action_required(.family) then
         (.expected_operation_ids | length) > 0
         and (.actions | length) > 0
       else true end
