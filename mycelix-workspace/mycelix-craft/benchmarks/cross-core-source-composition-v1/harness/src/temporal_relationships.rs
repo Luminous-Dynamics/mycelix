@@ -302,19 +302,36 @@ fn digest_hex(digest: &[u8; 32]) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+#[derive(Clone, Copy)]
+struct SnapshotDigestInput<'a> {
+    known_relation_ids: &'a [String],
+    visible_relation_ids: &'a [String],
+    pending_relation_ids: &'a [String],
+    expired_relation_ids: &'a [String],
+    known_claims: &'a [&'a TemporalRelationClaimV1],
+    active: &'a [TemporalRelationClaimV1],
+    conflicts: &'a [TemporalRelationshipConflictV1],
+    known_mutations: &'a [&'a TemporalRelationMutationV1],
+    superseded: &'a [String],
+    revoked: &'a [String],
+}
+
 fn snapshot_digest(
     cut: &TemporalRelationshipCutV1,
-    known_relation_ids: &[String],
-    visible_relation_ids: &[String],
-    pending_relation_ids: &[String],
-    expired_relation_ids: &[String],
-    known_claims: &[&TemporalRelationClaimV1],
-    active: &[TemporalRelationClaimV1],
-    conflicts: &[TemporalRelationshipConflictV1],
-    known_mutations: &[&TemporalRelationMutationV1],
-    superseded: &[String],
-    revoked: &[String],
+    input: &SnapshotDigestInput<'_>,
 ) -> [u8; 32] {
+    let SnapshotDigestInput {
+        known_relation_ids,
+        visible_relation_ids,
+        pending_relation_ids,
+        expired_relation_ids,
+        known_claims,
+        active,
+        conflicts,
+        known_mutations,
+        superseded,
+        revoked,
+    } = *input;
     let mut hasher = Sha256::new();
     hash_field(&mut hasher, "MYCELIX-TEMPORAL-RELATION-SNAPSHOT-V1");
     hash_field(&mut hasher, &cut.valid_at);
@@ -1056,16 +1073,18 @@ pub fn project_temporal_relationships(
     let revoked_relation_ids: Vec<_> = revoked.into_iter().collect();
     let digest = snapshot_digest(
         cut,
-        &known_relation_ids,
-        &visible_relation_ids,
-        &pending_relation_ids,
-        &expired_relation_ids,
-        &known_claim_refs,
-        &active_relations,
-        &conflicts,
-        &known_mutation_refs,
-        &superseded_relation_ids,
-        &revoked_relation_ids,
+        &SnapshotDigestInput {
+            known_relation_ids: &known_relation_ids,
+            visible_relation_ids: &visible_relation_ids,
+            pending_relation_ids: &pending_relation_ids,
+            expired_relation_ids: &expired_relation_ids,
+            known_claims: &known_claim_refs,
+            active: &active_relations,
+            conflicts: &conflicts,
+            known_mutations: &known_mutation_refs,
+            superseded: &superseded_relation_ids,
+            revoked: &revoked_relation_ids,
+        },
     );
 
     Ok(TemporalRelationshipReceiptV1 {
@@ -1318,7 +1337,7 @@ mod tests {
     #[test]
     fn rejects_duplicate_consumed_ocel_type_declaration_in_either_order() {
         let digest = digest_hex(&[0x11; 32]);
-        let mut fixture = temporal_relationship_ocel_fixture(&digest, &digest);
+        let fixture = temporal_relationship_ocel_fixture(&digest, &digest);
         let mut duplicate = fixture["objectTypes"][2].clone();
         duplicate["attributes"][0]["type"] = serde_json::Value::String("integer".to_owned());
 
