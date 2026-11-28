@@ -461,6 +461,38 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 		},
 	},
+	"mycelix.djcc.independent-corroboration.v0.1": {
+		RequiredClaims: []string{"authentication", "authority", "completeness", "independence", "truth"},
+		AllowedNotApplicable: []string{"execution", "outcome"},
+		ClaimStages: map[string][]string{
+			"authentication": {"verifier_frontier", "source_trust"},
+			"authority": {"authorization"},
+			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
+			"independence": {"source_trust", "semantic_projection", "query"},
+			"truth": {"query", "policy"},
+		},
+		DependencyClaims: map[string]map[string][]string{
+			"source_trust": {
+				"verifier_frontier": {"authentication", "completeness"},
+			},
+			"semantic_projection": {
+				"verifier_frontier": {"authentication"},
+				"source_trust": {"authentication"},
+			},
+			"query": {
+				"verifier_frontier": {"authentication", "completeness"},
+				"source_trust": {"authentication", "completeness", "independence"},
+				"semantic_projection": {"authentication", "completeness", "independence"},
+			},
+			"policy": {
+				"query": {"authentication", "completeness", "independence", "truth"},
+			},
+			"authorization": {
+				"verifier_frontier": {"authentication"},
+				"policy": {"authentication", "truth"},
+			},
+		},
+	},
 }
 
 func ValidateProfileAgainstIndependentOracle(profile CompositionProfile) error {
