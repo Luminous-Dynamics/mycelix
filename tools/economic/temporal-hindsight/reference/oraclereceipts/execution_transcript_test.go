@@ -319,6 +319,45 @@ func TestExecutionReceiptFrontierCannotRegressAcrossSteps(t *testing.T) {
 	}
 }
 
+func TestCorrectionCannotRecomputeFromStaleCurrentStateHead(t *testing.T) {
+	scope, receipts, baseEvents, adviceHead := buildTwoStepCorrectionConeFixture(t)
+	correction := correctionTransitionForCone(t, scope, receipts, testDigestA, testDigestB, adviceHead,
+		"step:one", "step:two")
+	events := appendExecutionEvent(t, scope, baseEvents, "event:correction", ExecutionCommitted, &correction, "")
+	got := replayExecution(t, scope, receipts, events)
+	if got.Disposition != ExecutionChainIndeterminate ||
+		!strings.Contains(got.Reason, "input-state digest does not match") {
+		t.Fatalf("correction from stale current state was accepted: %+v", got)
+	}
+}
+
+func TestCorrectedBranchAcceptsNewDependentStep(t *testing.T) {
+	scope, receipts, baseEvents, adviceHead := buildTwoStepCorrectionConeFixture(t)
+	_, _, preImpactState := executionGenesis(t, scope)
+	correction := correctionTransitionForCone(t, scope, receipts, preImpactState, testDigestB, adviceHead,
+		"step:one", "step:two")
+	events := appendExecutionEvent(t, scope, baseEvents, "event:correction", ExecutionCommitted, &correction, "")
+
+	scopeDigest, _, _ := executionGenesis(t, scope)
+	next := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
+		testDigestC, testDigestA, "step:after-correction", StepApply, testDigestB, testDigestC)
+	next.IVCUpdate.PriorAdviceCommitmentDigest = correction.IVCUpdate.NextAdviceCommitmentDigest
+	next.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, 2, receipts[1].ReceiptDigest, next.ConsumedReceiptDigests)
+	next.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, next.IVCUpdate.PriorAdviceCommitmentDigest, next.IVCUpdate.AdviceDeltaCommitmentDigest)
+	next.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, next)
+	events = appendExecutionEvent(t, scope, events, "event:after-correction", ExecutionCommitted, &next, "")
+	got := replayExecution(t, scope, receipts, events)
+	if got.Disposition != ExecutionChainStructurallyValid ||
+		got.StateHeadDigest != testDigestB ||
+		got.ProofHeadDigest != testDigestC ||
+		got.ReceiptFrontierSequence != 2 ||
+		len(got.AppliedStepIDs) != 4 {
+		t.Fatalf("new active branch did not continue from corrected output: %+v", got)
+	}
+}
+
 func TestCorrectionMustAdvanceBeyondSupersededStepReceiptFrontier(t *testing.T) {
 	scope := executionFixtureScope()
 	receipts := executionReceipts(t, scope, 2)
