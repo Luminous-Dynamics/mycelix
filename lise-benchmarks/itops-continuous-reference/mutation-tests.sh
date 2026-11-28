@@ -35,4 +35,13 @@ expect_rejected "remove required injected-event population" \
 expect_rejected "remove independent terminal proposition" \
   '(.scenario.terminal_propositions[0].independent_verification_required) = false'
 
-echo "PASS: all 6 ITOPS continuous mutation controls were rejected."
+expect_rejected "dependency list points to an unregistered service" \
+  '(.scenario.services[] | select(.service_id == "checkout") | .depends_on[0]) = "ghost-service"'
+
+expect_rejected "event has no supporting observation" \
+  '(.scenario.fault_schedule[1].affected_observation_ids) = []'
+
+expect_rejected "required unauthorized-mutation terminal proposition removed" \
+  '(.scenario.terminal_propositions) |= map(select(.proposition_id != "term-unauthorized"))'
+
+echo "PASS: all 9 ITOPS continuous mutation controls were rejected."
