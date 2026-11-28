@@ -60,6 +60,12 @@ A correction is represented by:
 
 The original receipt and step remain in the transcript. There is no last-write-wins mutation.
 
+The correction's superseded-step set is independently recomputed as the suffix from the earliest active step that consumed any receipt in the superseded receipt ancestry. The correction must name that complete active suffix; omitted descendants and unrelated extras fail closed.
+
+The new `RecomputeAfterCorrection` step starts from the **pre-impact input state** of the earliest affected step, not from the stale current state head. Its IVC proof update still links to the current proof head and cumulative advice commitment, preserving the proof/advice transcript as an append-only accumulator. Once validated, the affected suffix is removed from the active dependency view, while every old event and step remains in immutable history. The replacement correction step becomes the new active branch. Later ordinary steps must extend the corrected state/proof/advice/frontier heads.
+
+This suffix rule is valid only for the current single-linear-state transcript, where every later step consumes the previous state head. A future DAG transcript must compute and verify the exact transitive descendant closure, allowing independent sibling branches to remain active.
+
 ## Model checking
 
 formal/OracleIVCExecution.tla checks:
@@ -77,7 +83,7 @@ The finite model has MaxSteps = 2. It is bounded model checking, not an unbounde
 
 ## Benchmarks
 
-The benchmark measures structural transcript replay at 1/10/100/1,000/10,000 steps using a fixed, structurally valid one-receipt chain. It does not represent full end-to-end IVC performance.
+The benchmark measures structural transcript replay at 1/10/100/1,000/10,000 steps using a fixed, structurally valid one-receipt chain. A separate correction-impact benchmark measures exact suffix discovery and canonicalization at 1/10/100/1,000/10,000/100,000 active steps. These are in-memory structural benchmarks; neither represents end-to-end IVC proving or proof verification.
 
 A proper comparison must separately measure:
 - full computation replay + fresh proof;
