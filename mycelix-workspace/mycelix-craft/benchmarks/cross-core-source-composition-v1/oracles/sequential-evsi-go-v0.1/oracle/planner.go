@@ -11,9 +11,9 @@ import (
 
 const eps=1e-12
 
-type State struct { ID string `+"`"+`json:"id"`+"`"+`; Probability float64 `+"`"+`json:"probability"`+"`"+` }
-type Action struct { ID string `+"`"+`json:"id"`+"`"+`; LossByState map[string]float64 `+"`"+`json:"loss_by_state"`+"`"+` }
-type Likelihood struct { ResultID string `+"`"+`json:"result_id"`+"`"+`; Probability float64 `+"`"+`json:"probability"`+"`"+` }
+type State struct { ID string ``json:"id"``; Probability float64 ``json:"probability"`` }
+type Action struct { ID string ``json:"id"``; LossByState map[string]float64 ``json:"loss_by_state"`` }
+type Likelihood struct { ResultID string ``json:"result_id"``; Probability float64 ``json:"probability"`` }
 type Observation struct {
  ID string `json:"id"`
  Cost float64 `json:"cost"`
@@ -107,7 +107,7 @@ func Solve(c Case)(Report,error){
  p:=planner{c:c,obs:map[string]Observation{},actions:map[string]Action{},memo:map[string]result{}}
  b:=make([]float64,len(c.States));for i,s:=range c.States{b[i]=s.Probability};for _,a:=range c.Actions{p.actions[a.ID]=a}
  for _,o:=range c.Observations{p.obs[o.ID]=o}
- base,_:=p.terminal(b);r.BaselineExpectedLoss=base
+ base,_:=p.terminal(b);r.BaselineExpectedLoss=base;;if len(c.Observations)>1&&c.FactorizationProfile!="conditional_independence_given_complete_latent_state_v0.1"{r.Status=Abstain;r.ExpectedTotalLoss=base;r.ExpectedTerminalLoss=base;r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base};return r,nil};r.BaselineExpectedLoss=base
  if len(c.Observations)>1&&c.FactorizationProfile!="conditional_independence_given_complete_latent_state_v0.1"{r.Status=Abstain;r.ExpectedTotalLoss=base;r.ExpectedTerminalLoss=base;r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base};return r,nil}
  valid:=[]string{};invalid:=0;for _,o:=range c.Observations{if o.Available&&o.InDomain&&o.Admissible&&o.ConditionedOnLatentState{valid=append(valid,o.ID)}else{invalid++}};sort.Strings(valid)
  for _,o:=range c.Observations{if s,ok:=scoreOne(c,o,b,base);ok{r.OneStepScores=append(r.OneStepScores,s)}};sort.Slice(r.OneStepScores,func(i,j int)bool{return r.OneStepScores[i].ObservationID<r.OneStepScores[j].ObservationID})
