@@ -41,6 +41,12 @@ jobs:
           printf 'Checked out source SHA: %s\n' "$actual"
           test "$actual" = "$EXPECTED_SHA"
 
+      - name: Test-only OCEL normalizer adversarial controls
+        run: |
+          ORACLE_DIR="mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles"
+          python3 -m py_compile "$ORACLE_DIR/pm4py_ocel2_roundtrip.py" "$ORACLE_DIR/test_pm4py_ocel2_roundtrip.py"
+          python3 -m unittest discover -s "$ORACLE_DIR" -p 'test_pm4py_ocel2_roundtrip.py' -v
+
       - name: Install pinned Rust toolchain and components
         run: |
           rustup toolchain install 1.96.0 --profile minimal
