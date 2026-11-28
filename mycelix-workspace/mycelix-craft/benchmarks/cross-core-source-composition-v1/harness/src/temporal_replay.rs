@@ -385,15 +385,12 @@ mod tests {
     #[test]
     fn appending_later_mutations_does_not_rewrite_an_earlier_frontier_receipt() {
         let mut prefix = fixture();
-        prefix["events"]
-            .as_array_mut()
-            .unwrap()
-            .retain(|event| {
-                !matches!(
-                    event.get("id").and_then(Value::as_str),
-                    Some("event-011" | "event-012")
-                )
-            });
+        prefix["events"].as_array_mut().unwrap().retain(|event| {
+            !matches!(
+                event.get("id").and_then(Value::as_str),
+                Some("event-011" | "event-012")
+            )
+        });
         let cut = cut("2026-11-27T16:00:00Z", 10);
         let prefix_receipt = replay_temporal_frontier(&input(&prefix), &cut).unwrap();
         let extended_receipt = replay_temporal_frontier(FIXTURE, &cut).unwrap();
@@ -415,13 +412,24 @@ mod tests {
         let valid_time_cut = "2026-11-27T12:00:00Z";
         let before_acceptance =
             replay_temporal_frontier(FIXTURE, &cut(valid_time_cut, 10)).unwrap();
-        let after_acceptance =
-            replay_temporal_frontier(FIXTURE, &cut(valid_time_cut, 11)).unwrap();
+        let after_acceptance = replay_temporal_frontier(FIXTURE, &cut(valid_time_cut, 11)).unwrap();
 
-        assert!(!before_acceptance.visible_event_ids.iter().any(|id| id == "event-011"));
-        assert!(before_acceptance.effective_event_ids.iter().any(|id| id == "event-006"));
-        assert!(after_acceptance.visible_event_ids.iter().any(|id| id == "event-011"));
-        assert!(after_acceptance.superseded_event_ids.iter().any(|id| id == "event-006"));
+        assert!(!before_acceptance
+            .visible_event_ids
+            .iter()
+            .any(|id| id == "event-011"));
+        assert!(before_acceptance
+            .effective_event_ids
+            .iter()
+            .any(|id| id == "event-006"));
+        assert!(after_acceptance
+            .visible_event_ids
+            .iter()
+            .any(|id| id == "event-011"));
+        assert!(after_acceptance
+            .superseded_event_ids
+            .iter()
+            .any(|id| id == "event-006"));
     }
 
     #[test]
