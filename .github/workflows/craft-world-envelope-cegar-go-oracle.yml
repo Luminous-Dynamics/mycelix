@@ -1,0 +1,59 @@
+name: Craft finite-domain world-envelope CEGAR oracle
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/world-envelope-cegar-go-v0.1/**'
+      - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/CRAFT-WORLD-ENVELOPE-CEGAR-V0.1.md'
+      - '.github/workflows/craft-world-envelope-cegar-go-oracle.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: craft-world-envelope-cegar-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  finite-domain-envelope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up pinned Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+
+      - name: Validate schema and frozen fixture JSON
+        run: |
+          python -m json.tool schema/world-envelope-cegar-v0.1.schema.json >/dev/null
+          for fixture in testdata/*.json; do
+            python -m json.tool "$fixture" >/dev/null
+          done
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/world-envelope-cegar-go-v0.1
+
+      - name: Require gofmt-clean source
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files"
+            exit 1
+          fi
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/world-envelope-cegar-go-v0.1
+
+      - name: Run exact finite-domain and mutation tests
+        run: go test -count=1 ./...
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/world-envelope-cegar-go-v0.1
+
+      - name: Run race detector
+        run: go test -race -count=1 ./...
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/world-envelope-cegar-go-v0.1
+
+      - name: Run go vet
+        run: go vet ./...
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/world-envelope-cegar-go-v0.1
