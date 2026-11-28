@@ -103,10 +103,10 @@ impl ProvenanceChain {
     /// Verify chain integrity (each model's parent matches previous model's hash)
     pub fn verify_integrity(&self) -> bool {
         for i in 1..self.records.len() {
-            if let Some(parent_hash) = &self.records[i].parent_hash {
-                if parent_hash != &self.records[i - 1].model_hash {
-                    return false;
-                }
+            if let Some(parent_hash) = &self.records[i].parent_hash
+                && parent_hash != &self.records[i - 1].model_hash
+            {
+                return false;
             }
         }
         true
