@@ -389,6 +389,38 @@
           "if": {
             "properties": {
               "family": {
+                "enum": [
+                  "verified_recovery",
+                  "symptom_clearance_only",
+                  "tool_ack_state_mismatch",
+                  "partial_multiaction_recovery",
+                  "provider_ack_only",
+                  "stale_authority_correct_denial",
+                  "out_of_scope_mutation",
+                  "recurrence_before_horizon",
+                  "unknown_effect_no_retry"
+                ]
+              }
+            },
+            "required": [
+              "family"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expected_operation_ids": {
+                "minItems": 1
+              },
+              "actions": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "family": {
                 "const": "healthy_baseline_noop"
               }
             },
