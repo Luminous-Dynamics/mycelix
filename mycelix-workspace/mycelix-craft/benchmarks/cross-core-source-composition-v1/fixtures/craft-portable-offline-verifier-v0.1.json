@@ -1,0 +1,186 @@
+{
+  "schema_id": "mycelix.craft.portable-offline-assurance-bundle.v0.1",
+  "status": "contract_and_known_answer_vectors_not_implementation",
+  "version": "0.1.0",
+  "overall_verdicts": [
+    "InvalidBundle",
+    "Indeterminate",
+    "AdmissibleWithLimitations",
+    "QualifiedWithinDeclaredProfile"
+  ],
+  "proof_obligation_states": [
+    "EstablishedWithinProfile",
+    "Rejected",
+    "Indeterminate",
+    "NotEvaluated",
+    "UnsupportedByProfile",
+    "NotApplicable"
+  ],
+  "obligations": [
+    "integrity",
+    "authentication",
+    "transparency",
+    "trust_at_time",
+    "binding",
+    "frontier",
+    "universe_coverage",
+    "semantic",
+    "authority",
+    "independence",
+    "effect",
+    "truth"
+  ],
+  "non_implications": [
+    [
+      "integrity",
+      "authentication"
+    ],
+    [
+      "authentication",
+      "trust_at_time"
+    ],
+    [
+      "transparency",
+      "truth"
+    ],
+    [
+      "frontier",
+      "universe_coverage"
+    ],
+    [
+      "authority",
+      "effect"
+    ],
+    [
+      "integrity",
+      "semantic"
+    ],
+    [
+      "signature",
+      "source_completeness"
+    ],
+    [
+      "source_inventory_signature",
+      "universe_completeness"
+    ]
+  ],
+  "required_artifacts": [
+    "bundle_manifest",
+    "trust_snapshot",
+    "dbc",
+    "source_admission_receipts",
+    "source_universe_declaration_or_not_evaluated",
+    "causal_frontier",
+    "ocel_profile_and_projection",
+    "policy_receipt",
+    "authority_receipt",
+    "execution_transcript",
+    "outcome_receipt_or_unknown_marker"
+  ],
+  "cases": [
+    {
+      "id": "OFFLINE-001",
+      "scenario": "valid complete reference bundle",
+      "expected": "QualifiedWithinDeclaredProfile",
+      "integrity": "EstablishedWithinProfile",
+      "authentication": "EstablishedWithinProfile",
+      "transparency": "EstablishedWithinProfile",
+      "binding": "EstablishedWithinProfile",
+      "universe_coverage": "EstablishedWithinProfile",
+      "truth": "EstablishedWithinProfile"
+    },
+    {
+      "id": "OFFLINE-002",
+      "scenario": "integrity valid but source universe not justified",
+      "expected": "AdmissibleWithLimitations",
+      "integrity": "EstablishedWithinProfile",
+      "universe_coverage": "NotEvaluated",
+      "completeness_claim": "NotEstablished"
+    },
+    {
+      "id": "OFFLINE-003",
+      "scenario": "single byte payload mutation",
+      "expected": "InvalidBundle",
+      "integrity": "Rejected"
+    },
+    {
+      "id": "OFFLINE-004",
+      "scenario": "signed statement by unknown key",
+      "expected": "InvalidBundle",
+      "authentication": "Rejected"
+    },
+    {
+      "id": "OFFLINE-005",
+      "scenario": "stale or missing revocation snapshot",
+      "expected": "Indeterminate",
+      "trust_at_time": "Indeterminate"
+    },
+    {
+      "id": "OFFLINE-006",
+      "scenario": "valid signature but transparency inclusion missing",
+      "expected": "Indeterminate",
+      "authentication": "EstablishedWithinProfile",
+      "transparency": "NotEvaluated"
+    },
+    {
+      "id": "OFFLINE-007",
+      "scenario": "digest reused under wrong schema",
+      "expected": "InvalidBundle",
+      "binding": "Rejected"
+    },
+    {
+      "id": "OFFLINE-008",
+      "scenario": "signed but selectively incomplete source feed",
+      "expected": "AdmissibleWithLimitations",
+      "authentication": "EstablishedWithinProfile",
+      "universe_coverage": "Indeterminate"
+    },
+    {
+      "id": "OFFLINE-009",
+      "scenario": "OCEL object relation dropped in conversion",
+      "expected": "InvalidBundle",
+      "semantic": "Rejected"
+    },
+    {
+      "id": "OFFLINE-010",
+      "scenario": "authority scope does not cover requested action",
+      "expected": "InvalidBundle",
+      "authority": "Rejected"
+    },
+    {
+      "id": "OFFLINE-011",
+      "scenario": "unknown physical outcome",
+      "expected": "AdmissibleWithLimitations",
+      "effect": "NotEvaluated",
+      "truth": "NotEvaluated"
+    },
+    {
+      "id": "OFFLINE-012",
+      "scenario": "shared calibration dependency falsely asserted independent",
+      "expected": "AdmissibleWithLimitations",
+      "independence": "Rejected"
+    },
+    {
+      "id": "OFFLINE-013",
+      "scenario": "unknown execution outcome and same-scope mutation attempted",
+      "expected": "InvalidBundle",
+      "effect": "Rejected"
+    },
+    {
+      "id": "OFFLINE-014",
+      "scenario": "valid transparency receipt for untrue issuer assertion",
+      "expected": "AdmissibleWithLimitations",
+      "transparency": "EstablishedWithinProfile",
+      "truth": "NotEvaluated"
+    }
+  ],
+  "invariants": [
+    "absence_of_proof_never_defaults_to_established",
+    "one_obligation_never_upgrades_another",
+    "dbc_eap_post_acquisition_dbc_are_distinct_receipts",
+    "universe_coverage_requires_explicit_universe_boundary_and_reconciliation",
+    "offline_profile_uses_only_exported_bytes_and_declared_trust_material",
+    "unknown_outcome_blocks_same_scope_mutation",
+    "claim_ceiling_reduction_is_monotonic_non_widening"
+  ]
+}
