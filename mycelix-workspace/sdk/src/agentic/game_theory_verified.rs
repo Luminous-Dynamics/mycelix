@@ -412,10 +412,10 @@ mod tests {
         assert_eq!(result.status, PureEquilibriumStatus::Found);
         assert_eq!(result.equilibria.len(), 2);
         assert!(result.equilibria.iter().any(|equilibrium| {
-            equilibrium.strategy_profile == vec!["cooperate", "cooperate"]
+            equilibrium.strategy_profile == vec!["cooperate".to_string(), "cooperate".to_string()]
         }));
         assert!(result.equilibria.iter().any(|equilibrium| {
-            equilibrium.strategy_profile == vec!["defect", "defect"]
+            equilibrium.strategy_profile == vec!["defect".to_string(), "defect".to_string()]
         }));
     }
 
