@@ -2,7 +2,7 @@ name: ITOPS Outcome Oracle Reference Fixtures
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, research/itops-outcome-oracle-v0.1]
     paths:
       - "lise-benchmarks/itops-outcome-reference/**"
       - ".github/workflows/itops-outcome-reference.yml"
