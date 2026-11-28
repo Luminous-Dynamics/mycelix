@@ -1,0 +1,246 @@
+{
+  "schema_id": "mycelix.craft-temporal-djcc-integration-fixtures.v0.1",
+  "status": "specification_only_not_executed",
+  "purpose": "Independent known-answer seeds for composing temporal event frontiers, verifier-relative progress antichains, source trust, evidence independence, policy, authority, action denominators and outcomes through DJCC.",
+  "claim_dimensions": [
+    "authentication",
+    "authority",
+    "completeness",
+    "effect",
+    "independence",
+    "truth"
+  ],
+  "claim_states": [
+    "EstablishedWithinProfile",
+    "Rejected",
+    "Indeterminate",
+    "NotEvaluated",
+    "UnsupportedByProfile",
+    "NotApplicable"
+  ],
+  "composition_dispositions": [
+    "DecisionJustifiedAtAcceptedFrontier",
+    "DecisionNotJustifiedAtAcceptedFrontier",
+    "Indeterminate",
+    "HistoricalReplayMismatch",
+    "UnsupportedByProfile"
+  ],
+  "fixtures": [
+    {
+      "id": "TEMP-001",
+      "family": "causal_frontier",
+      "description": "Two independently admitted streams produce concurrent, contradictory assertions with equal observed timestamps and no causal parent between them.",
+      "expected": {
+        "frontier": "Valid",
+        "cross_stream_order": "Incomparable",
+        "truth": "Indeterminate",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "TEMP-001-POS: add an explicit verified causal-parent edge and include its parent in the downward-closed cut.",
+      "mutations": [
+        "sort_by_timestamp_and_select_last",
+        "omit_stream_identity",
+        "inject_unverified_parent"
+      ]
+    },
+    {
+      "id": "TEMP-002",
+      "family": "causal_frontier",
+      "description": "A correction references a valid parent, but the selected source-stream prefix does not include the parent admission coordinate.",
+      "expected": {
+        "frontier": "Incomplete",
+        "truth": "Indeterminate",
+        "composition": "Indeterminate",
+        "historical_receipt": "Unchanged"
+      },
+      "positive_control": "TEMP-002-POS: include the parent and all required preceding offsets; correction applies only at a frontier that includes it and whose valid-time cutoff reaches its effective time.",
+      "mutations": [
+        "drop_parent_offset",
+        "accept_source_supplied_offset_as_host_offset",
+        "rewrite_old_snapshot"
+      ]
+    },
+    {
+      "id": "TEMP-003",
+      "family": "causal_frontier",
+      "description": "Two distinct committed heads claim the same stream identity, epoch and offset without a verified fork-resolution receipt.",
+      "expected": {
+        "frontier": "Invalid",
+        "authentication": "Indeterminate",
+        "completeness": "Indeterminate",
+        "composition": "DecisionNotJustifiedAtAcceptedFrontier"
+      },
+      "positive_control": "TEMP-003-POS: provide one verified append-only head and its inclusion/consistency evidence.",
+      "mutations": [
+        "last_write_wins_fork",
+        "select_latest_timestamp",
+        "ignore_conflicting_head"
+      ]
+    },
+    {
+      "id": "TEMP-004",
+      "family": "progress_antichain",
+      "description": "The event-stream frontier is valid and complete, but an authenticated declared progress antichain contains a point preceding the requested cut.",
+      "expected": {
+        "frontier": "Valid",
+        "progress": "Provisional",
+        "completeness": "NotEvaluated",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "TEMP-004-POS: advance or reconcile all declared progress points so none precedes the query cut.",
+      "mutations": [
+        "treat_event_frontier_as_all_progress_complete",
+        "discard_incomparable_progress_point",
+        "collapse_antichain_to_scalar"
+      ]
+    },
+    {
+      "id": "TEMP-005",
+      "family": "owner_universe",
+      "description": "Every known event stream is complete, but the declared owner/source universe is not authenticated or may omit an independent source.",
+      "expected": {
+        "frontier": "Valid",
+        "owner_universe": "NotEvaluated",
+        "completeness": "NotEvaluated",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "TEMP-005-POS: provide the independently authenticated owner/source inventory and accepted-prefix coverage receipt.",
+      "mutations": [
+        "infer_universe_from_observed_sources",
+        "claim_no_missing_sources",
+        "promote_empty_registry_to_complete"
+      ]
+    },
+    {
+      "id": "EVID-001",
+      "family": "independence",
+      "description": "Two individually authenticated pressure observations share a material calibration-chain or upstream-source ancestor.",
+      "expected": {
+        "independence": "Rejected",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "EVID-001-POS: two channels have complete, authenticated lineage and no shared material ancestor under the named failure profile.",
+      "mutations": [
+        "count_distinct_sensor_ids_as_independent",
+        "ignore_shared_calibration",
+        "collapse_common_cause_to_confidence_score"
+      ]
+    },
+    {
+      "id": "EVID-002",
+      "family": "independence",
+      "description": "Different vendors and signing keys consume the same upstream sample or feed.",
+      "expected": {
+        "authentication": "EstablishedWithinProfile",
+        "independence": "Rejected",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "EVID-002-POS: source lineage proves independent collection, custody, method and material failure domains under the declared profile.",
+      "mutations": [
+        "treat_vendor_difference_as_independence",
+        "treat_key_difference_as_independence",
+        "ignore_shared_upstream_feed"
+      ]
+    },
+    {
+      "id": "EVID-003",
+      "family": "independence",
+      "description": "A channel withholds lineage or uses an unknown failure-domain class outside the selected profile.",
+      "expected": {
+        "independence": "Indeterminate",
+        "completeness": "Indeterminate",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "EVID-003-POS: disclose and attest all required lineage classes and explicit policy treatment of shared non-material classes.",
+      "mutations": [
+        "map_unknown_class_to_non_material",
+        "treat_missing_lineage_as_disjoint",
+        "accept_unauthenticated_attestation"
+      ]
+    },
+    {
+      "id": "AUTH-001",
+      "family": "authority",
+      "description": "The source signature verifies, but the signer identity has expired or wrong-scope operational authority at the selected frontier.",
+      "expected": {
+        "authentication": "EstablishedWithinProfile",
+        "authority": "Rejected",
+        "composition": "DecisionNotJustifiedAtAcceptedFrontier"
+      },
+      "positive_control": "AUTH-001-POS: valid identity and current decision/action-specific capability covering subject, jurisdiction, operation and validity interval.",
+      "mutations": [
+        "promote_authentication_to_authority",
+        "ignore_revocation_frontier",
+        "accept_wrong_scope_role"
+      ]
+    },
+    {
+      "id": "POL-001",
+      "family": "policy_hindsight",
+      "description": "The policy changes after a historical decision; replay is requested both at the original frontier and at a later frontier.",
+      "expected": {
+        "historical_composition": "DecisionJustifiedAtAcceptedFrontier",
+        "attempted_replay_with_new_policy": "HistoricalReplayMismatch",
+        "correct_later_evaluation": "NewDecisionRequired",
+        "historical_receipt": "ByteIdentical"
+      },
+      "positive_control": "POL-001-POS: both policy versions and their authority/effective intervals are explicitly pinned and evaluated at their respective frontiers.",
+      "mutations": [
+        "apply_current_policy_to_historical_decision",
+        "rewrite_old_certificate",
+        "omit_policy_digest"
+      ]
+    },
+    {
+      "id": "ACT-001",
+      "family": "action_denominator",
+      "description": "An authority-approved plan amendment changes the action denominator; old observations reference the previous plan digest.",
+      "expected": {
+        "old_plan_replay": "Preserved",
+        "new_plan_coverage": "Incomplete",
+        "effect": "Indeterminate",
+        "composition": "DecisionNotJustifiedAtAcceptedFrontier"
+      },
+      "positive_control": "ACT-001-POS: new observations bind the amended plan digest and satisfy its action prerequisites.",
+      "mutations": [
+        "reuse_old_observation_under_new_plan",
+        "caller_supplies_action_count",
+        "mutate_denominator_without_authority"
+      ]
+    },
+    {
+      "id": "OUT-001",
+      "family": "outcome_unknown",
+      "description": "An external action has unknown outcome; another mutation is attempted in the same effect/idempotency scope before exact reconciliation.",
+      "expected": {
+        "effect": "Indeterminate",
+        "execution": "OutcomeUnknown",
+        "same_scope_mutation": "Blocked",
+        "composition": "Indeterminate"
+      },
+      "positive_control": "OUT-001-POS: reconcile exact operation identity as applied or not-applied and bind the reconciliation receipt before any subsequent mutation.",
+      "mutations": [
+        "retry_without_reconciliation",
+        "infer_not_applied_from_timeout",
+        "treat_provider_ack_as_physical_outcome"
+      ]
+    },
+    {
+      "id": "OCEL-001",
+      "family": "interoperability",
+      "description": "The independent PM4Py round-trip retains an integer JSON value but rewrites its declared OCEL attribute type from integer to string.",
+      "expected": {
+        "interoperability": "Rejected",
+        "semantic_projection": "Indeterminate",
+        "composition": "Indeterminate",
+        "silent_coercion": "Forbidden"
+      },
+      "positive_control": "OCEL-001-POS: source, importer, exporter and consumer preserve declared integer type and value, with exact normalized inventory parity.",
+      "mutations": [
+        "coerce_integer_to_string",
+        "repair_exported_type_silently",
+        "count_roundtrip_as_pass_on_record_count_only"
+      ]
+    }
+  ]
+}
