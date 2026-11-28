@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use super::game_theory::{ActionCondition, ActionType, GameDefinition, Player, Strategy};
 
 /// Bounds the amount of payoff-profile enumeration performed by validation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameValidationConfig {
     /// Maximum number of legal pure strategy profiles to enumerate.
     ///
