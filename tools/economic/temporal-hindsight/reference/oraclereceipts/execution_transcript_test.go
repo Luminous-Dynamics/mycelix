@@ -179,8 +179,9 @@ func TestExecutionTranscriptBindsStateAndIVCProofHeads(t *testing.T) {
 	if result.StateHeadDigest != outputState || result.ProofHeadDigest != nextProof {
 		t.Fatalf("state/proof heads not reconstructed: %+v", result)
 	}
-	if result.AdviceCommitmentDigest != transition.IVCUpdate.NextAdviceCommitmentDigest {
-		t.Fatalf("cumulative advice commitment not reconstructed: %+v", result)
+	if result.AdviceCommitmentDigest != transition.IVCUpdate.NextAdviceCommitmentDigest ||
+		result.ReceiptFrontierSequence != 1 {
+		t.Fatalf("cumulative advice or receipt frontier not reconstructed: %+v", result)
 	}
 	if result.ProofVerification != NotEvaluated ||
 		result.OracleSignatureAuthentication != NotEvaluated ||
@@ -410,7 +411,8 @@ func TestCorrectionAppendsNewStepAndPreservesPriorStep(t *testing.T) {
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainStructurallyValid ||
 		got.StateHeadDigest != testDigestA || got.ProofHeadDigest != testDigestB ||
-		got.AdviceCommitmentDigest != correction.IVCUpdate.NextAdviceCommitmentDigest {
+		got.AdviceCommitmentDigest != correction.IVCUpdate.NextAdviceCommitmentDigest ||
+		got.ReceiptFrontierSequence != 2 {
 		t.Fatalf("backdated correction recomputation failed: %+v", got)
 	}
 	if events[0].EventDigest != originalEventDigest || len(got.AppliedStepIDs) != 2 {
@@ -502,6 +504,16 @@ func TestForgedOrMutatedExecutionReplayResultRejected(t *testing.T) {
 	got.ProofHeadDigest = testDigestC
 	if executionReplayIntegrityValid(got) {
 		t.Fatal("mutated proof head retained a valid replay seal")
+	}
+	got = replayExecution(t, scope, receipts, events)
+	got.AdviceCommitmentDigest = testDigestA
+	if executionReplayIntegrityValid(got) {
+		t.Fatal("mutated advice commitment retained a valid replay seal")
+	}
+	got = replayExecution(t, scope, receipts, events)
+	got.ReceiptFrontierSequence = 0
+	if executionReplayIntegrityValid(got) {
+		t.Fatal("mutated receipt frontier retained a valid replay seal")
 	}
 }
 
