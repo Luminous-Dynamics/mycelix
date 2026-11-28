@@ -47,6 +47,7 @@ func executionTransition(t testing.TB, scope OracleScopeV1, scopeDigest, receipt
 		IVCUpdate: IVCUpdateEnvelopeV1{
 			ProtocolRef: "ivc:incremental",
 			ProtocolVersion: "v1",
+			PriorAdviceCommitmentDigest: executionGenesisAdviceCommitmentDigest(scopeDigest),
 			ParametersDigest: testDigestA,
 			VerificationKeyDigest: testDigestB,
 			PriorProofDigest: priorProof,
@@ -55,6 +56,16 @@ func executionTransition(t testing.TB, scope OracleScopeV1, scopeDigest, receipt
 		},
 	}
 	var err error
+	transition.IVCUpdate.AdviceDeltaCommitmentDigest, err = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, transition.ReceiptFrontierSequence, transition.ReceiptFrontierDigest, transition.ConsumedReceiptDigests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transition.IVCUpdate.NextAdviceCommitmentDigest, err = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, transition.IVCUpdate.PriorAdviceCommitmentDigest, transition.IVCUpdate.AdviceDeltaCommitmentDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
 	transition.IVCUpdate.PublicInputDigest, err = ExecutionPublicInputDigestV1(scope, transition)
 	if err != nil {
 		t.Fatal(err)
@@ -129,6 +140,7 @@ func buildExecutionChain(t testing.TB, scope OracleScopeV1, receipts []OracleRec
 	t.Helper()
 	scopeDigest, _, stateHead := executionGenesis(t, scope)
 	proofHead := executionGenesisProofDigest(scopeDigest)
+	adviceHead := executionGenesisAdviceCommitmentDigest(scopeDigest)
 	receiptTail := receipts[0].ReceiptDigest
 	var events []ExecutionEventV1
 	for i := 0; i < count; i++ {
@@ -136,6 +148,13 @@ func buildExecutionChain(t testing.TB, scope OracleScopeV1, receipts []OracleRec
 		nextProof := digestBytes([]byte(fmt.Sprintf("proof:%d", i+1)))
 		transition := executionTransition(t, scope, scopeDigest, receiptTail, 1, stateHead, proofHead,
 			fmt.Sprintf("step:%d", i+1), StepApply, outputState, nextProof)
+		transition.IVCUpdate.PriorAdviceCommitmentDigest = adviceHead
+		transition.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+			scopeDigest, transition.ReceiptFrontierSequence, transition.ReceiptFrontierDigest, transition.ConsumedReceiptDigests)
+		transition.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+			scopeDigest, adviceHead, transition.IVCUpdate.AdviceDeltaCommitmentDigest)
+		transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
+		adviceHead = transition.IVCUpdate.NextAdviceCommitmentDigest
 		events = appendExecutionEvent(t, scope, events, fmt.Sprintf("event:%d", i+1), ExecutionCommitted, &transition, "")
 		stateHead = outputState
 		proofHead = nextProof
@@ -370,6 +389,12 @@ func TestCorrectionAppendsNewStepAndPreservesPriorStep(t *testing.T) {
 
 	correction := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
 		testDigestB, testDigestC, "step:recompute", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:original")
+	correction.IVCUpdate.PriorAdviceCommitmentDigest = original.IVCUpdate.NextAdviceCommitmentDigest
+	correction.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, correction.ReceiptFrontierSequence, correction.ReceiptFrontierDigest, correction.ConsumedReceiptDigests)
+	correction.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, correction.IVCUpdate.PriorAdviceCommitmentDigest, correction.IVCUpdate.AdviceDeltaCommitmentDigest)
+	correction.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, correction)
 	events = appendExecutionEvent(t, scope, events, "event:recompute", ExecutionCommitted, &correction, "")
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainStructurallyValid ||
