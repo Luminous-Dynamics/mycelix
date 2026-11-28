@@ -264,7 +264,9 @@ func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
 
 func TestValidateBenchmarkResultV01RejectsQualificationBelowThirtyClasses(t *testing.T) {
 	value := validBenchmarkResultV01()
-	value["corpus"].(map[string]any)["adversarial_class_count"] = 29
+	corpus := value["corpus"].(map[string]any)
+	corpus["adversarial_class_count"] = 29
+	corpus["adversarial_class_ids"] = corpus["adversarial_class_ids"].([]any)[:29]
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("qualification with fewer than 30 adversarial classes accepted")
 	}
@@ -277,5 +279,24 @@ func TestValidateBenchmarkResultV01RejectsSymbolicFixturesOnQualification(t *tes
 	corpus["fixture_count"] = corpus["executable_fixture_count"].(int) + 1
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("qualification counted symbolic fixtures as executable")
+	}
+}
+
+
+func TestValidateBenchmarkResultV01RejectsDuplicateAdversarialClassIDs(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	ids := corpus["adversarial_class_ids"].([]any)
+	ids[29] = ids[0]
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("duplicate adversarial class ID accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsAdversarialClassCountMismatch(t *testing.T) {
+	value := validBenchmarkResultV01()
+	value["corpus"].(map[string]any)["adversarial_class_count"] = 31
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("adversarial class count inconsistent with class IDs accepted")
 	}
 }
