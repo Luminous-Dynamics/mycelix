@@ -29,6 +29,69 @@ pub enum FailureDomainDisposition {
     LineageCoverageIncomplete,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LineageDisclosureStatus {
+    CompleteForDeclaredModel,
+    Incomplete,
+    Withheld,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LineageAttestationBasis {
+    IssuerDeclared,
+    IndependentlyAudited,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LineageAttestationPrecheck {
+    ReadyForExternalSignatureVerification,
+    IndeterminateDisclosure,
+    IndeterminateAssuranceBasis,
+}
+
+/// Canonical statement metadata to be authenticated by an existing COSE/SCITT
+/// issuer. Digest values are supplied by their owning systems; this type does
+/// not calculate hashes, verify signatures, or authenticate the issuer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LineageAttestationV1 {
+    pub attestation_ref: String,
+    pub issuer_ref: String,
+    pub issuer_key_ref: String,
+    pub issuer_key_epoch: u64,
+    pub evidence_ref: String,
+    pub scope_digest: [u8; 32],
+    pub graph_digest: [u8; 32],
+    pub profile_ref: String,
+    pub profile_digest: [u8; 32],
+    pub verifier_frontier_digest: [u8; 32],
+    pub trust_policy_ref: String,
+    pub trust_policy_digest: [u8; 32],
+    pub identity_registry_digest: [u8; 32],
+    pub assurance_basis_ref: String,
+    pub statement_digest: [u8; 32],
+    pub issued_at_unix_seconds: u64,
+    pub valid_from_unix_seconds: u64,
+    pub valid_until_unix_seconds: u64,
+    pub disclosure_status: LineageDisclosureStatus,
+    pub assurance_basis: LineageAttestationBasis,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LineageAttestationContextV1 {
+    pub evidence_ref: String,
+    pub scope_digest: [u8; 32],
+    pub graph_digest: [u8; 32],
+    pub profile_ref: String,
+    pub profile_digest: [u8; 32],
+    pub verifier_frontier_digest: [u8; 32],
+    pub trust_policy_ref: String,
+    pub trust_policy_digest: [u8; 32],
+    pub identity_registry_digest: [u8; 32],
+    /// Trusted evaluation time associated with the accepted verifier frontier.
+    pub accepted_at_unix_seconds: u64,
+    pub require_independent_audit: bool,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FailureDomainNode {
     /// Globally stable identifier for this failure domain, not a display label.
@@ -126,6 +189,137 @@ pub struct FailureScenarioAssessment {
 fn valid_ref(value: &str) -> bool {
     !value.trim().is_empty() && value.len() <= 4096
 }
+
+fn write_attestation_string(buffer: &mut Vec<u8>, value: &str) -> Result<(), String> {
+    if !valid_ref(value) {
+        return Err("lineage attestation contains an empty or oversized identifier".to_owned());
+    }
+    let bytes = value.as_bytes();
+    let length = u32::try_from(bytes.len())
+        .map_err(|_| "lineage attestation string length exceeds u32".to_owned())?;
+    buffer.extend_from_slice(&length.to_be_bytes());
+    buffer.extend_from_slice(bytes);
+    Ok(())
+}
+
+/// Encodes the DJCC lineage-attestation signing preimage V1.
+///
+/// Field order is fixed: domain separator; seven UTF-8 length-prefixed references;
+/// key epoch; scope, graph, profile, frontier, trust-policy, identity-registry
+/// and statement digests; issued/valid-from/valid-until times; disclosure and
+/// assurance tags. All integers are unsigned big-endian. The resulting bytes
+/// are a signing preimage only, not a verified COSE/SCITT receipt.
+pub fn canonical_lineage_attestation_bytes_v1(
+    attestation: &LineageAttestationV1,
+) -> Result<Vec<u8>, String> {
+    let mut output = Vec::new();
+    write_attestation_string(&mut output, "MYCELIX-DJCC-LINEAGE-ATTESTATION-V1")?;
+    for value in [
+        attestation.attestation_ref.as_str(),
+        attestation.issuer_ref.as_str(),
+        attestation.issuer_key_ref.as_str(),
+        attestation.evidence_ref.as_str(),
+        attestation.profile_ref.as_str(),
+        attestation.trust_policy_ref.as_str(),
+        attestation.assurance_basis_ref.as_str(),
+    ] {
+        write_attestation_string(&mut output, value)?;
+    }
+    output.extend_from_slice(&attestation.issuer_key_epoch.to_be_bytes());
+    for digest in [
+        &attestation.scope_digest,
+        &attestation.graph_digest,
+        &attestation.profile_digest,
+        &attestation.verifier_frontier_digest,
+        &attestation.trust_policy_digest,
+        &attestation.identity_registry_digest,
+        &attestation.statement_digest,
+    ] {
+        output.extend_from_slice(digest);
+    }
+    for timestamp in [
+        attestation.issued_at_unix_seconds,
+        attestation.valid_from_unix_seconds,
+        attestation.valid_until_unix_seconds,
+    ] {
+        output.extend_from_slice(&timestamp.to_be_bytes());
+    }
+    let disclosure_tag = match attestation.disclosure_status {
+        LineageDisclosureStatus::CompleteForDeclaredModel => 1,
+        LineageDisclosureStatus::Incomplete => 2,
+        LineageDisclosureStatus::Withheld => 3,
+    };
+    let assurance_tag = match attestation.assurance_basis {
+        LineageAttestationBasis::IssuerDeclared => 1,
+        LineageAttestationBasis::IndependentlyAudited => 2,
+    };
+    output.push(disclosure_tag);
+    output.push(assurance_tag);
+    Ok(output)
+}
+
+/// Checks structural binding and preconditions before an external COSE/SCITT
+/// signature and issuer-trust verifier is invoked.
+///
+/// ReadyForExternalSignatureVerification means only that the canonical
+/// statement is bound to the expected context and its declared disclosure and
+/// assurance level meet the selected profile. It does not establish that the
+/// signature is valid, the issuer/key is trusted, the audit really occurred,
+/// the source universe is complete, or the channels are independent.
+pub fn precheck_lineage_attestation_v1(
+    attestation: &LineageAttestationV1,
+    context: &LineageAttestationContextV1,
+) -> Result<LineageAttestationPrecheck, String> {
+    for value in [
+        attestation.attestation_ref.as_str(),
+        attestation.issuer_ref.as_str(),
+        attestation.issuer_key_ref.as_str(),
+        attestation.evidence_ref.as_str(),
+        attestation.profile_ref.as_str(),
+        attestation.trust_policy_ref.as_str(),
+        attestation.assurance_basis_ref.as_str(),
+        context.evidence_ref.as_str(),
+        context.profile_ref.as_str(),
+        context.trust_policy_ref.as_str(),
+    ] {
+        if !valid_ref(value) {
+            return Err("lineage attestation context contains an empty or oversized reference".to_owned());
+        }
+    }
+    if attestation.valid_from_unix_seconds >= attestation.valid_until_unix_seconds {
+        return Err("lineage attestation validity interval is empty or reversed".to_owned());
+    }
+    if attestation.issued_at_unix_seconds > context.accepted_at_unix_seconds {
+        return Err("lineage attestation was issued after the accepted verifier frontier".to_owned());
+    }
+    if context.accepted_at_unix_seconds < attestation.valid_from_unix_seconds
+        || context.accepted_at_unix_seconds >= attestation.valid_until_unix_seconds
+    {
+        return Err("lineage attestation is outside its validity interval at the accepted frontier".to_owned());
+    }
+    if attestation.evidence_ref != context.evidence_ref
+        || attestation.scope_digest != context.scope_digest
+        || attestation.graph_digest != context.graph_digest
+        || attestation.profile_ref != context.profile_ref
+        || attestation.profile_digest != context.profile_digest
+        || attestation.verifier_frontier_digest != context.verifier_frontier_digest
+        || attestation.trust_policy_ref != context.trust_policy_ref
+        || attestation.trust_policy_digest != context.trust_policy_digest
+        || attestation.identity_registry_digest != context.identity_registry_digest
+    {
+        return Err("lineage attestation does not bind the expected scope, graph, profile, frontier or trust context".to_owned());
+    }
+    if attestation.disclosure_status != LineageDisclosureStatus::CompleteForDeclaredModel {
+        return Ok(LineageAttestationPrecheck::IndeterminateDisclosure);
+    }
+    if context.require_independent_audit
+        && attestation.assurance_basis != LineageAttestationBasis::IndependentlyAudited
+    {
+        return Ok(LineageAttestationPrecheck::IndeterminateAssuranceBasis);
+    }
+    Ok(LineageAttestationPrecheck::ReadyForExternalSignatureVerification)
+}
+
 
 fn strictly_sorted_unique<T: Ord>(values: &[T]) -> bool {
     values.windows(2).all(|pair| pair[0] < pair[1])
@@ -864,6 +1058,129 @@ mod tests {
         assert_eq!(
             survivors[0].channel_refs,
             vec!["evidence:a".to_owned(), "evidence:b".to_owned()]
+        );
+    }
+
+    fn lineage_attestation_fixture() -> (LineageAttestationV1, LineageAttestationContextV1) {
+        let attestation = LineageAttestationV1 {
+            attestation_ref: "attestation:lineage:42".to_owned(),
+            issuer_ref: "issuer:municipal-lab".to_owned(),
+            issuer_key_ref: "key:municipal-lab:epoch-7".to_owned(),
+            issuer_key_epoch: 7,
+            evidence_ref: "evidence:pressure-channel-a".to_owned(),
+            scope_digest: [1; 32],
+            graph_digest: [2; 32],
+            profile_ref: "profile:independence:operational-v1".to_owned(),
+            profile_digest: [3; 32],
+            verifier_frontier_digest: [4; 32],
+            trust_policy_ref: "policy:lineage-trust:v2".to_owned(),
+            trust_policy_digest: [5; 32],
+            identity_registry_digest: [6; 32],
+            assurance_basis_ref: "auditor:independent-accredited-lab".to_owned(),
+            statement_digest: [7; 32],
+            issued_at_unix_seconds: 100,
+            valid_from_unix_seconds: 90,
+            valid_until_unix_seconds: 200,
+            disclosure_status: LineageDisclosureStatus::CompleteForDeclaredModel,
+            assurance_basis: LineageAttestationBasis::IndependentlyAudited,
+        };
+        let context = LineageAttestationContextV1 {
+            evidence_ref: attestation.evidence_ref.clone(),
+            scope_digest: attestation.scope_digest,
+            graph_digest: attestation.graph_digest,
+            profile_ref: attestation.profile_ref.clone(),
+            profile_digest: attestation.profile_digest,
+            verifier_frontier_digest: attestation.verifier_frontier_digest,
+            trust_policy_ref: attestation.trust_policy_ref.clone(),
+            trust_policy_digest: attestation.trust_policy_digest,
+            identity_registry_digest: attestation.identity_registry_digest,
+            accepted_at_unix_seconds: 150,
+            require_independent_audit: true,
+        };
+        (attestation, context)
+    }
+
+    #[test]
+    fn lineage_attestation_precheck_binds_graph_profile_frontier_and_policy() {
+        let (attestation, context) = lineage_attestation_fixture();
+        assert_eq!(
+            precheck_lineage_attestation_v1(&attestation, &context).unwrap(),
+            LineageAttestationPrecheck::ReadyForExternalSignatureVerification
+        );
+        let mut substituted = context.clone();
+        substituted.verifier_frontier_digest = [9; 32];
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+    }
+
+    #[test]
+    fn withheld_or_incomplete_lineage_remains_indeterminate() {
+        let (mut attestation, context) = lineage_attestation_fixture();
+        attestation.disclosure_status = LineageDisclosureStatus::Withheld;
+        assert_eq!(
+            precheck_lineage_attestation_v1(&attestation, &context).unwrap(),
+            LineageAttestationPrecheck::IndeterminateDisclosure
+        );
+        attestation.disclosure_status = LineageDisclosureStatus::Incomplete;
+        assert_eq!(
+            precheck_lineage_attestation_v1(&attestation, &context).unwrap(),
+            LineageAttestationPrecheck::IndeterminateDisclosure
+        );
+    }
+
+    #[test]
+    fn issuer_declaration_does_not_satisfy_an_audited_lineage_profile() {
+        let (mut attestation, context) = lineage_attestation_fixture();
+        attestation.assurance_basis = LineageAttestationBasis::IssuerDeclared;
+        assert_eq!(
+            precheck_lineage_attestation_v1(&attestation, &context).unwrap(),
+            LineageAttestationPrecheck::IndeterminateAssuranceBasis
+        );
+        let mut permissive_context = context;
+        permissive_context.require_independent_audit = false;
+        assert_eq!(
+            precheck_lineage_attestation_v1(&attestation, &permissive_context).unwrap(),
+            LineageAttestationPrecheck::ReadyForExternalSignatureVerification
+        );
+    }
+
+    #[test]
+    fn attestation_outside_frontier_or_validity_window_is_rejected() {
+        let (mut attestation, context) = lineage_attestation_fixture();
+        attestation.issued_at_unix_seconds = 151;
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &context)
+                .unwrap_err()
+                .contains("after the accepted verifier frontier")
+        );
+        attestation.issued_at_unix_seconds = 100;
+        attestation.valid_until_unix_seconds = 150;
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &context)
+                .unwrap_err()
+                .contains("outside its validity interval")
+        );
+    }
+
+    #[test]
+    fn lineage_attestation_canonical_bytes_are_deterministic_and_domain_separated() {
+        let (attestation, _) = lineage_attestation_fixture();
+        let first = canonical_lineage_attestation_bytes_v1(&attestation).unwrap();
+        let second = canonical_lineage_attestation_bytes_v1(&attestation).unwrap();
+        assert_eq!(first, second);
+        assert!(
+            first
+                .windows(b"MYCELIX-DJCC-LINEAGE-ATTESTATION-V1".len())
+                .any(|window| window == b"MYCELIX-DJCC-LINEAGE-ATTESTATION-V1")
+        );
+        let mut modified = attestation.clone();
+        modified.statement_digest = [8; 32];
+        assert_ne!(
+            first,
+            canonical_lineage_attestation_bytes_v1(&modified).unwrap()
         );
     }
 
