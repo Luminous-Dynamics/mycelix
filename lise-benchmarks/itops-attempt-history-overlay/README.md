@@ -28,7 +28,7 @@ Each case pins:
 - exact operation, request digest, idempotency key and ordered action set;
 - history query scope, cursor completeness, gaps, retention coverage, backfill status and as-of frontier;
 - append-only attempt identity, ordinal, predecessor, action, request and idempotency binding, dispatch/response/effect state, and distinct attempted-at versus recorded-at timestamps;
-- typed evidence with source identity, dependency group, independence, freshness, action/request binding, event-time and observation-time;
+- typed evidence with source identity, dependency group, independence, freshness, action/request binding, exact attempt ID, event-time and observation-time; an observation cannot be reused to support two attempts;
 - no-effect evidence reference and same-key idempotency qualification as separate conditions;
 - exact expected next step and hard-gate violations.
 
@@ -36,7 +36,7 @@ An attempt record is a fixture representation for exercising the owners' composi
 
 ## Frozen known-answer families
 
-The 17 public cases cover: initial no-attempt baseline; independently observed applied effect; timeout with incomplete history; provider acknowledgement without effect proof; qualified no-effect plus same-key retry; missing idempotency qualification; shared-dependency observer; blind retry after unknown effect; safe continuation of an unattempted multi-action suffix; empty but incomplete history; broken attempt chain; delayed event with preserved earlier frontier and reproducible event-time/knowledge-time separation; request-digest drift; idempotency-key drift; conflicting observations; partial multi-action execution with an unknown suffix; and a duplicate attempt after an already confirmed applied effect.
+The 18 public cases cover: initial no-attempt baseline; independently observed applied effect; timeout with incomplete history; provider acknowledgement without effect proof; qualified no-effect plus same-key retry; missing idempotency qualification; shared-dependency observer; blind retry after unknown effect; safe continuation of an unattempted multi-action suffix; empty but incomplete history; broken attempt chain; delayed event with preserved earlier frontier and reproducible event-time/knowledge-time separation; request-digest drift; idempotency-key drift; conflicting observations; partial multi-action execution with an unknown suffix; a second dispatch after a confirmed applied effect even when its own result is still unknown; and a separately evidenced duplicate effect across two attempts.
 
 Public fixtures are evaluator references, not hidden agent challenge cases. A future sealed task set must be separately versioned and access-controlled.
 
@@ -66,11 +66,11 @@ Report separately, never as one accuracy score:
 - human reconciliation and recovery minutes;
 - action/tool count, time, compute and fully burdened cost per independently accepted restoration.
 
-For the frozen synthetic reference suite, target 100% exact disposition and zero false-safe retry/duplicate-effect outcomes. These are fixture gates, not industry-level performance results.
+For the frozen synthetic reference suite, target 100% exact disposition and zero false-safe retry/duplicate-effect outcomes. The gate separates a prohibited second dispatch after an applied first attempt from a *proven duplicate effect*, which requires applied-effect evidence linked to each distinct attempt ID. These are fixture gates, not industry-level performance results.
 
 ## Recommended agent-evaluation protocol (next phase)
 
-The 17 public cases are a reference oracle and regression suite, not a representative estimate of operational success. A leaderboard claim needs an independent sealed challenge set and matched system arms.
+The 18 public cases are a reference oracle and regression suite, not a representative estimate of operational success. A leaderboard claim needs an independent sealed challenge set and matched system arms.
 
 ### Task construction
 
@@ -110,7 +110,7 @@ No weighted score may compensate for a false-safe retry, duplicate effect, unaut
 
 ### Quantitative gates
 
-- Public reference gate: exact disposition on all 17 frozen cases and rejection of all 18 seeded mutations.
+- Public reference gate: exact disposition on all 18 frozen cases and rejection of all 21 seeded mutations.
 - Held-out development gate: at least 96 distinct scenario roots across eight or more incident families; report family-clustered intervals, not only aggregate point estimates.
 - Matched contribution gate: at least +3 percentage points in verified restoration versus A0 on the same held-out tasks, with no increase in any critical safety failure and no degradation in family-level performance.
 - External comparison gate: only claim superiority to SWEOps-Bench after reproducing its exact 55 tasks, operator repositories, injected faults, workload, harness, time budget and verification rubric. A prospective stretch target is at least 60% verified recovery, versus the published highest configuration at 52.7%; it is not a directly comparable claim on this overlay's different scenarios.
