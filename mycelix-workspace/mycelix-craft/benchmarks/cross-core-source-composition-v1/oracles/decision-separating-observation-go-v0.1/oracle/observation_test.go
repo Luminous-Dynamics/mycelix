@@ -147,3 +147,54 @@ func TestStrictJSONRejectsDuplicateKeysUnknownFieldsAndTrailingData(t *testing.T
 		}
 	}
 }
+
+
+func TestRefiningOutcomePartitionCannotIncreaseWorstCaseMinimaxRegret(t *testing.T) {
+	problem := loadFixture(t, "separating")
+	separated, err := Evaluate(problem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem.Observations[0].OutcomeByWorld["w-high"] = "same"
+	problem.Observations[0].OutcomeByWorld["w-low"] = "same"
+	collapsed, err := Evaluate(problem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	separatedRegret := separated.Observations[0].WorstBranchMinimaxRegret
+	collapsedRegret := collapsed.Observations[0].WorstBranchMinimaxRegret
+	if separatedRegret == nil || collapsedRegret == nil {
+		t.Fatalf("expected finite regrets: separated=%v collapsed=%v", separatedRegret, collapsedRegret)
+	}
+	if *separatedRegret > *collapsedRegret {
+		t.Fatalf("more informative partition increased worst branch regret: separated=%d collapsed=%d",
+			*separatedRegret, *collapsedRegret)
+	}
+}
+
+func TestObservationCostsRemainSeparateAndUnaggregated(t *testing.T) {
+	result, err := Evaluate(loadFixture(t, "separating"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := result.Observations[0]
+	if observation.AcquisitionCostUnits != 3 || observation.DelayUnits != 2 || observation.BurdenUnits != 1 {
+		t.Fatalf("cost/delay/burden dimensions were lost or conflated: %+v", observation)
+	}
+}
+
+func TestNotEvaluatedWorldCoverageCannotProduceGlobalSeparationClaim(t *testing.T) {
+	problem := loadFixture(t, "separating")
+	problem.ScopeBasis = ScopeNotEvaluated
+	result, err := Evaluate(problem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := result.Observations[0]
+	if !observation.UniversallySeparatingWithinListedWorlds {
+		t.Fatal("expected the result to remain separating within the supplied finite set")
+	}
+	if observation.Disposition != "WORLD_SET_COVERAGE_NOT_EVALUATED" {
+		t.Fatalf("unqualified world set produced stronger disposition: %s", observation.Disposition)
+	}
+}
