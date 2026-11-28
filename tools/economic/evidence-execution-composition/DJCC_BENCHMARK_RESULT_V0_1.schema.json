@@ -118,6 +118,17 @@
         "adversarial_class_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "adversarial_class_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
         }
       }
     },
@@ -648,7 +659,9 @@
     "each percentile tuple must satisfy p50 <= p95 <= p99",
     "fixture_count must equal executable_fixture_count + symbolic_fixture_count",
     "all count fields must not exceed their corresponding denominators",
-    "started_at must be less than or equal to ended_at"
+    "started_at must be less than or equal to ended_at",
+    "qualification requires at least 30 distinct adversarial_class_ids and adversarial_class_count must equal their count",
+    "qualification requires executable_fixture_count >= 30 and symbolic_fixture_count = 0"
   ],
   "allOf": [
     {
@@ -674,9 +687,22 @@
           "corpus": {
             "properties": {
               "adversarial_class_count": {
-                "minimum": 28
+                "minimum": 30
+              },
+              "adversarial_class_ids": {
+                "minItems": 30,
+                "uniqueItems": true
+              },
+              "executable_fixture_count": {
+                "minimum": 30
+              },
+              "symbolic_fixture_count": {
+                "const": 0
               }
-            }
+            },
+            "required": [
+              "adversarial_class_ids"
+            ]
           },
           "execution": {
             "properties": {
