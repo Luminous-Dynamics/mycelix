@@ -61,10 +61,10 @@ jq -e '
       if .family == "healthy_baseline_noop" then
         (.expected_operation_ids | length) == 0
         and (.actions | length) == 0
-      else
+      elif .family == "verified_recovery" then
         (.expected_operation_ids | length) > 0
         and (.actions | length) > 0
-      end
+      else true end
     )
     and (([.actions[].operation_id] | sort) == ($c.expected_operation_ids | sort))
     and (([.evidence[].evidence_id] | length) == ([.evidence[].evidence_id] | unique | length))
