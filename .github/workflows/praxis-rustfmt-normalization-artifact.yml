@@ -35,6 +35,7 @@ jobs:
           workspace="mycelix-workspace/mycelix-praxis"
           cargo generate-lockfile --manifest-path "$workspace/Cargo.toml"
           cargo +1.96.0 fmt --manifest-path "$workspace/Cargo.toml" -p praxis-core
+          cargo +1.96.0 fmt --manifest-path "$workspace/Cargo.toml" -p praxis-core -- --check
           git diff --check
           git add "$workspace/crates/praxis-core/src" "$workspace/crates/praxis-core/benches"
           git add -f "$workspace/Cargo.lock"
