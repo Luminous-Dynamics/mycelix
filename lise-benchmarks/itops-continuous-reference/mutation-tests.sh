@@ -29,8 +29,8 @@ expect_rejected "fault extends beyond scenario horizon" \
 expect_rejected "remove required service substrate" \
   '(.scenario.services) |= map(select(.service_id != "payments"))'
 
-expect_rejected "remove all temporal overlap" \
-  '(.scenario.fault_schedule) |= to_entries | map(.value.start_seconds = (.key * 850) | .value)'
+expect_rejected "remove required injected-event population" \
+  '(.scenario.fault_schedule) = []'
 
 expect_rejected "remove independent terminal proposition" \
   '(.scenario.terminal_propositions[0].independent_verification_required) = false'
