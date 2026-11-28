@@ -597,8 +597,11 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 		if !workingTreeClean {
 			return fmt.Errorf("qualification records require a clean source tree")
 		}
-		if adversarialCount < 28 {
-			return fmt.Errorf("qualification records require at least 28 adversarial classes")
+		if adversarialCount < 30 {
+			return fmt.Errorf("qualification records require at least 30 adversarial classes")
+		}
+		if symbolicCount != 0 {
+			return fmt.Errorf("qualification records cannot count symbolic fixtures; all fixtures must be executable")
 		}
 		if timedTrials < 30 {
 			return fmt.Errorf("qualification records require at least 30 timed trials")
