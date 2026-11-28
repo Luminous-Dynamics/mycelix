@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -48,7 +49,7 @@ func writeLineageStringV1(buffer *bytes.Buffer, value string) error {
 	if !utf8.ValidString(value) {
 		return errors.New("lineage attestation reference is not valid UTF-8")
 	}
-	if stringsTrimmedEmpty(value) || len([]byte(value)) > 4096 {
+	if strings.TrimSpace(value) == "" || len([]byte(value)) > 4096 {
 		return errors.New("lineage attestation reference is empty or oversized")
 	}
 	var length [4]byte
@@ -56,15 +57,6 @@ func writeLineageStringV1(buffer *bytes.Buffer, value string) error {
 	_, _ = buffer.Write(length[:])
 	_, _ = buffer.WriteString(value)
 	return nil
-}
-
-func stringsTrimmedEmpty(value string) bool {
-	for _, r := range value {
-		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
-			return false
-		}
-	}
-	return true
 }
 
 // CanonicalLineageAttestationBytesV1 returns the signing preimage for DJCC's
