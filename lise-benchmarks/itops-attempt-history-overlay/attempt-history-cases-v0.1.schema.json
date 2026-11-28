@@ -154,7 +154,8 @@
         "dispatched",
         "response",
         "effect",
-        "attempted_at"
+        "attempted_at",
+        "recorded_at"
       ],
       "properties": {
         "attempt_id": {
@@ -206,6 +207,10 @@
         "attempted_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -221,7 +226,9 @@
         "dependency_group",
         "independence",
         "result",
-        "freshness"
+        "freshness",
+        "event_at",
+        "observed_at"
       ],
       "properties": {
         "evidence_id": {
@@ -275,6 +282,14 @@
             "conflicting",
             "absent"
           ]
+        },
+        "event_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -322,7 +337,8 @@
             "as_of",
             "status",
             "expected_next_step",
-            "known_attempt_ids"
+            "known_attempt_ids",
+            "known_evidence_ids"
           ],
           "properties": {
             "as_of": {
@@ -348,6 +364,12 @@
               ]
             },
             "known_attempt_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "known_evidence_ids": {
               "type": "array",
               "items": {
                 "type": "string"
