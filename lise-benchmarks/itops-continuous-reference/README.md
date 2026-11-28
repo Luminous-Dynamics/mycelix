@@ -2,6 +2,8 @@
 
 This directory is the first **scenario-contract fixture** for [ITOPS-CONTINUOUS-001 #6864](https://github.com/Luminous-Dynamics/mycelix/issues/6864), beneath [ITOPS-CAP-001 #6846](https://github.com/Luminous-Dynamics/mycelix/issues/6846).
 
+The companion compound-cause known-answer fixture is [PR #6872](https://github.com/Luminous-Dynamics/mycelix/pull/6872). Scenario admission and postmortem curation are tracked separately in [ITOPS-SCENARIO-CURATE-001 #6873](https://github.com/Luminous-Dynamics/mycelix/issues/6873).
+
 It is not an SRE runtime, environment provisioner, agent, outcome ledger, authorization service, simulator, or hidden challenge set. It is a public contract fixture for checking that a long-horizon scenario can represent persistent services, visible observations, evaluator-only fault schedules, overlap, and independent terminal propositions.
 
 ## Contents
