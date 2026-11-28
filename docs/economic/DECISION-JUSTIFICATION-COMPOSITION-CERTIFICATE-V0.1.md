@@ -55,7 +55,7 @@ The certificate includes:
 - **Stage producer:** owner/component, version, source commit and build digest.
 - **Stage inputs:** named input bindings with exact digest and schema/profile reference.
 - **Stage output:** canonical output digest or explicit null when not evaluated/not applicable.
-- **Stage claim ceiling:** authentication, completeness, truth, authority and effect are independent fields.
+- **Stage claim ceiling:** authentication, completeness, truth, authority, effect and independence are independent fields.
 - **Stage dependencies:** exact upstream stage output digests consumed by the stage.
 - **Composition result:** profile-qualified disposition and bounded decision claim.
 
@@ -70,7 +70,7 @@ Every stage uses a closed disposition vocabulary:
 - \`UnsupportedByProfile\`: this profile cannot make the requested claim.
 - \`NotApplicable\`: the stage is genuinely outside this decision profile, with a recorded reason.
 
-The five per-stage claim dimensions use the same explicit state approach. A stage can verify structural receipt integrity while leaving authentication, source completeness and truth as NotEvaluated.
+The six per-stage claim dimensions—authentication, completeness, truth, authority, effect and independence—use the same explicit state approach. A stage can verify structural receipt integrity while leaving authentication, source completeness and truth as NotEvaluated.
 
 ### 4.2 Composition disposition
 
@@ -148,6 +148,33 @@ Primary references:
 - SCITT WG document status: https://datatracker.ietf.org/wg/scitt/documents/
 
 Compare any witness overlay against RFC 9943 non-equivocation/auditor requirements and conventional CT-style client gossip/monitoring. A witness quorum is defense-in-depth, not a substitute for a conformant TS or independent owner-universe closure.
+
+
+### 5.2.2 Independence is not authentication or completeness
+
+Independence is a sixth, separate claim dimension. Authentication proves that an evidence item is attributable to a key/identity under the selected trust policy; completeness concerns the declared source universe and covered frontier. Neither implies that two evidence items have independent provenance, operators, custody, sensors, power, network paths, incentives, or upstream data feeds.
+
+A corroboration claim therefore needs an explicit, profile-bound failure-domain model. It should record (at minimum) the organization/operator, administrative control plane, signing-key custody, collection device, calibration chain, network/transport, upstream source, transformation pipeline, and relevant economic/control dependency. Unknown lineage is Indeterminate, not independent. A different key, vendor logo, API endpoint, or receipt format is not sufficient evidence of independence.
+
+For the independent-corroboration profile, independence must be established at every mapped producer stage and carried across each dependency edge that consumes it. A common-cause mutation must keep the root claim Indeterminate even when every receipt is authentic and each source is individually complete. Independence is not a generic multiplier or a numeric score: it is a profile-specific claim with explicit failure-domain assumptions and falsifiable counterexamples.
+
+### 5.2.3 Planned MMR adversarial extension (not yet executable)
+
+The current eight symbolic seed cases do not qualify an MMR implementation. Add these as distinct mutation classes before claiming MMR interoperability:
+
+| Candidate class | Mutation / counterexample | Required conservative result |
+|---|---|---|
+| DJCC-009 | Validly registered issuer statement contradicted by independent field measurement | Authentication may pass; Truth is Rejected or Indeterminate under the adjudication profile |
+| DJCC-010 | Issuer selectively withholds a relevant statement | Completeness is Indeterminate; no absence claim |
+| DJCC-011 | Detached MMR receipt payload differs from recomputed accumulator | Source trust Rejected |
+| DJCC-012 | Receipt proof bytes are reinterpreted under a different VDS/hash profile | Source trust Rejected |
+| DJCC-013 | Empty/short MMR inclusion path asserted for an arbitrary historical tree size or index | Indeterminate or Rejected unless leaf commitment and position are bound by the application profile |
+| DJCC-014 | MMR consistency proof starts from a state other than the verifier's pinned VDS/tree-size/accumulator | Rejected; trusted frontier does not advance |
+| DJCC-015 | Two clients receive conflicting roots/accumulators for a purportedly common checkpoint | Indeterminate pending non-equivocation resolution |
+| DJCC-016 | Multiple receipts share one operator, key custodian, or upstream measurement feed | Independence is Indeterminate |
+| DJCC-017 | Application leaf commitment permits leaf/internal-node preimage ambiguity | Rejected or UnsupportedByProfile |
+
+These are test specifications only. They must not be counted toward seed execution, mutation kills, or standards conformance until exact fixtures, independent expected outcomes, canonical byte vectors, and executable adapters exist. The MMR draft's verifier starts consistency checks from an already trusted VDS, size, and accumulator and states that trusted state advances only forward; it also leaves the leaf commitment scheme to the application profile. Bind these requirements to tests rather than inferring them from a valid COSE signature.
 
 ### 5.3 No hindsight
 
@@ -230,11 +257,11 @@ The graph is encoded as an allowlisted stage-edge table, not supplied by the cer
 
 The candidate also checks stage output/disposition consistency, canonical dependency/input/reason ordering, profile-limited NotApplicable stages, and claim-ceiling monotonicity.
 
-**Dependency requirements are claim-specific, not stage-wide.** Each edge carries a non-empty, sorted, unique set drawn from `authentication`, `authority`, `completeness`, `effect`, and `truth`. A verified consumer must see every named claim EstablishedWithinProfile on that exact producer. It may still consume a narrower established claim from a parent whose overall stage disposition is Indeterminate for a different dimension. For example, semantic projection can use an authenticated issuer statement without implying that all issuer statements were submitted; a query that requires complete coverage must separately require the completeness claim.
+**Dependency requirements are claim-specific, not stage-wide.** Each edge carries a non-empty, sorted, unique set drawn from `authentication`, `authority`, `completeness`, `effect`, `independence`, and `truth`. A verified consumer must see every named claim EstablishedWithinProfile on that exact producer. It may still consume a narrower established claim from a parent whose overall stage disposition is Indeterminate for a different dimension. For example, semantic projection can use an authenticated issuer statement without implying that all issuer statements were submitted; a query that requires complete coverage must separately require the completeness claim.
 
-The selected profile maps final root claims to their responsible stages. The verifier checks that every root dimension declared EstablishedWithinProfile is established by every stage in that profile-owned claim map. Final composition disposition is derived from the profile's required root claim set, not from an all-or-nothing rule over unrelated stage dispositions. A profile must explicitly allow NotApplicable stages; a NotApplicable stage must mark all five of its claim dimensions NotApplicable and cannot be a producer for a required root claim.
+The selected profile maps final root claims to their responsible stages. The verifier checks that every root dimension declared EstablishedWithinProfile is established by every stage in that profile-owned claim map. Final composition disposition is derived from the profile's required root claim set, not from an all-or-nothing rule over unrelated stage dispositions. A profile must explicitly allow NotApplicable stages; a NotApplicable stage must mark all six of its claim dimensions NotApplicable and cannot be a producer for a required root claim.
 
-The two V0.1 profiles are in `DJCC_PROFILES_V0_1.json`: full evidence-to-outcome composition and historical decision-only composition. The latter explicitly excludes execution/effect and outcome, rather than treating those stages as green.
+The three V0.1 profiles are in `DJCC_PROFILES_V0_1.json`: full evidence-to-outcome composition, historical decision-only composition, and independent-corroboration decision composition. The corroboration profile requires independence as a root claim and treats execution/outcome as explicitly NotApplicable; it does not imply a physical-outcome claim.
 
 ### 7.2 Shared stage-edge byte contract
 
@@ -249,13 +276,13 @@ The first shared Go/Rust known-answer contract is `DJCC_STAGE_EDGE_V1_KAT.tsv`. 
 7. each required claim dimension in canonical order;
 8. producer output digest as raw 32 bytes.
 
-Every string is prefixed by a big-endian u32 **byte** length. Claim dimension order is authentication, authority, completeness, effect, truth. The corpus includes ASCII and non-ASCII UTF-8 input names and both single-claim and multi-claim edges. Go and Rust independently encode and compare the same exact preimage bytes.
+Every string is prefixed by a big-endian u32 **byte** length. Claim dimension order is authentication, authority, completeness, effect, independence, truth. The corpus includes ASCII and non-ASCII UTF-8 input names, single-claim and multi-claim edges, and an explicit independence-bearing edge. Go and Rust independently encode and compare the same exact preimage bytes.
 
 This locks down only one edge encoding. It is not a complete certificate canonical encoding, JSON canonicalization profile, or signed certificate digest. Full-certificate canonicalization remains a separate deliverable.
 
 This is a *structural composition verifier only*. It does not compute cryptographic hashes over serialized certificates yet; the digest values are inputs from owner receipts. It does not authenticate their producers or verify signatures, root identity, owner-universe completeness, actual source truth, policy semantics, legal authority, IVC proofs or physical outcome. Go seed validation does not evaluate Rust candidate certificates; candidate/oracle parity remains open work.
 
-The eight JSON seeds remain symbolic fixtures until exact positive/negative fixture bytes and corpus hashes are frozen. The 24-class composition corpus remains the research target; eight initial cases are not 24/24 coverage.
+The eight JSON seeds remain symbolic fixtures until exact positive/negative fixture bytes and corpus hashes are frozen. The MMR adversarial matrix below is a planned extension, not executable coverage. The 24-class composition corpus remains the research target; eight initial cases are not 24/24 coverage.
 
 ## 8. Adversarial benchmark
 
