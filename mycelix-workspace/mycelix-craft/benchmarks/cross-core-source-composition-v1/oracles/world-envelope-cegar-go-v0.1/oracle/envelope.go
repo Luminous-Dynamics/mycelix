@@ -20,7 +20,8 @@ const (
 )
 
 var frozenDomainDigests = map[string]string{
-	// Filled from the frozen fixture's canonical domain/world binding.
+	"CWE-001-spurious-decision-flip": "651c083107e4502e9627beef94f45b4b26d4cd5ab90c614ad9df20c434c649c7",
+	"CWE-002-genuine-decision-flip": "9c49b79ec74079b4b10cbb5e86dbb219de9f18ae3cb302ab517d73c580a83fb4",
 }
 
 type ScopeBasis string
