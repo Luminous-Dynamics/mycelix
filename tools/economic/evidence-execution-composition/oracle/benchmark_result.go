@@ -186,6 +186,113 @@ func benchmarkStringSetsEqual(left, right map[string]struct{}) bool {
 	return true
 }
 
+func validateBenchmarkFixtureRecords(
+	corpus map[string]any,
+	classIDs, positiveClassIDs, negativeClassIDs map[string]struct{},
+	counts map[string]int64,
+	fixtureCount, executableCount, symbolicCount int64,
+) error {
+	rawRecords, exists := corpus["fixture_records"]
+	if !exists {
+		return fmt.Errorf("qualification records require fixture_records")
+	}
+	records, ok := rawRecords.([]any)
+	if !ok {
+		return fmt.Errorf("fixture_records must be an array")
+	}
+	if len(records) < 60 || int64(len(records)) != fixtureCount || int64(len(records)) != executableCount {
+		return fmt.Errorf("fixture_records length must equal fixture_count and executable_fixture_count, with at least 60 records")
+	}
+	if symbolicCount != 0 {
+		return fmt.Errorf("qualification records cannot contain symbolic fixtures")
+	}
+
+	fixtureIDs := make(map[string]struct{}, len(records))
+	fixtureDigests := make(map[string]struct{}, len(records))
+	positiveSeen := make(map[string]struct{}, len(classIDs))
+	negativeSeen := make(map[string]struct{}, len(classIDs))
+	positiveCount, negativeCount := int64(0), int64(0)
+
+	for index, rawRecord := range records {
+		record, ok := rawRecord.(map[string]any)
+		if !ok {
+			return fmt.Errorf("fixture_records[%d] must be an object", index)
+		}
+		fixtureID, err := benchmarkString(record, "fixture_id")
+		if err != nil || strings.TrimSpace(fixtureID) != fixtureID || len(fixtureID) > 128 {
+			return fmt.Errorf("fixture_records[%d].fixture_id must be a trimmed non-empty string of at most 128 bytes", index)
+		}
+		if _, duplicate := fixtureIDs[fixtureID]; duplicate {
+			return fmt.Errorf("fixture_records contains duplicate fixture_id %q", fixtureID)
+		}
+		fixtureIDs[fixtureID] = struct{}{}
+
+		classID, err := benchmarkString(record, "class_id")
+		if err != nil {
+			return fmt.Errorf("fixture_records[%d]: %w", index, err)
+		}
+		if _, exists := classIDs[classID]; !exists {
+			return fmt.Errorf("fixture_records[%d] references undeclared class %q", index, classID)
+		}
+		controlKind, err := benchmarkString(record, "control_kind")
+		if err != nil {
+			return fmt.Errorf("fixture_records[%d]: %w", index, err)
+		}
+		seenSet := positiveSeen
+		declaredSet := positiveClassIDs
+		switch controlKind {
+		case "positive_control":
+			positiveCount++
+		case "hard_negative":
+			seenSet = negativeSeen
+			declaredSet = negativeClassIDs
+			negativeCount++
+		default:
+			return fmt.Errorf("fixture_records[%d].control_kind is unsupported", index)
+		}
+		if _, declared := declaredSet[classID]; !declared {
+			return fmt.Errorf("fixture_records[%d] control class %q is not declared for %s", index, classID, controlKind)
+		}
+		if _, duplicate := seenSet[classID]; duplicate {
+			return fmt.Errorf("fixture_records contains multiple %s fixtures for class %q", controlKind, classID)
+		}
+		seenSet[classID] = struct{}{}
+
+		digest, err := benchmarkString(record, "digest")
+		if err != nil || !validBenchmarkHex(digest, "sha256:", 32) {
+			return fmt.Errorf("fixture_records[%d].digest must be a lowercase sha256 digest", index)
+		}
+		if _, duplicate := fixtureDigests[digest]; duplicate {
+			return fmt.Errorf("fixture_records contains duplicate content digest %q", digest)
+		}
+		fixtureDigests[digest] = struct{}{}
+
+		for _, key := range []string{"media_type", "generator_version"} {
+			if value, err := benchmarkString(record, key); err != nil || strings.TrimSpace(value) != value {
+				return fmt.Errorf("fixture_records[%d].%s must be a trimmed non-empty string", index, key)
+			}
+		}
+		byteLength, err := benchmarkInteger(record, "byte_length")
+		if err != nil || byteLength == 0 {
+			return fmt.Errorf("fixture_records[%d].byte_length must be positive", index)
+		}
+		if _, err := benchmarkInteger(record, "generator_seed"); err != nil {
+			return fmt.Errorf("fixture_records[%d]: %w", index, err)
+		}
+	}
+
+	if !benchmarkStringSetsEqual(positiveSeen, positiveClassIDs) {
+		return fmt.Errorf("fixture_records must contain exactly one positive control for every declared class")
+	}
+	if !benchmarkStringSetsEqual(negativeSeen, negativeClassIDs) {
+		return fmt.Errorf("fixture_records must contain exactly one hard negative for every declared class")
+	}
+	if positiveCount != counts["positive_control_total"] || negativeCount != counts["hard_negative_total"] {
+		return fmt.Errorf("fixture record control counts must match correctness denominators")
+	}
+	return nil
+}
+
 func validBenchmarkHex(value, prefix string, byteLength int) bool {
 	if !strings.HasPrefix(value, prefix) {
 		return false
@@ -684,6 +791,12 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 		if !benchmarkStringSetsEqual(adversarialClassIDs, positiveControlClassIDs) ||
 			!benchmarkStringSetsEqual(adversarialClassIDs, hardNegativeClassIDs) {
 			return fmt.Errorf("every adversarial class requires paired positive-control and hard-negative fixtures")
+		}
+		if err := validateBenchmarkFixtureRecords(
+			corpus, adversarialClassIDs, positiveControlClassIDs, hardNegativeClassIDs,
+			counts, fixtureCount, executableCount, symbolicCount,
+		); err != nil {
+			return err
 		}
 		if fixtureCount < 60 || executableCount < 60 {
 			return fmt.Errorf("qualification records require at least 60 executable fixtures for 30 paired classes")
