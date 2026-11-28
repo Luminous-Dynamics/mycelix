@@ -26,7 +26,7 @@ The DP is cross-checked on the frozen tiny case against a separate, deliberately
 - Mandatory-only / stop-now.
 - Random-safe and expert-priority (to be added in the comparative harness).
 - One-step EIG greedy.
-- One-step EVSI greedy.
+- One-step EVSI greedy, constrained by the same budget and mandatory-evidence gate.
 - Exact bounded sequential DP.
 - Full-horizon clairvoyant hindsight optimum (future benchmark upper bound only).
 
