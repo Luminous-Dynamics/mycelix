@@ -13,7 +13,7 @@ expect_rejected() {
   echo "PASS: rejected mutation: $name"
 }
 expect_rejected "remove one factorial arm" '(.groups[0].arms) |= map(select(.arm_id != "A1B0"))'
-expect_rejected "falsify compound interaction contrast" '(.groups[0].arms[] | select(.arm_id == "A1B1") | .terminal.unrecovered_degradation_minutes) = 0'
+expect_rejected "falsify compound interaction contrast" '(.groups[0].arms[] | select(.arm_id == "A1B1") | .terminal.service_degraded_minutes) = 0'
 expect_rejected "change expected contrast to a false value" '(.groups[0].expected_interaction_contrast) = 0'
 expect_rejected "mismatch workload seed in one arm" '(.groups[0].arms[] | select(.arm_id == "A1B1") | .matched_profile.seed) = 7'
 expect_rejected "expose factor assignments to agent" '(.groups[0].agent_payload_policy.exposes_factor_assignments) = true'
