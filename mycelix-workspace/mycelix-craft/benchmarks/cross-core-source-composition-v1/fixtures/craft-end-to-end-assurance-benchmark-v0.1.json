@@ -1,0 +1,177 @@
+{
+  "schema_id": "mycelix.craft.end-to-end-assurance-benchmark.v0.1",
+  "status": "research_specification_not_measured",
+  "version": "0.1.0",
+  "lifecycle": [
+    "source_universe_and_admission",
+    "causal_frontier",
+    "ocel_temporal_projection",
+    "authority_and_policy",
+    "decision_basis_capsule",
+    "advisory_eap",
+    "evidence_acquisition_and_admission",
+    "replay_and_new_dbc",
+    "execution_observation_and_outcome_receipts"
+  ],
+  "tracks": [
+    {
+      "id": "semantic_temporal",
+      "metrics": [
+        "ocel_roundtrip_parity",
+        "frontier_correctness",
+        "replay_determinism",
+        "historical_immutability"
+      ],
+      "target": "100% frozen KAT agreement"
+    },
+    {
+      "id": "assurance",
+      "metrics": [
+        "false_safe",
+        "false_authority",
+        "false_completeness",
+        "false_independence",
+        "claim_ceiling_violations",
+        "mandatory_evidence_waivers",
+        "unknown_outcome_barrier_violations",
+        "unauthorized_effects"
+      ],
+      "target": "zero on frozen adversarial suite"
+    },
+    {
+      "id": "acquisition",
+      "metrics": [
+        "EVSI",
+        "EIG",
+        "oracle_regret",
+        "budgeted_hindsight_regret",
+        "mandatory_compliance",
+        "cost_components",
+        "calibration_when_grounded"
+      ],
+      "baselines": [
+        "mandatory_only",
+        "fixed_schedule",
+        "random_safe",
+        "expert_priority",
+        "EIG_greedy",
+        "EVSI_greedy",
+        "budgeted_hindsight_upper_bound"
+      ]
+    },
+    {
+      "id": "adversarial",
+      "scenarios": [
+        "omission_after_commitment",
+        "duplicate_conflicting_events",
+        "reordering",
+        "clock_skew",
+        "late_arrival",
+        "equal_timestamp",
+        "forked_stream",
+        "missing_parent",
+        "source_substitution",
+        "digest_schema_substitution",
+        "stale_policy",
+        "authority_revocation",
+        "common_cause",
+        "out_of_domain",
+        "unknown_execution_outcome",
+        "incomplete_source_universe"
+      ]
+    },
+    {
+      "id": "efficiency",
+      "metrics": [
+        "throughput",
+        "p50_latency",
+        "p95_latency",
+        "p99_latency",
+        "peak_rss",
+        "cpu_time",
+        "bytes_read",
+        "bytes_written",
+        "index_size",
+        "receipt_size",
+        "replay_cost"
+      ],
+      "repetitions_min": 5,
+      "cache_modes": [
+        "cold",
+        "warm"
+      ],
+      "scale_events": [
+        1000,
+        10000,
+        100000,
+        1000000,
+        2400000,
+        7000000,
+        10000000
+      ]
+    },
+    {
+      "id": "interoperability",
+      "metrics": [
+        "ocel_2x_interchange",
+        "scitt_receipt_reference",
+        "offline_verification",
+        "verifier_portability",
+        "unsupported_semantics_reporting"
+      ]
+    }
+  ],
+  "comparators": [
+    {
+      "name": "PM4Py",
+      "task": "process_discovery_conformance_ocel"
+    },
+    {
+      "name": "Ocelescope",
+      "task": "ocel_analysis_object_centric_queries"
+    },
+    {
+      "name": "OC-DCR",
+      "task": "object_centric_discovery_conformance"
+    },
+    {
+      "name": "XTDB",
+      "task": "bitemporal_queries"
+    },
+    {
+      "name": "TGB2",
+      "task": "temporal_graph_scale"
+    },
+    {
+      "name": "SCITT",
+      "task": "signed_statements_transparency_receipts"
+    }
+  ],
+  "zero_tolerance": [
+    "false_safe",
+    "false_authority",
+    "false_completeness",
+    "false_independence",
+    "unauthorized_effects",
+    "mandatory_evidence_waivers",
+    "unknown_outcome_barrier_violations"
+  ],
+  "non_goals": [
+    "field_calibration",
+    "sensor_accuracy",
+    "legal_authority",
+    "human_legitimacy",
+    "source_truth",
+    "physical_outcome",
+    "autonomous_real_world_action"
+  ],
+  "result_classes": [
+    "implemented",
+    "structural",
+    "local_test",
+    "hosted_exact_head_pass",
+    "pending",
+    "field_physical_not_evaluated"
+  ],
+  "scoring_rule": "No composite score may compensate for a zero-tolerance assurance failure."
+}
