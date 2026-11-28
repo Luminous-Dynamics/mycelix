@@ -18,7 +18,7 @@ type MutationCase struct {
  ID string `json:"id"`
  Mutation string `json:"mutation"`
  Missingness string `json:"missingness,omitempty"`
- Expected map[string]any `json:"expected"`
+ Expected any `json:"expected"`
  Purpose string `json:"purpose,omitempty"`
  Event map[string]any `json:"event,omitempty"`
  SelectionPolicy map[string]any `json:"selection_policy,omitempty"`
@@ -39,7 +39,7 @@ type Bundle struct {
  BaseFixtureDigest string `json:"base_fixture_digest"`
  ScenarioRegistryDigest string `json:"scenario_registry_digest"`
  TransformedEpisodeDigest string `json:"transformed_episode_digest"`
- Expected map[string]any `json:"expected"`
+ Expected any `json:"expected"`
  Purpose string `json:"purpose,omitempty"`
  Episode map[string]any `json:"episode"`
 }
@@ -88,7 +88,7 @@ func apply(ep map[string]any,c MutationCase)error{
 
 func Generate(baseRaw,registryRaw []byte)([]Bundle,error){
  base,e:=decodeObject(baseRaw);if e!=nil{return nil,fmt.Errorf("base episode: %w",e)}
- d:=json.NewDecoder(bytes.NewReader(registryRaw));d.UseNumber();var reg Registry;if e=d.Decode(&reg);e!=nil{return nil,e}
+ d:=json.NewDecoder(bytes.NewReader(registryRaw));d.UseNumber();var reg Registry;if e=d.Decode(&reg);e!=nil{return nil,e};var trailing any;if e=d.Decode(&trailing);e==nil{return nil,errors.New("trailing registry JSON")}
  if reg.SchemaID!="mycelix.craft.synthetic-scenario-mutations.v0.1"||reg.FixtureID==""||len(reg.Mutations)==0{return nil,errors.New("invalid registry header")}
  baseDigest:=RawDigest(EpisodeDomain,baseRaw);regDigest:=RawDigest(EpisodeDomain,registryRaw)
  cases:=append([]MutationCase(nil),reg.Mutations...);sort.Slice(cases,func(i,j int)bool{return cases[i].ID<cases[j].ID})
