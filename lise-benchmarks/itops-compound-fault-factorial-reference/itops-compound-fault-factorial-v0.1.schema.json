@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/itops-compound-fault-factorial-v0.1.schema.json",
+  "title": "ITOPS Compound Fault Factorial Reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["suite_id", "schema_version", "contract", "visibility", "groups"],
+  "properties": {
+    "suite_id": { "const": "itops-compound-fault-factorial-reference" },
+    "schema_version": { "const": "0.1.0" },
+    "contract": { "const": "ITOPS-CONTINUOUS-001" },
+    "visibility": { "const": "PUBLIC_REFERENCE_ORACLE_FIXTURE" },
+    "groups": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/group" }
+    }
+  },
+  "$defs": {
+    "factor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["factor_id", "mechanism", "target_service_id"],
+      "properties": {
+        "factor_id": { "type": "string", "minLength": 1 },
+        "mechanism": { "type": "string", "minLength": 1 },
+        "target_service_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "workload_id", "request_rate_per_second", "trigger_removal_seconds", "observation_window_seconds"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0 },
+        "workload_id": { "type": "string", "minLength": 1 },
+        "request_rate_per_second": { "type": "number", "exclusiveMinimum": 0 },
+        "trigger_removal_seconds": { "type": "integer", "minimum": 0 },
+        "observation_window_seconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm_id", "factor_a_present", "factor_b_present", "matched_profile", "terminal"],
+      "properties": {
+        "arm_id": { "enum": ["A0B0", "A1B0", "A0B1", "A1B1"] },
+        "factor_a_present": { "type": "boolean" },
+        "factor_b_present": { "type": "boolean" },
+        "matched_profile": { "$ref": "#/$defs/profile" },
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["availability_fraction", "unrecovered_degradation_minutes", "fault_persists_after_trigger_removed", "functional_contract_pass"],
+          "properties": {
+            "availability_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+            "unrecovered_degradation_minutes": { "type": "number", "minimum": 0 },
+            "fault_persists_after_trigger_removed": { "type": "boolean" },
+            "functional_contract_pass": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "classification", "factor_a", "factor_b", "arms", "interaction_metric", "expected_interaction_contrast", "expected_causal_factor_ids", "required_remediation_action_ids", "agent_payload_policy"],
+      "properties": {
+        "group_id": { "type": "string", "minLength": 1 },
+        "classification": { "enum": ["synergistic_interaction", "additive_control"] },
+        "factor_a": { "$ref": "#/$defs/factor" },
+        "factor_b": { "$ref": "#/$defs/factor" },
+        "arms": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/arm" }
+        },
+        "interaction_metric": { "const": "unrecovered_degradation_minutes" },
+        "expected_interaction_contrast": { "type": "number" },
+        "expected_causal_factor_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "required_remediation_action_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "agent_payload_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exposes_factor_assignments", "exposes_terminal_oracle"],
+          "properties": {
+            "exposes_factor_assignments": { "const": false },
+            "exposes_terminal_oracle": { "const": false }
+          }
+        }
+      }
+    }
+  }
+}
