@@ -1,0 +1,206 @@
+{
+  "schema": "mycelix.djcc-composition-profiles.v0.1",
+  "status": "proposed-structural-profiles-not-yet-authoritative",
+  "canonical_order": {
+    "stage_ids": [
+      "verifier_frontier",
+      "source_trust",
+      "semantic_projection",
+      "query",
+      "policy",
+      "authorization",
+      "execution",
+      "outcome"
+    ],
+    "claim_dimensions": [
+      "authentication",
+      "authority",
+      "completeness",
+      "effect",
+      "truth"
+    ],
+    "dependency_claims": "Each edge's required_claims is a non-empty, sorted, unique list under claim_dimensions ordering."
+  },
+  "profiles": [
+    {
+      "profile_ref": "mycelix.djcc.full-evidence-execution.v0.1",
+      "title": "Full evidence-to-outcome composition",
+      "required_claims": [
+        "authentication",
+        "authority",
+        "completeness",
+        "effect",
+        "truth"
+      ],
+      "allowed_not_applicable": [],
+      "claim_stages": {
+        "authentication": [
+          "verifier_frontier",
+          "source_trust"
+        ],
+        "authority": [
+          "authorization"
+        ],
+        "completeness": [
+          "verifier_frontier",
+          "source_trust",
+          "semantic_projection",
+          "query"
+        ],
+        "effect": [
+          "execution",
+          "outcome"
+        ],
+        "truth": [
+          "query",
+          "policy",
+          "outcome"
+        ]
+      },
+      "dependency_claims": {
+        "source_trust": {
+          "verifier_frontier": [
+            "authentication",
+            "completeness"
+          ]
+        },
+        "semantic_projection": {
+          "verifier_frontier": [
+            "authentication"
+          ],
+          "source_trust": [
+            "authentication"
+          ]
+        },
+        "query": {
+          "verifier_frontier": [
+            "authentication",
+            "completeness"
+          ],
+          "source_trust": [
+            "authentication",
+            "completeness"
+          ],
+          "semantic_projection": [
+            "authentication",
+            "completeness"
+          ]
+        },
+        "policy": {
+          "query": [
+            "authentication",
+            "completeness",
+            "truth"
+          ]
+        },
+        "authorization": {
+          "verifier_frontier": [
+            "authentication"
+          ],
+          "policy": [
+            "authentication",
+            "truth"
+          ]
+        },
+        "execution": {
+          "authorization": [
+            "authentication",
+            "authority"
+          ]
+        },
+        "outcome": {
+          "source_trust": [
+            "authentication"
+          ],
+          "semantic_projection": [
+            "completeness"
+          ],
+          "execution": [
+            "effect"
+          ]
+        }
+      },
+      "claim_ceiling_notes": "The profile is intentionally demanding. A stage may have a partially established claim ceiling while its overall disposition is Indeterminate. Consumers can use only the exact claim dimensions listed on the edge. The root is justified only when every required root claim is established by its profile-owned stage set."
+    },
+    {
+      "profile_ref": "mycelix.djcc.historical-decision-only.v0.1",
+      "title": "Historical decision justification without execution or outcome",
+      "required_claims": [
+        "authentication",
+        "authority",
+        "completeness",
+        "truth"
+      ],
+      "allowed_not_applicable": [
+        "execution",
+        "outcome"
+      ],
+      "claim_stages": {
+        "authentication": [
+          "verifier_frontier",
+          "source_trust"
+        ],
+        "authority": [
+          "authorization"
+        ],
+        "completeness": [
+          "verifier_frontier",
+          "source_trust",
+          "semantic_projection",
+          "query"
+        ],
+        "truth": [
+          "query",
+          "policy"
+        ]
+      },
+      "dependency_claims": {
+        "source_trust": {
+          "verifier_frontier": [
+            "authentication",
+            "completeness"
+          ]
+        },
+        "semantic_projection": {
+          "verifier_frontier": [
+            "authentication"
+          ],
+          "source_trust": [
+            "authentication"
+          ]
+        },
+        "query": {
+          "verifier_frontier": [
+            "authentication",
+            "completeness"
+          ],
+          "source_trust": [
+            "authentication",
+            "completeness"
+          ],
+          "semantic_projection": [
+            "authentication",
+            "completeness"
+          ]
+        },
+        "policy": {
+          "query": [
+            "authentication",
+            "completeness",
+            "truth"
+          ]
+        },
+        "authorization": {
+          "verifier_frontier": [
+            "authentication"
+          ],
+          "policy": [
+            "authentication",
+            "truth"
+          ]
+        }
+      },
+      "claim_ceiling_notes": "Execution and outcome stages are profile-qualified NotApplicable, not green. The certificate cannot claim effect or a physical outcome. The outcome stage is omitted from the truth-producing stage set."
+    }
+  ]
+}
