@@ -27,9 +27,9 @@ func base() Proposal {
 			QueryID: "query-001",
 			ScopeDigest: d(2),
 			FrontierDigest: d(3),
-			DecisionLossProfileDigest: d(4),
 			ValidAt: "2026-11-28T10:00:00Z",
 		},
+		LossProfile: ref("water-service-loss-v1","mycelix.craft.decision-loss-profile.v0.1",4),
 		EVSI: EVSIEvaluation{
 			Receipt: ref("evsi-001","mycelix.craft.evsi-evaluation-receipt.v0.1",5),
 			FrontierDigest: d(3),
@@ -176,6 +176,12 @@ func TestCanonicalProposalBindsPriorDBCAndLossProfile(t *testing.T) {
 	p.EVSI.FrontierDigest=d(999)
 	second,err:=CanonicalDigest(p); if err!=nil { t.Fatal(err) }
 	if first==second { t.Fatal("new prior DBC frontier did not change proposal commitment") }
+	p=base()
+	first,err=CanonicalDigest(p); if err!=nil { t.Fatal(err) }
+	p.LossProfile.Digest=d(888)
+	p.EVSI.LossProfileDigest=d(888)
+	third,err:=CanonicalDigest(p); if err!=nil { t.Fatal(err) }
+	if first==third { t.Fatal("new decision-loss profile did not change proposal commitment") }
 }
 
 func TestMandatoryEvidenceCannotBeSkippedForPositiveOptionalScore(t *testing.T) {
