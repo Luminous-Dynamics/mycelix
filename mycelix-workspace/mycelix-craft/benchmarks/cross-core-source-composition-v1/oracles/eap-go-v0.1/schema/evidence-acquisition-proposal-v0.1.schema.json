@@ -12,6 +12,7 @@
     "advisory_only",
     "authorized_effects",
     "prior_decision_basis",
+    "loss_profile",
     "evsi_evaluation",
     "candidate",
     "disposition",
@@ -48,9 +49,7 @@
         "query_id",
         "scope_digest",
         "frontier_digest",
-        "decision_loss_profile_digest",
-        "valid_at",
-        "decision_loss_profile_digest"
+        "valid_at"
       ],
       "properties": {
         "receipt": {
@@ -76,9 +75,6 @@
           "$ref": "#/$defs/digest"
         },
         "frontier_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "decision_loss_profile_digest": {
           "$ref": "#/$defs/digest"
         },
         "valid_at": {
@@ -277,6 +273,9 @@
     },
     "abstention_reason": {
       "type": "string"
+    },
+    "loss_profile": {
+      "$ref": "#/$defs/receiptRef"
     }
   },
   "$defs": {
