@@ -97,10 +97,10 @@ pub enum StageDisposition {
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ClaimDimension {
     Authentication,
-    Completeness,
-    Truth,
     Authority,
+    Completeness,
     Effect,
+    Truth,
 }
 
 impl ClaimDimension {
@@ -143,6 +143,7 @@ pub struct StageEdgeV1 {
     pub consumer_stage: String,
     pub input_name: String,
     pub output_schema_ref: String,
+    pub required_claims: Vec<ClaimDimension>,
     pub output_digest: Digest,
 }
 
@@ -190,6 +191,20 @@ pub fn canonical_stage_edge_bytes_v1(edge: &StageEdgeV1) -> Result<Vec<u8>, Stri
         edge.output_schema_ref.as_str(),
     ] {
         write_string(&mut output, value)?;
+    }
+    if edge.required_claims.is_empty()
+        || edge
+            .required_claims
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+    {
+        return Err("required claim dimensions must be non-empty, sorted and unique".to_owned());
+    }
+    let claim_count = u32::try_from(edge.required_claims.len())
+        .map_err(|_| "required claim dimension count exceeds u32".to_owned())?;
+    output.extend_from_slice(&claim_count.to_be_bytes());
+    for claim in &edge.required_claims {
+        write_string(&mut output, claim.as_str())?;
     }
     output.extend_from_slice(&edge.output_digest.0);
     Ok(output)
@@ -1159,6 +1174,17 @@ mod tests {
             .collect()
     }
 
+    fn parse_claim_dimension(value: &str) -> ClaimDimension {
+        match value {
+            "authentication" => ClaimDimension::Authentication,
+            "authority" => ClaimDimension::Authority,
+            "completeness" => ClaimDimension::Completeness,
+            "effect" => ClaimDimension::Effect,
+            "truth" => ClaimDimension::Truth,
+            other => panic!("unknown claim dimension {other}"),
+        }
+    }
+
     #[test]
     fn shared_go_rust_stage_edge_canonicalization_vectors_match() {
         const VECTORS: &str = include_str!(
@@ -1171,21 +1197,26 @@ mod tests {
                 continue;
             }
             let fields: Vec<_> = line.split('\t').collect();
-            assert_eq!(fields.len(), 7, "vector line {}", line_index + 1);
-            let digest_bytes = decode_hex(fields[5]);
+            assert_eq!(fields.len(), 8, "vector line {}", line_index + 1);
+            let digest_bytes = decode_hex(fields[6]);
             let digest: [u8; 32] = digest_bytes
                 .try_into()
                 .expect("stage-edge output digest must be 32 bytes");
+            let required_claims = fields[5]
+                .split(',')
+                .map(parse_claim_dimension)
+                .collect();
             let edge = StageEdgeV1 {
                 producer_stage: fields[1].to_owned(),
                 consumer_stage: fields[2].to_owned(),
                 input_name: fields[3].to_owned(),
                 output_schema_ref: fields[4].to_owned(),
+                required_claims,
                 output_digest: Digest(digest),
             };
             let actual = canonical_stage_edge_bytes_v1(&edge)
                 .expect("shared stage-edge fixture is valid");
-            let expected = decode_hex(fields[6]);
+            let expected = decode_hex(fields[7]);
             assert_eq!(
                 actual,
                 expected,
@@ -1198,17 +1229,21 @@ mod tests {
     }
 
     #[test]
-    fn canonical_stage_edge_rejects_unknown_stage_and_empty_input_name() {
+    fn canonical_stage_edge_rejects_unknown_stage_empty_input_and_unsorted_claims() {
         let mut edge = StageEdgeV1 {
             producer_stage: "unknown".to_owned(),
             consumer_stage: "query".to_owned(),
             input_name: "frontier".to_owned(),
             output_schema_ref: "schema:v1".to_owned(),
+            required_claims: vec![ClaimDimension::Authentication],
             output_digest: Digest([1; 32]),
         };
         assert!(canonical_stage_edge_bytes_v1(&edge).is_err());
         edge.producer_stage = "verifier_frontier".to_owned();
         edge.input_name = "  ".to_owned();
+        assert!(canonical_stage_edge_bytes_v1(&edge).is_err());
+        edge.input_name = "frontier".to_owned();
+        edge.required_claims = vec![ClaimDimension::Completeness, ClaimDimension::Authentication];
         assert!(canonical_stage_edge_bytes_v1(&edge).is_err());
     }
 
