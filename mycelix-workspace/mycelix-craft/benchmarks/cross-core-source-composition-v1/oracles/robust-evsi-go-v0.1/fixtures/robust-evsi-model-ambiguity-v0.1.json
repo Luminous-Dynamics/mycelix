@@ -1,0 +1,111 @@
+{
+  "schema_id": "mycelix.craft.robust-evsi-model-ambiguity.v0.1",
+  "case": {
+    "id": "calibration-ambiguity",
+    "model_set_id": "two-models-v0.1",
+    "model_set_admissible": true,
+    "coverage_established": true,
+    "safe_actions": [
+      "protect",
+      "release"
+    ],
+    "actions": [
+      {
+        "id": "protect",
+        "loss_by_state": {
+          "unsafe": 2,
+          "safe": 2
+        }
+      },
+      {
+        "id": "release",
+        "loss_by_state": {
+          "unsafe": 100,
+          "safe": 0
+        }
+      }
+    ],
+    "models": [
+      {
+        "id": "calibrated-perfect",
+        "states": [
+          {
+            "id": "unsafe",
+            "probability": 0.05
+          },
+          {
+            "id": "safe",
+            "probability": 0.95
+          }
+        ],
+        "likelihood_by_state": {
+          "unsafe": [
+            {
+              "result_id": "unsafe-result",
+              "probability": 1
+            }
+          ],
+          "safe": [
+            {
+              "result_id": "safe-result",
+              "probability": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "misspecified-uninformative",
+        "states": [
+          {
+            "id": "unsafe",
+            "probability": 0.05
+          },
+          {
+            "id": "safe",
+            "probability": 0.95
+          }
+        ],
+        "likelihood_by_state": {
+          "unsafe": [
+            {
+              "result_id": "unsafe-result",
+              "probability": 0.5
+            },
+            {
+              "result_id": "safe-result",
+              "probability": 0.5
+            }
+          ],
+          "safe": [
+            {
+              "result_id": "unsafe-result",
+              "probability": 0.5
+            },
+            {
+              "result_id": "safe-result",
+              "probability": 0.5
+            }
+          ]
+        }
+      }
+    ],
+    "observation_cost": 0.2,
+    "observation_available": true,
+    "observation_in_domain": true,
+    "observation_admissible": true,
+    "mandatory_evidence_open": false
+  },
+  "expected": {
+    "status": "DoNotAcquireRobustObservation",
+    "baseline_robust_risk": 2,
+    "terminal_worst_case_risk": 2,
+    "acquisition_robust_risk": 2.2,
+    "robust_gross_evsi": 0,
+    "robust_net_value": -0.2,
+    "nominal_perfect_model_gross_evsi": 1.9,
+    "nominal_perfect_model_net_evsi": 1.7,
+    "selected_action_for_unsafe_result": "protect",
+    "selected_action_for_safe_result": "protect",
+    "real_world_calibration": "NotEvaluated"
+  }
+}
