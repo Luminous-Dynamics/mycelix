@@ -305,6 +305,7 @@ func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 		ScopeDigest: scopeDigest,
 		ActiveCapabilities: make([]ActiveCapabilityV1, MaxActiveCapabilities+1),
 	}
+	tooMany = finalizeReplay(tooMany)
 	if got := DeriveProgressAntichainV1(scope, tooMany); got.Disposition != ProgressUnavailable {
 		t.Fatalf("excessive active capability count accepted: %+v", got)
 	}
@@ -314,6 +315,7 @@ func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 		ScopeDigest: scopeDigest,
 		ActiveCapabilities: make([]ActiveCapabilityV1, 5000),
 	}
+	largeAntichain = finalizeReplay(largeAntichain)
 	for i := range largeAntichain.ActiveCapabilities {
 		largeAntichain.ActiveCapabilities[i].OwnerCut = []OwnerCoordinateV1{
 			{OwnerRef: "owner:A", Sequence: uint64(i)},
@@ -322,6 +324,38 @@ func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 	if got := DeriveProgressAntichainV1(scope, largeAntichain); got.Disposition != ProgressUnavailable ||
 		!strings.Contains(got.Reason, "comparison budget") {
 		t.Fatalf("excessive antichain comparisons were not blocked: %+v", got)
+	}
+}
+
+func TestDerivedProgressRejectsFabricatedOrMutatedReplayResults(t *testing.T) {
+	scope := fixtureScope("owner:A")
+	mint := fixtureTransition(TransitionMint, "cap:A", 1, "", map[string]uint64{"owner:A": 2})
+	events := fixtureAppend(t, scope, nil, "mint", OutcomeCommitted, &mint, "")
+	replay := fixtureReplay(t, scope, events)
+	if !replayResultIntegrityValid(replay) {
+		t.Fatal("authentic replay result failed its own integrity seal")
+	}
+
+	mutated := replay
+	mutated.ActiveCapabilities = append([]ActiveCapabilityV1(nil), replay.ActiveCapabilities...)
+	mutated.ActiveCapabilities[0].OwnerCut = append([]OwnerCoordinateV1(nil), replay.ActiveCapabilities[0].OwnerCut...)
+	mutated.ActiveCapabilities[0].OwnerCut[0].Sequence = 0
+	if got := DeriveProgressAntichainV1(scope, mutated); got.Disposition != ProgressUnavailable ||
+		!strings.Contains(got.Reason, "integrity seal") {
+		t.Fatalf("mutated active capability was trusted: %+v", got)
+	}
+
+	fabricated := ReplayResultV1{
+		Disposition: LedgerValid,
+		ScopeDigest: replay.ScopeDigest,
+		ActiveCapabilities: []ActiveCapabilityV1{{
+			CapabilityID: "cap:forged",
+			Generation: 1,
+			OwnerCut: []OwnerCoordinateV1{{OwnerRef:"owner:A", Sequence:0}},
+		}},
+	}
+	if got := DeriveProgressAntichainV1(scope, fabricated); got.Disposition != ProgressUnavailable {
+		t.Fatalf("caller-constructed replay result was trusted: %+v", got)
 	}
 }
 
