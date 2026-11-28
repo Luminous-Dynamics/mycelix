@@ -438,13 +438,14 @@ pub enum RevocationStatus {
 }
 
 /// Mirror of revocation coordinator::RevocationCheckResult
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum RevocationLookupStatus {
     RecordObserved,
     NoRecordObserved,
 }
 
+/// Mirror of revocation coordinator::RevocationCheckResult
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RevocationCheckResult {
     pub credential_id: String,
     pub status: RevocationStatus,
