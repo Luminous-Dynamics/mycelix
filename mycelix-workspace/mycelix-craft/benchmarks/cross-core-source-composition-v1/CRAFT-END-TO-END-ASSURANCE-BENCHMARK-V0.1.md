@@ -147,3 +147,44 @@ Add **missing-not-at-random** and strategic-omission scenarios: sources disappea
 Introduce a budgeted **observability allocation** task: given a fixed human-review, sensor, laboratory, latency and financial budget, choose the next source/observation to reduce decision loss and epistemic debt without relaxing mandatory evidence or safe-action constraints. Compare fixed, random-safe, expert, EIG, EVSI and constrained portfolio policies. Report fairness and burden distribution across affected populations where those data are explicitly available; do not infer missing values.
 
 This is a benchmark dimension, not a new authority to waive required evidence. Mandatory gaps remain blocking regardless of acquisition cost or score.
+
+
+## 10. Meta-audit: the inspection policy must itself be auditable
+
+Selective monitoring changes which labels and evidence are observed. That creates a feedback loop: the policy selects cases, selected cases receive review, reviewer outcomes update the training set, and the next policy is trained on a selection-biased sample. A system can therefore appear to improve while systematically ignoring rare, previously unseen, or expensive-to-inspect risks.
+
+Treat each inspection/acquisition policy as a versioned, auditable artifact. Bind:
+- policy and model version, configuration and executable digest;
+- training/validation data snapshot and extraction provenance;
+- objective/reward definition, cost profile and constraints;
+- uncertainty and calibration state;
+- selection score, selected and rejected alternatives, budget state;
+- selection propensity or declared deterministic selection rule;
+- exploration/exploitation state and random seed;
+- human reviewer assignment, outcome, override and rationale;
+- policy updates, rollback triggers, incidents and post-incident corrections.
+
+Benchmark policy behavior as well as the underlying model:
+
+- selection-bias analysis and support/positivity checks;
+- off-policy evaluation error against simulator ground truth;
+- propensity calibration and weight variance/effective sample size;
+- rare-event and previously uninspected-region coverage;
+- residual risk among uninspected cases;
+- inspection utility per unit cost and per human-hour;
+- policy drift detection delay and false alarms;
+- human override rate, override outcomes and time to rollback;
+- ability to reconstruct why each case was selected or not selected.
+
+Required counterexamples include: a policy that only inspects historical high-risk groups; a reward function that improves average utility by abandoning a rare high-severity class; reviewer outcomes missing not at random; deterministic selection with zero propensity for a critical region; a model update that changes selection without a new policy version; and an adversarial party that manipulates observable features to avoid inspection.
+
+**Hard rule:** an off-policy estimate is NotEvaluated when the logged policy has no support for the action/region being estimated. Do not hide positivity failures with clipped weights and then report a confident estimate. Report supported and unsupported strata separately.
+
+The meta-audit track is directly motivated by the 2026 survey's findings that selective labels can reinforce visible risks, that audit policies need off-policy evaluation and selection-bias analysis, and that policy versions, reviewer outcomes, governance constraints and human override need to be reconstructable. The benchmark must test the auditor's feedback loop, not just the predictions it consumes.
+
+## 11. Research sources and standards context
+
+- Becerril Villamil, H.R. et al., *Adaptive Process Mining and Selective Monitoring for Algorithmic Auditing: A Survey of Representations, Learning Policies, Decision Strategies, and Open Problems*, 10 August 2026, DOI: 10.3390/make8080234. Its synthesis argues that representation, learning, budgeted inspection and governance are often evaluated separately and calls for audit-ready benchmarks, explicit budgets, calibrated uncertainty, transfer and reproducible governance.
+- Berti, A. et al., *OCEL (Object-Centric Event Log) 2.1 Specification*, version 2.1.0pre5, 1 October 2026. Use its object/event/relationship semantics and exchange-format requirements as the interchange baseline; do not reduce all events to a single case identifier.
+- Birkholz, H. et al., IETF RFC 9943, *An Architecture for Trustworthy and Transparent Digital Supply Chains*, June 2026. Use SCITT-compatible signed statements and transparency receipts where relevant; keep authenticity/registration separate from truth and completeness.
+
