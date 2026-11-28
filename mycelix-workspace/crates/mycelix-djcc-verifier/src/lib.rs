@@ -285,6 +285,8 @@ pub struct CompositionProfile {
     pub profile_digest: Digest,
     pub scope_schema_ref: String,
     pub allowed_not_applicable: BTreeSet<StageId>,
+    pub required_claims: BTreeSet<ClaimDimension>,
+    pub claim_stages: BTreeMap<ClaimDimension, BTreeSet<StageId>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -524,26 +526,71 @@ fn dimension_values(ceiling: ClaimCeiling) -> [ClaimState; 5] {
 
 fn validate_claim_ceiling(
     input: &CompositionInput,
+    profile: &CompositionProfile,
     out: &mut Vec<Violation>,
 ) {
-    let declared = dimension_values(input.declared_claim_ceiling);
-    for stage_id in ALL_STAGE_IDS.iter() {
-        let Some(stage) = input.stages.get(stage_id) else {
+    let declared = input.declared_claim_ceiling;
+    for dimension in &profile.required_claims {
+        let Some(required_stages) = profile.claim_stages.get(dimension) else {
+            out.push(violation(
+                "DJCC-PROFILE-CLAIM-STAGES-MISSING",
+                format!("profile has no stage map for required claim {}", dimension.as_str()),
+            ));
             continue;
         };
-        let owner_claims = dimension_values(stage.claim_ceiling);
-        for dimension in 0..5 {
-            if declared[dimension] == ClaimState::EstablishedWithinProfile
-                && owner_claims[dimension] != ClaimState::EstablishedWithinProfile
-            {
-                out.push(violation(
+        if required_stages.is_empty() {
+            out.push(violation(
+                "DJCC-PROFILE-CLAIM-STAGES-EMPTY",
+                format!("profile claim {} has no producing stages", dimension.as_str()),
+            ));
+        }
+    }
+    for (dimension, required_stages) in &profile.claim_stages {
+        if !profile.required_claims.contains(dimension) {
+            out.push(violation(
+                "DJCC-PROFILE-CLAIM-STAGES-UNUSED",
+                format!("profile maps claim {} that is not required", dimension.as_str()),
+            ));
+        }
+        for stage_id in required_stages {
+            match input.stages.get(stage_id) {
+                Some(stage)
+                    if claim_state(stage.claim_ceiling, *dimension)
+                        == ClaimState::EstablishedWithinProfile => {}
+                Some(stage) => out.push(violation(
                     "DJCC-CLAIM-CEILING-WIDENED",
                     format!(
-                        "composition claim dimension {dimension} is established despite {stage_id} ceiling {:?}",
-                        owner_claims[dimension]
+                        "composition claim {} is established despite required stage {} ceiling {:?}",
+                        dimension.as_str(),
+                        stage_id,
+                        claim_state(stage.claim_ceiling, *dimension)
                     ),
-                ));
+                )),
+                None => out.push(violation(
+                    "DJCC-CLAIM-STAGE-MISSING",
+                    format!(
+                        "composition claim {} requires absent stage {}",
+                        dimension.as_str(),
+                        stage_id
+                    ),
+                )),
             }
+        }
+    }
+    for dimension in [
+        ClaimDimension::Authentication,
+        ClaimDimension::Authority,
+        ClaimDimension::Completeness,
+        ClaimDimension::Effect,
+        ClaimDimension::Truth,
+    ] {
+        if claim_state(declared, dimension) == ClaimState::EstablishedWithinProfile
+            && !profile.required_claims.contains(&dimension)
+        {
+            out.push(violation(
+                "DJCC-CLAIM-NOT-IN-PROFILE",
+                format!("certificate establishes unrequested claim {}", dimension.as_str()),
+            ));
         }
     }
 }
@@ -576,42 +623,39 @@ fn validate_scope_binding(
     }
 }
 
-fn derive_disposition(stages: &BTreeMap<StageId, StageEvidence>) -> CompositionDisposition {
-    if stages
-        .get(&StageId::Policy)
-        .is_some_and(|stage| stage.disposition == StageDisposition::Rejected)
+fn derive_disposition(input: &CompositionInput, profile: &CompositionProfile) -> CompositionDisposition {
+    if profile.required_claims.contains(&ClaimDimension::Truth)
+        && input
+            .stages
+            .get(&StageId::Policy)
+            .is_some_and(|stage| stage.disposition == StageDisposition::Rejected)
     {
         return CompositionDisposition::HistoricalReplayMismatch;
     }
-    if stages
-        .get(&StageId::Authorization)
-        .is_some_and(|stage| stage.disposition == StageDisposition::Rejected)
+    if profile.required_claims.contains(&ClaimDimension::Authority)
+        && input
+            .stages
+            .get(&StageId::Authorization)
+            .is_some_and(|stage| stage.disposition == StageDisposition::Rejected)
     {
         return CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
     }
-    if ALL_STAGE_IDS.iter().any(|stage_id| {
-        stages
-            .get(stage_id)
-            .is_some_and(|stage| stage.disposition == StageDisposition::Rejected)
-    }) {
-        return CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
+    for dimension in &profile.required_claims {
+        match claim_state(input.declared_claim_ceiling, *dimension) {
+            ClaimState::EstablishedWithinProfile => {}
+            ClaimState::Rejected => {
+                return CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
+            }
+            ClaimState::UnsupportedByProfile | ClaimState::NotApplicable => {
+                return CompositionDisposition::UnsupportedByProfile;
+            }
+            ClaimState::Indeterminate | ClaimState::NotEvaluated => {
+                return CompositionDisposition::Indeterminate;
+            }
+        }
     }
-    if ALL_STAGE_IDS.iter().any(|stage_id| {
-        stages.get(stage_id).is_some_and(|stage| {
-            stage.disposition == StageDisposition::UnsupportedByProfile
-        })
-    }) {
+    if profile.required_claims.is_empty() {
         return CompositionDisposition::UnsupportedByProfile;
-    }
-    if ALL_STAGE_IDS.iter().any(|stage_id| {
-        stages.get(stage_id).is_some_and(|stage| {
-            matches!(
-                stage.disposition,
-                StageDisposition::Indeterminate | StageDisposition::NotEvaluated
-            )
-        })
-    }) {
-        return CompositionDisposition::Indeterminate;
     }
     CompositionDisposition::DecisionJustifiedAtAcceptedFrontier
 }
@@ -728,8 +772,8 @@ pub fn verify_composition(
         }
     }
 
-    validate_claim_ceiling(input, &mut violations);
-    let derived_disposition = derive_disposition(&input.stages);
+    validate_claim_ceiling(input, profile, &mut violations);
+    let derived_disposition = derive_disposition(input, profile);
     if input.declared_disposition != derived_disposition {
         violations.push(violation(
             "DJCC-COMPOSITION-DISPOSITION-MISMATCH",
@@ -817,6 +861,44 @@ mod tests {
                 StageId::Execution,
                 StageId::Outcome,
             ]),
+            required_claims: BTreeSet::from([
+                ClaimDimension::Authentication,
+                ClaimDimension::Authority,
+                ClaimDimension::Completeness,
+                ClaimDimension::Effect,
+                ClaimDimension::Truth,
+            ]),
+            claim_stages: BTreeMap::from([
+                (
+                    ClaimDimension::Authentication,
+                    BTreeSet::from([StageId::VerifierFrontier, StageId::SourceTrust]),
+                ),
+                (
+                    ClaimDimension::Authority,
+                    BTreeSet::from([StageId::Authorization]),
+                ),
+                (
+                    ClaimDimension::Completeness,
+                    BTreeSet::from([
+                        StageId::VerifierFrontier,
+                        StageId::SourceTrust,
+                        StageId::SemanticProjection,
+                        StageId::Query,
+                    ]),
+                ),
+                (
+                    ClaimDimension::Effect,
+                    BTreeSet::from([StageId::Execution, StageId::Outcome]),
+                ),
+                (
+                    ClaimDimension::Truth,
+                    BTreeSet::from([
+                        StageId::Query,
+                        StageId::Policy,
+                        StageId::Outcome,
+                    ]),
+                ),
+            ]),
         }
     }
 
@@ -894,7 +976,16 @@ mod tests {
                 Some(d[5]),
                 vec![
                     dependency(StageId::VerifierFrontier, d[0]),
-                    dependency(StageId::Policy, d[4]),
+                    Dependency {
+                        stage_id: StageId::Policy,
+                        input_name: format!("stage:{}", StageId::Policy.as_str()),
+                        required_claims: vec![
+                            ClaimDimension::Authentication,
+                            ClaimDimension::Truth,
+                        ],
+                        output_digest: d[4],
+                        schema_ref: "stage-output:v1".to_owned(),
+                    },
                 ],
             ),
         );
@@ -1029,6 +1120,8 @@ mod tests {
         outcome.input_bindings.retain(|binding| binding.name == "scope");
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
         let mut profile = valid_profile();
+        profile.required_claims.remove(&ClaimDimension::Effect);
+        profile.claim_stages.remove(&ClaimDimension::Effect);
         profile.allowed_not_applicable.clear();
         let report = verify_composition(&input, &profile);
         assert!(report
@@ -1051,15 +1144,19 @@ mod tests {
         outcome.dependencies.clear();
         outcome.input_bindings.retain(|binding| binding.name == "scope");
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
-        let report = verify_composition(&input, &valid_profile());
+        let mut profile = valid_profile();
+        profile.required_claims.remove(&ClaimDimension::Effect);
+        profile.claim_stages.remove(&ClaimDimension::Effect);
+        let report = verify_composition(&input, &profile);
         assert!(report.is_valid(), "{:?}", report.violations);
     }
 
     #[test]
     fn policy_epoch_rejection_derives_historical_replay_mismatch() {
         let mut input = positive_input();
-        input.stages.get_mut(&StageId::Policy).unwrap().disposition =
-            StageDisposition::Rejected;
+        let policy = input.stages.get_mut(&StageId::Policy).unwrap();
+        policy.disposition = StageDisposition::Rejected;
+        policy.claim_ceiling.truth = ClaimState::Rejected;
         for stage_id in [
             StageId::Authorization,
             StageId::Execution,
@@ -1075,8 +1172,10 @@ mod tests {
     #[test]
     fn action_authorization_rejection_derives_not_justified() {
         let mut input = positive_input();
-        input.stages.get_mut(&StageId::Authorization).unwrap().disposition =
-            StageDisposition::Rejected;
+        let authorization = input.stages.get_mut(&StageId::Authorization).unwrap();
+        authorization.disposition = StageDisposition::Rejected;
+        authorization.claim_ceiling.authority = ClaimState::Rejected;
+        input.declared_claim_ceiling.authority = ClaimState::Rejected;
         mark_not_evaluated(&mut input, StageId::Execution);
         mark_not_evaluated(&mut input, StageId::Outcome);
         input.declared_disposition = CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
@@ -1253,6 +1352,8 @@ mod tests {
         let source = input.stages.get_mut(&StageId::SourceTrust).unwrap();
         source.disposition = StageDisposition::Indeterminate;
         source.claim_ceiling.completeness = ClaimState::Indeterminate;
+        input.declared_claim_ceiling.completeness = ClaimState::Indeterminate;
+        input.declared_disposition = CompositionDisposition::Indeterminate;
         // The semantic projection edge requires only source authentication,
         // which remains established. Incomplete universe coverage must not
         // erase the narrower, independently verified parsing claim.
