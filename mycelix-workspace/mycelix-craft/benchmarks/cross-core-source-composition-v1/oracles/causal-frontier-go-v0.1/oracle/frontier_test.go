@@ -175,3 +175,44 @@ func TestCanonicalEmptyParentSetProducesStableReceipt(t *testing.T) {
 		t.Fatalf("nil and empty parent set changed canonical receipt: %s != %s", first.Receipt.ReceiptSHA256, second.Receipt.ReceiptSHA256)
 	}
 }
+
+
+func TestIncompleteFrontierCannotAnswerCausalComparison(t *testing.T) {
+	child := entry("child", "beta", 1, 1, "child", "missing-parent")
+	p := Validate([]Entry{child}, Frontier{Cuts: []StreamCut{cut("beta", 1, 1, child.Digest)}})
+	if p.Receipt.Status != StatusIncomplete {
+		t.Fatalf("expected incomplete frontier, got %s", p.Receipt.Status)
+	}
+	if got := p.Compare("child", "child"); got != OrderUnknown {
+		t.Fatalf("incomplete frontier exposed a causal comparison: %s", got)
+	}
+}
+
+func TestInvalidFrontierCannotAnswerCausalComparison(t *testing.T) {
+	a := entry("a", "alpha", 1, 1, "a")
+	b := entry("b", "alpha", 1, 1, "b")
+	p := Validate([]Entry{a, b}, Frontier{Cuts: []StreamCut{cut("alpha", 1, 1, a.Digest)}})
+	if p.Receipt.Status != StatusInvalid {
+		t.Fatalf("expected invalid frontier, got %s", p.Receipt.Status)
+	}
+	if got := p.Compare("a", "a"); got != OrderUnknown {
+		t.Fatalf("invalid frontier exposed a causal comparison: %s", got)
+	}
+}
+
+func TestReceiptCommitsMalformedRequestedCutFields(t *testing.T) {
+	firstCut := StreamCut{StreamID: "alpha", Epoch: 1, Offset: 1, HeadDigest: "bad-head-a"}
+	secondCut := firstCut
+	secondCut.HeadDigest = "bad-head-b"
+	first := Validate(nil, Frontier{Cuts: []StreamCut{firstCut}})
+	second := Validate(nil, Frontier{Cuts: []StreamCut{secondCut}})
+	if first.Receipt.Status != StatusInvalid || second.Receipt.Status != StatusInvalid {
+		t.Fatalf("malformed requested cuts must remain invalid: %s / %s", first.Receipt.Status, second.Receipt.Status)
+	}
+	if first.Receipt.ReceiptSHA256 == second.Receipt.ReceiptSHA256 {
+		t.Fatal("changing a malformed requested head digest did not change the receipt")
+	}
+	if len(first.Receipt.RequestedCuts) != 1 || first.Receipt.RequestedCuts[0].HeadDigest != "bad-head-a" {
+		t.Fatalf("receipt did not preserve the full requested cut: %#v", first.Receipt.RequestedCuts)
+	}
+}
