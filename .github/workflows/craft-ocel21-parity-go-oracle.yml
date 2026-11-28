@@ -1,0 +1,139 @@
+name: Craft OCEL 2.1 independent Go semantic parity oracle
+
+on:
+  push:
+    branches:
+      - research/craft-end-to-end-assurance-benchmark-v0.1-20261128
+    paths:
+      - ".github/workflows/craft-ocel21-parity-go-oracle.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange/**"
+  pull_request:
+    branches:
+      - research/craft-temporal-evidence-qualification-v0.1-20261128-r1
+    paths:
+      - ".github/workflows/craft-ocel21-parity-go-oracle.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: craft-ocel21-parity-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  exact-head:
+    name: Exact-head OCEL 2.1 semantic parity oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      ORACLE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1
+      FIXTURE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact head and fixture material
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -s "$ORACLE_DIR/go.mod"
+          test -s "$ORACLE_DIR/oracle/types.go"
+          test -s "$ORACLE_DIR/oracle/single_csv.go"
+          test -s "$ORACLE_DIR/oracle/bundled_csv.go"
+          test -s "$ORACLE_DIR/oracle/ocel_test.go"
+          test -s "$FIXTURE_DIR/ocel21-mini.json"
+          test -s "$FIXTURE_DIR/ocel21-mini.ocel.csv"
+          test -s "$FIXTURE_DIR/bundled-csv/ocel-meta.json"
+
+      - name: Install pinned Go 1.23.2
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: 1.23.2
+          cache: false
+          check-latest: false
+
+      - name: Check Go formatting
+        id: gofmt
+        shell: bash
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [[ -n "$unformatted" ]]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Run frozen cross-format semantic KAT suite
+        id: tests
+        shell: bash
+        working-directory: ${{ env.ORACLE_DIR }}
+        env:
+          CRAFT_OCEL_FIXTURE_ROOT: ../../../fixtures/ocel21-interchange
+        run: |
+          set -euo pipefail
+          go test ./...
+
+      - name: Run Go race detector
+        id: race
+        shell: bash
+        working-directory: ${{ env.ORACLE_DIR }}
+        env:
+          CRAFT_OCEL_FIXTURE_ROOT: ../../../fixtures/ocel21-interchange
+        run: |
+          set -euo pipefail
+          go test -race ./...
+
+      - name: Run go vet
+        id: vet
+        shell: bash
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Assemble exact-head qualification receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/craft-ocel21-parity"
+          mkdir -p "$out"
+          {
+            printf 'exact_head\t%s\n' "$EXPECTED_HEAD"
+            printf 'go_version\t%s\n' "$(go version 2>&1 || printf UNAVAILABLE)"
+            printf 'gofmt\t%s\n' "${{ steps.gofmt.outcome }}"
+            printf 'semantic_kats\t%s\n' "${{ steps.tests.outcome }}"
+            printf 'race\t%s\n' "${{ steps.race.outcome }}"
+            printf 'vet\t%s\n' "${{ steps.vet.outcome }}"
+            printf 'json_single_csv_bundled_csv_parity\tDeclaredByKATs\n'
+            printf 'bundled_parquet\tNotImplemented\n'
+            printf 'production_parser_integration\tNotEvaluated\n'
+            printf 'large_scale_performance\tNotEvaluated\n'
+            printf 'field_calibration_and_physical_outcomes\tNotEvaluated\n'
+          } > "$out/qualification.tsv"
+          find "$ORACLE_DIR" "$FIXTURE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum > "$out/source-and-fixture-sha256.txt"
+          (
+            cd "$out"
+            sha256sum qualification.tsv source-and-fixture-sha256.txt > SHA256SUMS
+          )
+          cat "$out/qualification.tsv"
+          sha256sum "$out/SHA256SUMS"
+
+      - name: Upload exact-head receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: craft-ocel21-parity-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/craft-ocel21-parity/
+          if-no-files-found: error
+          retention-days: 30
