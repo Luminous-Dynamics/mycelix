@@ -27,4 +27,7 @@ expect_rejected "declare adaptation on frozen harness" '(.groups[0].arms[] | sel
 expect_rejected "remove breaking harness transition" '(.groups[0].arms[] | select(.arm_id == "W0H1") | .harness_transitions) |= map(select(.breaking == false))'
 expect_rejected "remove additive control group" '(.groups) |= map(select(.classification != "additive_control"))'
 expect_rejected "falsify additive interaction" '(.groups[1].arms[] | select(.arm_id == "W1H1") | .terminal.service_degraded_minutes) = 11'
-echo "PASS: all 13 world×harness mutation controls rejected."
+expect_rejected "schema rejects unknown terminal property" '(.groups[0].arms[0].terminal.unexpected_field) = "must-reject"'
+expect_rejected "schema rejects missing required terminal property" 'del(.groups[0].arms[0].terminal.service_degraded_minutes)'
+expect_rejected "schema rejects out-of-range retention" '(.groups[0].arms[0].terminal.prior_task_retention_percent) = 101'
+echo "PASS: all 16 world×harness mutation controls rejected."
