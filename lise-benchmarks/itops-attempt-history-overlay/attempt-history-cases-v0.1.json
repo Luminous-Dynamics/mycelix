@@ -82,7 +82,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -95,7 +96,9 @@
           "dependency_group": "observer-domain-1",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -143,7 +146,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [],
@@ -192,7 +196,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -205,7 +210,9 @@
           "dependency_group": "provider-account-resource-A",
           "independence": "not_applicable",
           "result": "acknowledged",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -253,7 +260,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -266,7 +274,9 @@
           "dependency_group": "observer-domain-2",
           "independence": "qualified_independent",
           "result": "not_applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -314,7 +324,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -327,7 +338,9 @@
           "dependency_group": "observer-domain-3",
           "independence": "qualified_independent",
           "result": "not_applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -375,7 +388,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -388,7 +402,9 @@
           "dependency_group": "provider-account-resource-A",
           "independence": "shared_dependency",
           "result": "not_applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -436,7 +452,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         },
         {
           "attempt_id": "attempt-2",
@@ -448,7 +465,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:02:00Z"
+          "attempted_at": "2026-11-28T20:02:00Z",
+          "recorded_at": "2026-11-28T20:02:00Z"
         }
       ],
       "evidence": [
@@ -461,7 +479,9 @@
           "dependency_group": "observer-domain-4",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -515,7 +535,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -528,7 +549,9 @@
           "dependency_group": "observer-domain-5",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -612,7 +635,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         },
         {
           "attempt_id": "attempt-3",
@@ -624,7 +648,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:03:00Z"
+          "attempted_at": "2026-11-28T20:03:00Z",
+          "recorded_at": "2026-11-28T20:03:00Z"
         }
       ],
       "evidence": [],
@@ -673,7 +698,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T21:05:00Z"
         }
       ],
       "evidence": [
@@ -686,7 +712,9 @@
           "dependency_group": "observer-domain-6",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:02:00Z",
+          "observed_at": "2026-11-28T21:05:00Z"
         }
       ],
       "retry_basis": {
@@ -699,7 +727,8 @@
         "as_of": "2026-11-28T20:55:00Z",
         "status": "INCOMPLETE",
         "expected_next_step": "HOLD_FOR_RECONCILIATION",
-        "known_attempt_ids": []
+        "known_attempt_ids": [],
+        "known_evidence_ids": []
       },
       "expected_next_step": "DO_NOT_RETRY",
       "hard_gate_violations": []
@@ -739,7 +768,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         },
         {
           "attempt_id": "attempt-2",
@@ -751,7 +781,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:02:00Z"
+          "attempted_at": "2026-11-28T20:02:00Z",
+          "recorded_at": "2026-11-28T20:02:00Z"
         }
       ],
       "evidence": [],
@@ -800,7 +831,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         },
         {
           "attempt_id": "attempt-2",
@@ -812,7 +844,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:02:00Z"
+          "attempted_at": "2026-11-28T20:02:00Z",
+          "recorded_at": "2026-11-28T20:02:00Z"
         }
       ],
       "evidence": [],
@@ -861,7 +894,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         }
       ],
       "evidence": [
@@ -874,7 +908,9 @@
           "dependency_group": "provider-account-resource-A",
           "independence": "not_applicable",
           "result": "not_applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         },
         {
           "evidence_id": "ev-15b",
@@ -885,7 +921,9 @@
           "dependency_group": "observer-domain-7",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         }
       ],
       "retry_basis": {
@@ -937,7 +975,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         },
         {
           "attempt_id": "attempt-2",
@@ -949,7 +988,8 @@
           "dispatched": true,
           "response": "timeout",
           "effect": "unknown",
-          "attempted_at": "2026-11-28T20:02:00Z"
+          "attempted_at": "2026-11-28T20:02:00Z",
+          "recorded_at": "2026-11-28T20:02:00Z"
         }
       ],
       "evidence": [
@@ -962,7 +1002,9 @@
           "dependency_group": "observer-domain-8",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
         },
         {
           "evidence_id": "ev-16b",
@@ -973,7 +1015,9 @@
           "dependency_group": "observer-domain-8",
           "independence": "qualified_independent",
           "result": "unknown",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:02:00Z",
+          "observed_at": "2026-11-28T20:02:00Z"
         }
       ],
       "retry_basis": {
@@ -1021,7 +1065,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:01:00Z"
+          "attempted_at": "2026-11-28T20:01:00Z",
+          "recorded_at": "2026-11-28T20:01:00Z"
         },
         {
           "attempt_id": "attempt-2",
@@ -1033,7 +1078,8 @@
           "dispatched": true,
           "response": "accepted",
           "effect": "applied",
-          "attempted_at": "2026-11-28T20:02:00Z"
+          "attempted_at": "2026-11-28T20:02:00Z",
+          "recorded_at": "2026-11-28T20:02:00Z"
         }
       ],
       "evidence": [
@@ -1046,7 +1092,22 @@
           "dependency_group": "observer-domain-1",
           "independence": "qualified_independent",
           "result": "applied",
-          "freshness": "current"
+          "freshness": "current",
+          "event_at": "2026-11-28T20:01:00Z",
+          "observed_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "evidence_id": "ev-17-second",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-1",
+          "dependency_group": "observer-domain-1",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current",
+          "event_at": "2026-11-28T20:02:00Z",
+          "observed_at": "2026-11-28T20:02:00Z"
         }
       ],
       "retry_basis": {
