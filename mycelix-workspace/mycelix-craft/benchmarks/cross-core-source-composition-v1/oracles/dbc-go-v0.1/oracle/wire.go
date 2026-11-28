@@ -156,7 +156,82 @@ func parseStage(value string) (Stage, error) {
 	return "", fmt.Errorf("unknown DJCC stage %q", value)
 }
 
+func rejectDuplicateJSONKeys(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var readValue func() error
+	readValue = func() error {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		delimiter, ok := token.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delimiter {
+		case '{':
+			seen := make(map[string]struct{})
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok {
+					return fmt.Errorf("JSON object key is not a string")
+				}
+				if _, exists := seen[key]; exists {
+					return fmt.Errorf("duplicate JSON object key %q", key)
+				}
+				seen[key] = struct{}{}
+				if err := readValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			if end != json.Delim('}') {
+				return fmt.Errorf("malformed JSON object terminator")
+			}
+		case '[':
+			for decoder.More() {
+				if err := readValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			if end != json.Delim(']') {
+				return fmt.Errorf("malformed JSON array terminator")
+			}
+		default:
+			return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
+		}
+		return nil
+	}
+
+	if err := readValue(); err != nil {
+		return fmt.Errorf("scan DBC JSON keys: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("multiple JSON values are not permitted")
+		}
+		return fmt.Errorf("trailing JSON data: %w", err)
+	}
+	return nil
+}
+
 func DecodeJSON(data []byte) (Capsule, error) {
+	if err := rejectDuplicateJSONKeys(data); err != nil {
+		return Capsule{}, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	var wire wireCapsule
