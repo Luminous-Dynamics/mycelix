@@ -18,7 +18,8 @@ func base() Capsule {
  c:=Capsule{
   SchemaID:"mycelix.craft.decision-basis-capsule.v0.1",ProfileRef:"mycelix.djcc.full-evidence-execution.v0.1",
   ProfileDigest:d(1),DecisionID:"decision-1",QueryID:"query-1",QueryDigest:d(2),QuerySchema:"query-v1",ScopeDigest:d(3),ValidAt:"2026-11-28T10:00:00Z",
-  Policy:ref("policy",4),Frontier:FrontierBinding{Kind:"CausalEventFrontier",Receipt:ref("frontier",5),Status:"Valid",Prefix:Established},
+  Policy:ref("policy",4),Temporal:struct{ OCELProfile, SourceCorpus, Projection, Replay Ref }{ref("ocel-profile",13),ref("source-corpus",14),ref("projection",15),ref("replay",16)},
+  Frontier:FrontierBinding{Kind:"CausalEventFrontier",Receipt:ref("frontier",5),Status:"Valid",Prefix:Established},
   Progress:ProgressBinding{Kind:"ProgressAntichain",Receipt:ref("progress",6),Status:"StableRelativeToDeclaredProgress",Universe:NotEvaluated},
   Owner:OwnerBinding{Receipt:ref("owner-universe",7),Completeness:Established},
   Authority:AuthorityBinding{Receipt:ref("authority",8),Principal:"assessor-1",Scope:"zone-1/decision:close",Validity:Established},
@@ -44,7 +45,7 @@ func base() Capsule {
  }
  for _,st:=range stageOrder { c.Stages=append(c.Stages,StageReceipt{ID:ids[st],Stage:st,Schema:"receipt-v1",OutputSchema:schemas[st],ProfileDigest:c.ProfileDigest,ScopeDigest:c.ScopeDigest,SourceCommit:strings.Repeat("a",40),BuildDigest:d(50+len(c.Stages)),Digest:d(60+len(c.Stages)),OutputDigest:digests[st],Claims:own[st]}) }
  for st,ds:=range dep { for _,e:=range ds { var p StageReceipt; for _,x:=range c.Stages { if x.Stage==e.Producer { p=x } }; for i:=range c.Stages { if c.Stages[i].Stage==st { c.Stages[i].Inputs=append(c.Stages[i].Inputs,Input{Slot:string(e.Producer),Producer:e.Producer,ReceiptID:p.ID,Schema:p.OutputSchema,Digest:p.OutputDigest,Required:e.Required}) } } } }
- for slot,consumer:=range externalSlots { c.External=append(c.External,ExternalBinding{Consumer:consumer,Slot:slot,ReceiptID:"external-"+slot,Schema:"schema-"+slot,Digest:d(100+len(c.External))}) }
+ for slot,consumer:=range externalSlots { r:=externalRefs(c)[slot]; c.External=append(c.External,ExternalBinding{Consumer:consumer,Slot:slot,ReceiptID:r.ID,Schema:r.Schema,Digest:r.Digest}) }
  return c
 }
 func TestPositiveComposition(t *testing.T) { if err:=Validate(base()); err!=nil { t.Fatal(err) } }
@@ -96,3 +97,16 @@ func TestCanonicalDigestDoesNotAliasDifferentProfiles(t *testing.T) {
 var _ = sha256.Sum256
 var _ = hex.EncodeToString
 var _ = sort.Strings
+
+
+func TestExternalBindingsMustMatchExactOwnerReceipt(t *testing.T) {
+ c:=base()
+ for i:=range c.External { if c.External[i].Slot=="policy" { c.External[i].Digest=d(999) } }
+ expectCode(t,c,"EXTERNAL_BINDING_MISMATCH")
+}
+
+func TestTemporalSourceReferencesAreIndividuallyBound(t *testing.T) {
+ c:=base()
+ for i:=range c.External { if c.External[i].Slot=="source_corpus" { c.External[i].ReceiptID="wrong-corpus" } }
+ expectCode(t,c,"EXTERNAL_BINDING_MISMATCH")
+}
