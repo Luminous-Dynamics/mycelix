@@ -639,6 +639,28 @@ mod tests {
     }
 
     #[test]
+    fn material_shared_class_is_detected_even_when_not_required_on_every_channel() {
+        let mut graph = disjoint_graph();
+        graph.nodes.push(node("shared-network", FailureDomainClass::NetworkTransport, &[]));
+        graph.nodes.sort_by(|a, b| a.domain_ref.cmp(&b.domain_ref));
+        for evidence in ["a-device", "b-device"] {
+            let device = graph.nodes.iter_mut().find(|item| item.domain_ref == evidence).unwrap();
+            device.parent_refs.push("shared-network".to_owned());
+            device.parent_refs.sort();
+        }
+        let mut selected_profile = profile();
+        selected_profile
+            .material_shared_classes
+            .insert(FailureDomainClass::NetworkTransport);
+        let result = assess_independence(&graph, &selected_profile).unwrap();
+        assert_eq!(result.disposition, FailureDomainDisposition::CommonCauseDetected);
+        assert_eq!(
+            result.common_domain_refs,
+            vec!["shared-network".to_owned()]
+        );
+    }
+
+    #[test]
     fn unclassified_shared_domain_remains_incomplete() {
         let mut graph = disjoint_graph();
         graph.nodes.push(node("shared-network", FailureDomainClass::NetworkTransport, &[]));
