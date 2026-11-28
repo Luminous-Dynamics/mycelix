@@ -8,6 +8,13 @@ on:
       - ".github/workflows/craft-ocel21-format-and-validate.yml"
       - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1/**"
       - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange/**"
+  pull_request:
+    branches:
+      - research/craft-temporal-evidence-qualification-v0.1-20261128-r1
+    paths:
+      - ".github/workflows/craft-ocel21-format-and-validate.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange/**"
 
 permissions:
   contents: write
@@ -22,13 +29,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      TARGET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
       ORACLE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1
       FIXTURE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange
     steps:
       - name: Checkout triggering source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: true
 
@@ -52,7 +61,7 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -- "${gofiles[@]}"
             git commit -m "style(craft): format OCEL 2.1 oracle sources"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            git push origin "HEAD:${TARGET_BRANCH}"
           fi
           echo "qualified_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -112,7 +121,7 @@ jobs:
           out="$RUNNER_TEMP/craft-ocel21-format-validate"
           mkdir -p "$out"
           {
-            printf 'trigger_head\t%s\n' "${{ github.sha }}"
+            printf 'trigger_head\t%s\n' "$SOURCE_HEAD"
             printf 'qualified_head\t%s\n' "$(git rev-parse HEAD)"
             printf 'go_version\t%s\n' "$(go version 2>&1 || printf UNAVAILABLE)"
             printf 'format_commit_or_clean\t%s\n' "${{ steps.format.outcome }}"
