@@ -159,10 +159,7 @@ func Validate(c Capsule) error {
  if c.Progress.Universe!=NotEvaluated { return fail("PROGRESS_UNIVERSE_OVERCLAIM","progress antichain source universe must remain NotEvaluated") }
  if c.Progress.OwnerInventoryDigest!=c.Owner.Receipt.Digest { return fail("PROGRESS_OWNER_BINDING_MISMATCH","progress antichain is bound to a different owner inventory") }
  if c.Owner.FrontierDigest!=c.Frontier.Receipt.Digest { return fail("OWNER_FRONTIER_BINDING_MISMATCH","owner inventory completeness is bound to a different event frontier") }
- if c.Owner.Authentication!=Established || c.Owner.Completeness!=Established {
-  // A negative/incomplete owner inventory may still be represented for an
-  // indeterminate certificate, but cannot support a positive completeness claim.
- }
+
  if c.Frontier.Status!="Valid" && c.Frontier.Status!="Incomplete" && c.Frontier.Status!="Invalid" { return fail("FRONTIER_STATUS_INVALID","unknown causal frontier status") }
  if c.Progress.Status!="StableRelativeToDeclaredProgress" && c.Progress.Status!="Provisional" { return fail("PROGRESS_STATUS_INVALID","unknown progress status") }
  if c.Authority.Principal=="" || c.Authority.Scope=="" { return fail("AUTHORITY_SCOPE_MISSING","principal and action scope are required") }
