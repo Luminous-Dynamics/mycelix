@@ -8,6 +8,38 @@ import (
 
 func validBenchmarkResultV01() map[string]any {
 	const digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	classIDs := []any{
+		"valid-positive-decision",
+		"unauthenticated-source",
+		"issuer-key-epoch-substitution",
+		"selective-issuer-withholding",
+		"hidden-owner-prefix-gap",
+		"backdated-post-frontier-correction",
+		"query-range-omission",
+		"semantic-projection-drift",
+		"policy-epoch-evaluator-substitution",
+		"authority-substitution",
+		"action-set-membership-swap",
+		"unauthorized-denominator-amendment",
+		"execution-replay-duplicate-effect",
+		"outcome-unknown-new-mutation",
+		"provider-completion-without-independent-outcome",
+		"shared-operator-kms-domain",
+		"incomplete-lineage-disclosure",
+		"detached-mmr-payload-mismatch",
+		"vds-profile-substitution",
+		"unbound-mmr-index-tree-size",
+		"permissive-invalid-proof-decoding",
+		"checkpoint-rollback-split-view",
+		"canonical-preimage-domain-separation",
+		"auditor-credential-key-epoch-substitution",
+		"correction-impact-omission",
+		"correction-impact-overreach",
+		"historical-policy-trust-leakage",
+		"compound-valid-proof-incomplete-universe-common-cause",
+		"mmr-peak-unpinned-accumulator",
+		"approval-execution-action-join-mismatch",
+	}
 	return map[string]any{
 		"schema": benchmarkResultSchemaV01,
 		"benchmark_id": "djcc-v0.1-candidate-vs-full-recompute",
@@ -24,42 +56,14 @@ func validBenchmarkResultV01() map[string]any {
 		},
 		"corpus": map[string]any{
 			"manifest_digest": digest,
-			"fixture_count": 40,
-			"executable_fixture_count": 40,
+			"fixture_count": 60,
+			"executable_fixture_count": 60,
 			"symbolic_fixture_count": 0,
 			"adversarial_class_count": 30,
-			"adversarial_class_ids": []any{
-				"valid-positive-decision",
-				"unauthenticated-source",
-				"issuer-key-epoch-substitution",
-				"selective-issuer-withholding",
-				"hidden-owner-prefix-gap",
-				"backdated-post-frontier-correction",
-				"query-range-omission",
-				"semantic-projection-drift",
-				"policy-epoch-evaluator-substitution",
-				"authority-substitution",
-				"action-set-membership-swap",
-				"unauthorized-denominator-amendment",
-				"execution-replay-duplicate-effect",
-				"outcome-unknown-new-mutation",
-				"provider-completion-without-independent-outcome",
-				"shared-operator-kms-domain",
-				"incomplete-lineage-disclosure",
-				"detached-mmr-payload-mismatch",
-				"vds-profile-substitution",
-				"unbound-mmr-index-tree-size",
-				"permissive-invalid-proof-decoding",
-				"checkpoint-rollback-split-view",
-				"canonical-preimage-domain-separation",
-				"auditor-credential-key-epoch-substitution",
-				"correction-impact-omission",
-				"correction-impact-overreach",
-				"historical-policy-trust-leakage",
-				"compound-valid-proof-incomplete-universe-common-cause",
-				"mmr-peak-unpinned-accumulator",
-				"approval-execution-action-join-mismatch",
-			},
+			"adversarial_class_ids":     classIDs,
+			"positive_control_class_ids": append([]any(nil), classIDs...),
+			"hard_negative_class_ids":    append([]any(nil), classIDs...),
+			"fixture_set_digest": digest,
 			"oracle_version": "independent-oracle-v0.1",
 			"oracle_digest": digest,
 		},
@@ -93,7 +97,7 @@ func validBenchmarkResultV01() map[string]any {
 			"toolchains": map[string]any{"go": "1.23.2", "rust": "1.96.0"},
 		},
 		"correctness": map[string]any{
-			"positive_control_total": 2,
+			"positive_control_total": 30,
 			"positive_control_accepted": 2,
 			"hard_negative_total": 30,
 			"hard_negative_false_safe": 0,
@@ -267,6 +271,8 @@ func TestValidateBenchmarkResultV01RejectsQualificationBelowThirtyClasses(t *tes
 	corpus := value["corpus"].(map[string]any)
 	corpus["adversarial_class_count"] = 29
 	corpus["adversarial_class_ids"] = corpus["adversarial_class_ids"].([]any)[:29]
+	corpus["positive_control_class_ids"] = corpus["positive_control_class_ids"].([]any)[:29]
+	corpus["hard_negative_class_ids"] = corpus["hard_negative_class_ids"].([]any)[:29]
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("qualification with fewer than 30 adversarial classes accepted")
 	}
@@ -298,5 +304,34 @@ func TestValidateBenchmarkResultV01RejectsAdversarialClassCountMismatch(t *testi
 	value["corpus"].(map[string]any)["adversarial_class_count"] = 31
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("adversarial class count inconsistent with class IDs accepted")
+	}
+}
+
+
+func TestValidateBenchmarkResultV01RejectsUnpairedPositiveControlClass(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	corpus["positive_control_class_ids"] = corpus["positive_control_class_ids"].([]any)[:29]
+	value["correctness"].(map[string]any)["positive_control_total"] = 29
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification missing a positive control for one adversarial class accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsFewerThanSixtyExecutableFixtures(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	corpus["fixture_count"] = 59
+	corpus["executable_fixture_count"] = 59
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification with fewer than 60 executable paired fixtures accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RequiresFixtureSetDigest(t *testing.T) {
+	value := validBenchmarkResultV01()
+	delete(value["corpus"].(map[string]any), "fixture_set_digest")
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification without fixture-set digest accepted")
 	}
 }
