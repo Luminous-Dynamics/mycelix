@@ -55,6 +55,9 @@ jobs:
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution-Regress-Mutant.cfg
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution-Proof-Mutant.cfg
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution-Pending-Mutant.cfg
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.tla
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.cfg
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone-Mutant.cfg
 
       - name: Set up Go reference toolchain
         uses: actions/setup-go@v7
@@ -200,6 +203,42 @@ jobs:
           fi
           grep -F "Invariant UnknownOutcomeFreezesHeads is violated." "$log"
 
+      - name: Check complete correction impact-cone model
+        id: correction_cone_tlc
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-correction-cone-correct.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-correction-cone-correct" \
+            -config CorrectionImpactCone.cfg \
+            CorrectionImpactCone.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          exit "$status"
+
+      - name: Require incomplete correction-cone mutant counterexample
+        id: correction_cone_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-correction-cone-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-correction-cone-mutant" \
+            -config CorrectionImpactCone-Mutant.cfg \
+            CorrectionImpactCone.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Incomplete correction-cone mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant NoStaleActiveDescendant is violated." "$log"
+
       - name: Assemble execution transcript qualification receipt
         if: always()
         shell: bash
@@ -213,6 +252,8 @@ jobs:
           REGRESS: ${{ steps.regress_mutant.outcome }}
           PROOF: ${{ steps.proof_mutant.outcome }}
           PENDING: ${{ steps.pending_mutant.outcome }}
+          CORRECTION_CONE: ${{ steps.correction_cone_tlc.outcome }}
+          CORRECTION_MUTANT: ${{ steps.correction_cone_mutant.outcome }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/oracle-ivc-transcript"
@@ -233,6 +274,8 @@ jobs:
             --arg regress_mutant "$REGRESS" \
             --arg proof_mutant "$PROOF" \
             --arg pending_mutant "$PENDING" \
+            --arg correction_cone "$CORRECTION_CONE" \
+            --arg correction_mutant "$CORRECTION_MUTANT" \
             '{
               schema:$schema,
               repository:$repository,
@@ -249,7 +292,9 @@ jobs:
                 correct_tlc:$correct_tlc,
                 receipt_frontier_regression_mutant:$regress_mutant,
                 proof_only_advancement_mutant:$proof_mutant,
-                mutation_during_unknown_mutant:$pending_mutant
+                mutation_during_unknown_mutant:$pending_mutant,
+                correction_impact_cone_tlc:$correction_cone,
+                incomplete_correction_cone_mutant:$correction_mutant
               },
               claims:{
                 execution_transcript_structure_only:true,
