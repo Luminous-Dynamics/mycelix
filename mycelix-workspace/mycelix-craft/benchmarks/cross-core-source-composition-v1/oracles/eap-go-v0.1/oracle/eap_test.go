@@ -51,6 +51,8 @@ func base() Proposal {
 			TargetClaim:"water-quality-status",
 			QualifiedRole:"accredited-sampler-and-laboratory",
 			Mandatory:false,
+			CandidateSetDigest:d(7),
+			ObservationModelDigest:d(8),
 			SafeUnderCurrentPolicy:true,
 			AdmissibleForDecision:true,
 			Available:true,
