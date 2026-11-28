@@ -19,6 +19,6 @@ go run ./cmd/craft-synth-generate \
 ```
 
 ## Local qualification
-Go 1.23.2: package tests, race detector, vet passed; oracle package statement coverage 77.4%. This reflects the generator unit tests and small inline test fixture, not successful execution against the committed multi-source fixture. Hosted exact-head execution will run the actual committed episode and mutation registry and compare two independent generations byte-for-byte.
+Go 1.23.2: package tests, race detector, vet passed; oracle package statement coverage 78.8%. This reflects the generator unit tests and small inline test fixture, not successful execution against the committed multi-source fixture. Hosted exact-head execution will run the actual committed episode and mutation registry and compare two independent generations byte-for-byte.
 
 No production decision logic, physical data, source authentication, authority, or autonomous effect is implemented.
