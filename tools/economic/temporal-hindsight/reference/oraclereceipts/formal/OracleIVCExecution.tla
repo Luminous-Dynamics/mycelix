@@ -89,11 +89,11 @@ ReconcileApplied ==
 ReconcileNotApplied ==
     /\ pending
     /\ pending' = FALSE
-    /\ UNCHANGED << stepCount, stateHead, proofHead,
+    /\ UNCHANGED << stepCount, stateHead, proofHead, adviceHead,
                     receiptFrontier, receiptHighWater,
-                    pendingBaseState, pendingBaseProof,
+                    pendingBaseState, pendingBaseProof, pendingBaseAdvice,
                     pendingBaseFrontier, pendingTargetState,
-                    pendingTargetProof, pendingTargetFrontier >>
+                    pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
 KeepState ==
     /\ stepCount = MaxSteps
@@ -134,11 +134,12 @@ MutantApplyWhilePending ==
     /\ stepCount' = stepCount + 1
     /\ stateHead' = stateHead + 1
     /\ proofHead' = proofHead + 1
+    /\ adviceHead' = adviceHead + 1
     /\ receiptFrontier' = receiptFrontier + 1
     /\ receiptHighWater' = receiptFrontier + 1
-    /\ UNCHANGED << pending, pendingBaseState, pendingBaseProof,
+    /\ UNCHANGED << pending, pendingBaseState, pendingBaseProof, pendingBaseAdvice,
                     pendingBaseFrontier, pendingTargetState,
-                    pendingTargetProof, pendingTargetFrontier >>
+                    pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
 MutantRegressionSpec == Init /\ [][Next \/ MutantRegressFrontier]_vars
 MutantProofOnlySpec == Init /\ [][Next \/ MutantProofOnly]_vars
