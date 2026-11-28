@@ -141,6 +141,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           test -f schemas/economic/decision-justification-composition-certificate-v0.1.schema.json
           test -f tools/economic/evidence-execution-composition/DJCC_V0_1_SEEDS.json
+          test -f tools/economic/evidence-execution-composition/DJCC_PROFILES_V0_1.json
           test -f tools/economic/evidence-execution-composition/go.mod
       - name: Set up Go reference toolchain
         uses: actions/setup-go@v7
