@@ -22,7 +22,9 @@ env:
 jobs:
   # Detect which clusters changed
   changes:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    # Draft PRs skip product/cluster test jobs by default, but the path detector
+    # must run so the isolated CSCP research crates can be tested before review.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
@@ -36,6 +38,9 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      cscp_core: ${{ steps.filter.outputs.cscp_core }}
+      cscp_deal_state: ${{ steps.filter.outputs.cscp_deal_state }}
+      cscp_asset_passport: ${{ steps.filter.outputs.cscp_asset_passport }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +79,12 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            cscp_core:
+              - 'mycelix-workspace/research/creator-sovereignty-core/**'
+            cscp_deal_state:
+              - 'mycelix-workspace/research/creator-deal-state-core/**'
+            cscp_asset_passport:
+              - 'mycelix-workspace/research/creator-asset-passport-core/**'
             cos_conformance:
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
@@ -112,7 +123,235 @@ jobs:
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
 
-  # Per-cluster test jobs
+  # Isolated CSCP research crates are deliberately tested outside the root Holochain workspace.
+  # These jobs run on draft PRs when their own source path changes, so code can be
+  # compiled and exercised before a PR is marked ready for review.
+  test-cscp-creator-ledger:
+    name: CSCP creator career ledger
+    needs: changes
+    if: needs.changes.outputs.cscp_core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Generate isolated dependency lock
+        run: |
+          set -o pipefail
+          cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml 2>&1 | tee cscp-dependencies.log
+      - name: Check formatting
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --all --check 2>&1 | tee cscp-format.log
+      - name: Test crate
+        run: |
+          set -o pipefail
+          cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --locked 2>&1 | tee cscp-test.log
+      - name: Record exact-head qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-research-qualification-receipt-v1"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            echo "python_version=$(python3 --version 2>/dev/null || echo unavailable)"
+            echo "format_command=cargo fmt --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --all --check"
+            echo "test_command=cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --locked"
+            if [ -f "mycelix-workspace/research/creator-sovereignty-core/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum mycelix-workspace/research/creator-sovereignty-core/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+          } > cscp-qualification-receipt.txt
+      - name: Upload qualification receipt and raw evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-creator-ledger-qualification-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            mycelix-workspace/research/creator-sovereignty-core/Cargo.lock
+            cscp-dependencies.log
+            cscp-format.log
+            cscp-test.log
+            cscp-qualification-receipt.txt
+          if-no-files-found: warn
+
+  test-cscp-deal-state:
+    name: CSCP creator deal state
+    needs: changes
+    if: needs.changes.outputs.cscp_deal_state == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Generate isolated dependency lock
+        run: |
+          set -o pipefail
+          cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml 2>&1 | tee cscp-dependencies.log
+      - name: Check formatting
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --all --check 2>&1 | tee cscp-format.log
+      - name: Test crate
+        run: |
+          set -o pipefail
+          cargo test --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --locked 2>&1 | tee cscp-test.log
+      - name: Record exact-head qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-research-qualification-receipt-v1"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            echo "python_version=$(python3 --version 2>/dev/null || echo unavailable)"
+            echo "format_command=cargo fmt --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --all --check"
+            echo "test_command=cargo test --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --locked"
+            if [ -f "mycelix-workspace/research/creator-deal-state-core/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum mycelix-workspace/research/creator-deal-state-core/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+          } > cscp-qualification-receipt.txt
+      - name: Upload qualification receipt and raw evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-deal-state-qualification-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            mycelix-workspace/research/creator-deal-state-core/Cargo.lock
+            cscp-dependencies.log
+            cscp-format.log
+            cscp-test.log
+            cscp-qualification-receipt.txt
+          if-no-files-found: warn
+
+  test-cscp-asset-passport:
+    name: CSCP creator asset passport
+    needs: changes
+    if: needs.changes.outputs.cscp_asset_passport == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - name: Verify independent grant-history reference vectors
+        run: |
+          set -o pipefail
+          python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_portable_history.py --check 2>&1 | tee cscp-grant-history-vectors.log
+      - name: Verify independent full passport snapshot vectors
+        run: |
+          set -o pipefail
+          python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_passport_snapshot.py --check 2>&1 | tee cscp-full-snapshot-vectors.log
+      - name: Verify independent import provenance manifest vector
+        run: |
+          set -o pipefail
+          python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_import_provenance.py --check 2>&1 | tee cscp-import-provenance-vector.log
+      - name: Verify W3C provenance vocabulary stays a mapping reference
+        run: grep -q "does not claim PROV conformance" mycelix-workspace/research/creator-asset-passport-core/README.md
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Generate isolated dependency lock
+        run: |
+          set -o pipefail
+          cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml 2>&1 | tee cscp-dependencies.log
+      - name: Check formatting
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --all --check 2>&1 | tee cscp-format.log
+      - name: Test crate
+        run: |
+          set -o pipefail
+          cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --locked 2>&1 | tee cscp-test.log
+      - name: Record exact-head qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-research-qualification-receipt-v1"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            echo "python_version=$(python3 --version 2>/dev/null || echo unavailable)"
+            echo "format_command=cargo fmt --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --all --check"
+            echo "test_command=cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --locked"
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-grant-history-v1.hex" ]; then echo "fixture_sha256_1=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-grant-history-v1.hex | cut -d' ' -f1)"; fi
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex" ]; then echo "fixture_sha256_2=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex | cut -d' ' -f1)"; fi
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1.hex" ]; then echo "fixture_sha256_3=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1.hex | cut -d' ' -f1)"; fi
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex" ]; then echo "fixture_sha256_4=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex | cut -d' ' -f1)"; fi
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex" ]; then echo "fixture_sha256_5=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex | cut -d' ' -f1)"; fi
+          } > cscp-qualification-receipt.txt
+      - name: Upload qualification receipt and raw evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-asset-passport-qualification-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            mycelix-workspace/research/creator-asset-passport-core/Cargo.lock
+            cscp-dependencies.log
+            cscp-format.log
+            cscp-test.log
+            cscp-qualification-receipt.txt
+            cscp-grant-history-vectors.log
+            cscp-full-snapshot-vectors.log
+            cscp-import-provenance-vector.log
+          if-no-files-found: warn
+
   test-cos-conformance:
     needs: changes
     if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
