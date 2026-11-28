@@ -124,6 +124,12 @@ func applyMutation(p Proposal, mutation string) Proposal {
 		p.ValidUntil="2026-11-28T10:04:00Z"
 	case "duplicate_result_id":
 		p.Candidate.ResultImpacts[1].ResultID=p.Candidate.ResultImpacts[0].ResultID
+	case "candidate_set_substitution":
+		p.Candidate.CandidateSetDigest=d(999)
+	case "observation_model_substitution":
+		p.Candidate.ObservationModelDigest=d(999)
+	case "proposal_predates_dbc":
+		p.IssuedAt="2026-11-28T09:00:00Z"
 	default:
 		panic("unimplemented EAP mutation: "+mutation)
 	}
@@ -144,7 +150,7 @@ func TestFrozenKnownAnswerMutationSuite(t *testing.T) {
 	var manifest eapKATManifest
 	if err:=json.Unmarshal(data,&manifest); err!=nil { t.Fatal(err) }
 	if manifest.SchemaID!="mycelix.craft.eap-known-answer.v0.1" { t.Fatalf("unexpected schema %q",manifest.SchemaID) }
-	if len(manifest.Cases)!=12 { t.Fatalf("expected 12 EAP KATs, got %d",len(manifest.Cases)) }
+	if len(manifest.Cases)!=15 { t.Fatalf("expected 15 EAP KATs, got %d",len(manifest.Cases)) }
 	seen:=map[string]bool{}
 	for _,item:=range manifest.Cases {
 		item:=item
