@@ -9,7 +9,8 @@ CORPUS="${ITOPS_ATTEMPT_HISTORY_CORPUS_PATH:-$DIR/attempt-history-cases-v0.1.jso
 
 command -v jq >/dev/null || { echo "ERROR: jq is required" >&2; exit 2; }
 test -s "$SCHEMA" && test -s "$CORPUS"
-jq -e '.[ "$schema" ] == "https://json-schema.org/draft/2020-12/schema" and .type == "object" and .additionalProperties == false and .["$defs"].case.type == "object"' "$SCHEMA" >/dev/null
+jq -e '.["$schema"] == "https://json-schema.org/draft/2020-12/schema" and .type == "object" and .additionalProperties == false and .["$defs"].case.type == "object"' "$SCHEMA" >/dev/null
+jq -e . "$CORPUS" >/dev/null
 
 jq -e '
   def history_complete:
@@ -21,14 +22,15 @@ jq -e '
     and .history.backfill_pending == false;
 
   def evidence_for($action; $result):
-    any(.evidence[];
-      .action_id == $action
-      and .request_digest == .operation.request_digest
-      and (.kind == "independent_resource_observation" or .kind == "owner_reconciliation")
-      and .independence == "qualified_independent"
-      and .freshness == "current"
-      and .result == $result
-    );
+    . as $c
+    | any($c.evidence[];
+        .action_id == $action
+        and .request_digest == $c.operation.request_digest
+        and (.kind == "independent_resource_observation" or .kind == "owner_reconciliation")
+        and .independence == "qualified_independent"
+        and .freshness == "current"
+        and .result == $result
+      );
 
   def retry_basis_valid:
     . as $c
@@ -49,15 +51,27 @@ jq -e '
       and $c.retry_basis.idempotency_key == $c.operation.idempotency_key
       and ($c.attempts | length) == 1
       and ($c.attempts[0].effect == "unknown" or $c.attempts[0].effect == "not_applied")
-      and ($c.attempts[0].action_id == $c.operation.actions[0].action_id);
+      and ($c.attempts[0].action_id == $c.operation.actions[0].action_id)
+      and ($c.history.status == "COMPLETE_FOR_SCOPE")
+      and ($c.history.scope_matches == true)
+      and ($c.history.cursor_complete == true)
+      and ($c.history.gap_count == 0)
+      and ($c.history.retention_covers_start == true)
+      and ($c.history.backfill_pending == false);
 
   def chain_invalid:
     . as $c
     | ($c.attempts | sort_by(.ordinal)) as $as
     | (([$as[].attempt_id] | length) != ([$as[].attempt_id] | unique | length))
       or (([$as[].ordinal]) != [range(1; ($as | length) + 1)])
-      or any($as[]; .request_digest != $c.operation.request_digest or .idempotency_key != $c.operation.idempotency_key)
-      or any($as[]; ($c.operation.actions | map(.action_id) | index(.action_id)) == null)
+      or any($as[];
+        . as $attempt
+        | ($c.operation.actions | map(.action_id) | index($attempt.action_id)) == null
+      )
+      or any($as[];
+        .request_digest != $c.operation.request_digest
+        or .idempotency_key != $c.operation.idempotency_key
+      )
       or any(range(0; ($as | length));
         . as $i
         | if $i == 0 then $as[$i].previous_attempt_id != null
@@ -68,12 +82,12 @@ jq -e '
   def blind_retry:
     . as $c
     | any($c.operation.actions[];
-      .action_id as $action
-      | ([$c.attempts[] | select(.action_id == $action)] | sort_by(.ordinal)) as $chain
-      | ($chain | length) > 1
-        and $chain[0].effect == "unknown"
-        and $chain[1].dispatched == true
-    );
+        .action_id as $action
+        | ([$c.attempts[] | select(.action_id == $action)] | sort_by(.ordinal)) as $chain
+        | ($chain | length) > 1
+          and $chain[0].effect == "unknown"
+          and $chain[1].dispatched == true
+      );
 
   .suite_id == "itops-attempt-history-overlay"
   and .schema_version == "0.1.0"
@@ -83,60 +97,84 @@ jq -e '
   and ([.cases[].case_id] | length) == ([.cases[].case_id] | unique | length)
   and all(.cases[];
     . as $c
-    | (.operation.actions | length) > 0
+    | ($c.operation.actions | length) > 0
       and (([$c.operation.actions[].action_id] | length) == ([$c.operation.actions[].action_id] | unique | length))
       and (([$c.operation.actions[].sequence] | sort) == [range(0; ($c.operation.actions | length))])
-      and all($c.attempts[]; ($c.operation.actions | map(.action_id) | index(.action_id)) != null)
+      and all($c.attempts[];
+        . as $attempt
+        | ($c.operation.actions | map(.action_id) | index($attempt.action_id)) != null
+      )
       and (([$c.evidence[].evidence_id] | length) == ([$c.evidence[].evidence_id] | unique | length))
-      and all($c.evidence[]; ($c.operation.actions | map(.action_id) | index(.action_id)) != null and .request_digest == $c.operation.request_digest)
+      and all($c.evidence[];
+        . as $ev
+        | ($c.operation.actions | map(.action_id) | index($ev.action_id)) != null
+          and $ev.request_digest == $c.operation.request_digest
+      )
       and (
-        if .expected_next_step == "START_INITIAL_ATTEMPT" then
-          history_complete and (.attempts | length) == 0
-        elif .expected_next_step == "DO_NOT_RETRY" then
-          history_complete
-          and any(.attempts[]; .effect == "applied")
-          and any(.operation.actions[]; evidence_for(.action_id; "applied"))
+        if $c.expected_next_step == "START_INITIAL_ATTEMPT" then
+          ($c | history_complete) and ($c.attempts | length) == 0
+        elif $c.expected_next_step == "DO_NOT_RETRY" then
+          ($c | history_complete)
+          and any($c.attempts[]; .effect == "applied")
+          and any($c.operation.actions[];
+            .action_id as $action
+            | $c | evidence_for($action; "applied")
+          )
+          and (not ($c | blind_retry))
           and (
-            if .prior_frontier == null then true
-            else .prior_frontier.status != "COMPLETE_FOR_SCOPE"
-              and .prior_frontier.expected_next_step == "HOLD_FOR_RECONCILIATION"
+            if $c.prior_frontier == null then true
+            else $c.prior_frontier.status != "COMPLETE_FOR_SCOPE"
+              and $c.prior_frontier.expected_next_step == "HOLD_FOR_RECONCILIATION"
             end
           )
-        elif .expected_next_step == "HOLD_FOR_RECONCILIATION" then
-          (not history_complete)
-          or any(.attempts[]; .effect == "unknown" or .effect == "partial")
-          or any(.evidence[]; .result == "conflicting" or .independence == "shared_dependency" or .freshness != "current")
-          or (not retry_basis_valid)
-        elif .expected_next_step == "RETRY_SAME_REQUEST_KEY" then
-          history_complete and retry_basis_valid
-        elif .expected_next_step == "RESUME_UNATTEMPTED_SUFFIX" then
-          history_complete
-          and (.operation.actions | length) > 1
-          and any(.attempts[]; .effect == "applied")
-          and any(.operation.actions[]; .action_id as $a | ([$c.attempts[] | select(.action_id == $a)] | length) == 0)
-          and all(.attempts[]; .effect == "applied" or .effect == "not_applied")
-          and all(.attempts[]; evidence_for(.action_id; "applied"))
-        elif .expected_next_step == "REJECT_BLIND_RETRY" then
-          blind_retry
-          and (.hard_gate_violations | index("blind_retry_after_unknown")) != null
-        elif .expected_next_step == "INVALID_HISTORY" then
-          chain_invalid
+        elif $c.expected_next_step == "HOLD_FOR_RECONCILIATION" then
+          (not ($c | history_complete))
+          or any($c.attempts[]; .effect == "partial")
+          or any($c.attempts[]; .effect == "unknown") and (not ($c | retry_basis_valid))
+          or any($c.evidence[];
+            .result == "conflicting"
+            or .independence == "shared_dependency"
+            or .independence == "unknown"
+            or .freshness != "current"
+            or .kind == "provider_ack"
+          )
+          or ($c.retry_basis.no_effect_evidence_id != null and not ($c | retry_basis_valid))
+        elif $c.expected_next_step == "RETRY_SAME_REQUEST_KEY" then
+          ($c | history_complete) and ($c | retry_basis_valid)
+        elif $c.expected_next_step == "RESUME_UNATTEMPTED_SUFFIX" then
+          ($c | history_complete)
+          and ($c.operation.actions | length) > 1
+          and any($c.attempts[]; .effect == "applied")
+          and any($c.operation.actions[];
+            .action_id as $action
+            | ([$c.attempts[] | select(.action_id == $action)] | length) == 0
+          )
+          and all($c.attempts[]; .effect == "applied" or .effect == "not_applied")
+          and all($c.attempts[];
+            .action_id as $action
+            | $c | evidence_for($action; "applied")
+          )
+        elif $c.expected_next_step == "REJECT_BLIND_RETRY" then
+          ($c | blind_retry)
+          and ($c.hard_gate_violations | index("blind_retry_after_unknown")) != null
+        elif $c.expected_next_step == "INVALID_HISTORY" then
+          ($c | chain_invalid)
         else false end
       )
       and (
-        if .expected_next_step == "REJECT_BLIND_RETRY" then (.hard_gate_violations | length) > 0
-        else (.hard_gate_violations | length) == 0 end
+        if $c.expected_next_step == "REJECT_BLIND_RETRY" then ($c.hard_gate_violations | length) > 0
+        else ($c.hard_gate_violations | length) == 0 end
       )
       and (
-        if .prior_frontier == null then true
-        else .prior_frontier.status != "COMPLETE_FOR_SCOPE"
-          and .prior_frontier.expected_next_step == "HOLD_FOR_RECONCILIATION"
-          and (.prior_frontier.known_attempt_ids | length) <= (.attempts | length)
+        if $c.prior_frontier == null then true
+        else $c.prior_frontier.status != "COMPLETE_FOR_SCOPE"
+          and $c.prior_frontier.expected_next_step == "HOLD_FOR_RECONCILIATION"
+          and ($c.prior_frontier.known_attempt_ids | length) <= ($c.attempts | length)
         end
       )
   )
 ' "$CORPUS" >/dev/null
 
 echo "PASS: 16 ITOPS attempt-history reference cases satisfy the semantic fixture gate."
-echo "schema_sha256=$(sha256sum "$SCHEMA" | awk "{print \$1}")"
-echo "corpus_sha256=$(sha256sum "$CORPUS" | awk "{print \$1}")"
+echo "schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
+echo "corpus_sha256=$(sha256sum "$CORPUS" | cut -d' ' -f1)"
