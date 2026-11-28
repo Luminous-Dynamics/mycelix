@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"io"
+	"math"
 	"strings"
 	"time"
 )
@@ -22,8 +23,11 @@ func decodeBenchmarkObject(raw []byte) (map[string]any, error) {
 		return nil, fmt.Errorf("benchmark result must be a JSON object")
 	}
 	var trailing any
-	if err := decoder.Decode(&trailing); err == nil {
-		return nil, fmt.Errorf("benchmark result contains trailing JSON")
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("benchmark result contains trailing JSON")
+		}
+		return nil, fmt.Errorf("decode trailing benchmark data: %w", err)
 	}
 	return value, nil
 }
@@ -62,7 +66,7 @@ func benchmarkFloat(parent map[string]any, key string) (float64, error) {
 		return 0, fmt.Errorf("%s must be a number", key)
 	}
 	number, err := value.Float64()
-	if err != nil {
+	if err != nil || math.IsNaN(number) || math.IsInf(number, 0) {
 		return 0, fmt.Errorf("%s must be a finite number", key)
 	}
 	return number, nil
@@ -294,7 +298,11 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 	if err != nil {
 		return err
 	}
-	for _, key := range []string{"owner_count", "event_count", "dependency_edge_count", "evidence_channel_count", "failure_domain_count", "dependency_fanout"} {
+	owners, err := benchmarkInteger(workload, "owner_count")
+	if err != nil || owners == 0 {
+		return fmt.Errorf("owner_count must be positive")
+	}
+	for _, key := range []string{"event_count", "dependency_edge_count", "evidence_channel_count", "failure_domain_count", "dependency_fanout"} {
 		if _, err := benchmarkInteger(workload, key); err != nil {
 			return err
 		}
@@ -569,8 +577,3 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 	return nil
 }
 
-// BenchmarkResultIntegerString is used by small command-line adapters that
-// need a stable integer rendering without accepting floating-point notation.
-func BenchmarkResultIntegerString(value int64) string {
-	return strconv.FormatInt(value, 10)
-}
