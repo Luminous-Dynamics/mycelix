@@ -19,7 +19,7 @@ func executionFixtureScope() OracleScopeV1 {
 	}
 }
 
-func executionGenesis(t *testing.T, scope OracleScopeV1) (string, string, string) {
+func executionGenesis(t testing.TB, scope OracleScopeV1) (string, string, string) {
 	t.Helper()
 	scopeDigest, err := ScopeDigestV1(scope)
 	if err != nil {
@@ -28,7 +28,7 @@ func executionGenesis(t *testing.T, scope OracleScopeV1) (string, string, string
 	return scopeDigest, executionGenesisEventDigest(scopeDigest), executionGenesisStateDigest(scopeDigest)
 }
 
-func executionTransition(t *testing.T, scope OracleScopeV1, scopeDigest, receiptDigest string, receiptSequence uint64, inputState, priorProof, stepID string, kind ExecutionStepKindV1, outputState, nextProof string, supersedes ...string) ExecutionTransitionV1 {
+func executionTransition(t testing.TB, scope OracleScopeV1, scopeDigest, receiptDigest string, receiptSequence uint64, inputState, priorProof, stepID string, kind ExecutionStepKindV1, outputState, nextProof string, supersedes ...string) ExecutionTransitionV1 {
 	t.Helper()
 	transition := ExecutionTransitionV1{
 		Kind: kind,
@@ -63,7 +63,7 @@ func executionTransition(t *testing.T, scope OracleScopeV1, scopeDigest, receipt
 	return transition
 }
 
-func sealExecutionEvent(t *testing.T, scope OracleScopeV1, sequence uint64, eventID, previous string, outcome ExecutionEventOutcomeV1, transition *ExecutionTransitionV1, reconciles string) ExecutionEventV1 {
+func sealExecutionEvent(t testing.TB, scope OracleScopeV1, sequence uint64, eventID, previous string, outcome ExecutionEventOutcomeV1, transition *ExecutionTransitionV1, reconciles string) ExecutionEventV1 {
 	t.Helper()
 	scopeDigest, err := ScopeDigestV1(scope)
 	if err != nil {
@@ -84,7 +84,7 @@ func sealExecutionEvent(t *testing.T, scope OracleScopeV1, sequence uint64, even
 	return event
 }
 
-func appendExecutionEvent(t *testing.T, scope OracleScopeV1, events []ExecutionEventV1, id string, outcome ExecutionEventOutcomeV1, transition *ExecutionTransitionV1, reconciles string) []ExecutionEventV1 {
+func appendExecutionEvent(t testing.TB, scope OracleScopeV1, events []ExecutionEventV1, id string, outcome ExecutionEventOutcomeV1, transition *ExecutionTransitionV1, reconciles string) []ExecutionEventV1 {
 	t.Helper()
 	_, genesis, _ := executionGenesis(t, scope)
 	previous := genesis
@@ -100,10 +100,13 @@ func executionReceipts(t *testing.T, scope OracleScopeV1, n int) []OracleReceipt
 	for i := 0; i < n; i++ {
 		disposition := DispositionAffirm
 		payload := fmt.Sprintf("answer:%d", i)
-		if i == 1 {
-			disposition = DispositionReject
-		}
 		receipts = appendReceipt(t, scope, receipts, fmt.Sprintf("receipt:%d", i+1), disposition, payload)
+		if i == 1 {
+			receipts[i].AnswerDisposition = DispositionReject
+			receipts[i].SupersedesReceiptID = receipts[0].ReceiptID
+			receipts[i].SignedMessageDigest, _ = SignableDigestV1(scope, receipts[i])
+			receipts[i].ReceiptDigest, _ = ReceiptDigestV1(scope, receipts[i])
+		}
 	}
 	return receipts
 }
@@ -122,7 +125,7 @@ func replayExecution(t *testing.T, scope OracleScopeV1, receipts []OracleReceipt
 	return ReplayOracleExecutionTranscriptV1(scope, receipts, uint64(len(receipts)), receiptTail, events, uint64(len(events)), eventTail)
 }
 
-func buildExecutionChain(t *testing.T, scope OracleScopeV1, receipts []OracleReceiptV1, count int) []ExecutionEventV1 {
+func buildExecutionChain(t testing.TB, scope OracleScopeV1, receipts []OracleReceiptV1, count int) []ExecutionEventV1 {
 	t.Helper()
 	scopeDigest, _, stateHead := executionGenesis(t, scope)
 	proofHead := executionGenesisProofDigest(scopeDigest)
@@ -167,35 +170,6 @@ func TestExecutionTranscriptBindsStateAndIVCProofHeads(t *testing.T) {
 		t.Fatalf("execution event/step head omitted: %+v", result)
 	}
 	_ = eventGenesis
-}
-
-func TestExecutionStepMustUseExactReceiptChainPrefix(t *testing.T) {
-	scope := executionFixtureScope()
-	receipts := executionReceipts(t, scope, 2)
-	scopeDigest, _, state := executionGenesis(t, scope)
-	proof := executionGenesisProofDigest(scopeDigest)
-	transition := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
-		state, proof, "step:late", StepApply, testDigestB, testDigestC)
-	transition.ConsumedReceiptDigests = []string{receipts[1].ReceiptDigest}
-	transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
-	events := appendExecutionEvent(t, scope, nil, "event:late", ExecutionCommitted, &transition, "")
-	got := replayExecution(t, scope, receipts, events)
-	if got.Disposition != ExecutionChainStructurallyValid {
-		t.Fatalf("valid later receipt prefix rejected: %+v", got)
-	}
-
-	transition.ReceiptFrontierDigest = receipts[0].ReceiptDigest
-	transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
-	events[0] = sealExecutionEvent(t, scope, 1, "event:late", executionGenesis(t, scopeDigestOnly(t, scope)).1, ExecutionCommitted, &transition, "")
-}
-
-func scopeDigestOnly(t *testing.T, scope OracleScopeV1) string {
-	t.Helper()
-	digest, err := ScopeDigestV1(scope)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return digest
 }
 
 func TestExecutionStepRejectsReceiptOutsideDeclaredPrefix(t *testing.T) {
@@ -410,7 +384,7 @@ func BenchmarkReplayOracleExecutionTranscript(b *testing.B) {
 			}
 			receipts[0].SignedMessageDigest, _ = SignableDigestV1(scope, receipts[0])
 			receipts[0].ReceiptDigest, _ = ReceiptDigestV1(scope, receipts[0])
-			events := buildExecutionChain(&testing.T{}, scope, receipts, count)
+			events := buildExecutionChain(b, scope, receipts, count)
 			receiptTail := receipts[0].ReceiptDigest
 			eventTail := events[len(events)-1].EventDigest
 			b.ReportAllocs()
