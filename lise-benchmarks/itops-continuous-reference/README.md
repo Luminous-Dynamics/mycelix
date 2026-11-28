@@ -43,7 +43,10 @@ The jq validator is a dependency-light structural/semantic gate, **not a complet
 A passing public fixture proves only that this manifest shape satisfies its declared structural/temporal controls. It does not prove that an environment can be provisioned, an agent can operate it, recovery occurred, or any system beats SRE-Marathon, Incident-Arena, SWEOps-Bench or ITBench-AA. Hosted exact-head CI is the qualification authority for this repository artifact.
 
 External comparator contracts:
+- [SREGym](https://github.com/SREGym/SREGym): 90 live high-fidelity SRE problems spanning cloud-native layers, ambient noise, metastable and correlated failures; its current SREGym-Lite-1004 leaderboard cohort is a separate 17-fault slice.
 - [SRE-Marathon](https://arxiv.org/abs/2609.33023): continuous change-driven operations with overlapping incidents and deterministic sealed-bundle scoring.
 - [Incident-Arena](https://arxiv.org/abs/2610.00648): production-grounded repairs with functional verification and sustained load.
 - [SWEOps-Bench](https://arxiv.org/abs/2611.06099): source/configuration repair in live Kubernetes operator environments.
 - [ITBench-AA](https://artificialanalysis.ai/evaluations/itbench-aa): root-cause diagnosis from Kubernetes incident snapshots; diagnosis is not recovery.
+
+This v0.1 reference is a small contract fixture, not a reproduction of SREGym's 90-problem portfolio or the 17-fault SREGym-Lite cohort. Metastable, correlated, OS/hardware and postmortem-derived families belong in later held-out scenario waves after the first environment/replay path is qualified.
