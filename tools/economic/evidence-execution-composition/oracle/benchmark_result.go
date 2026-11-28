@@ -186,6 +186,7 @@ func benchmarkStringSetsEqual(left, right map[string]struct{}) bool {
 	return true
 }
 
+// validateBenchmarkFixtureRecords checks declared fixture metadata and class pairing. It does not read fixture bytes or recompute their digests; the corpus runner must independently load each path/artifact and verify byte length and SHA-256 before recording a qualification result.
 func validateBenchmarkFixtureRecords(
 	corpus map[string]any,
 	classIDs, positiveClassIDs, negativeClassIDs map[string]struct{},
@@ -268,8 +269,9 @@ func validateBenchmarkFixtureRecords(
 		fixtureDigests[digest] = struct{}{}
 
 		for _, key := range []string{"media_type", "generator_version"} {
-			if value, err := benchmarkString(record, key); err != nil || strings.TrimSpace(value) != value {
-				return fmt.Errorf("fixture_records[%d].%s must be a trimmed non-empty string", index, key)
+			value, err := benchmarkString(record, key)
+			if err != nil || strings.TrimSpace(value) != value || len(value) > 128 {
+				return fmt.Errorf("fixture_records[%d].%s must be a trimmed non-empty string of at most 128 bytes", index, key)
 			}
 		}
 		byteLength, err := benchmarkInteger(record, "byte_length")
