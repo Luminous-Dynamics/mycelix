@@ -122,34 +122,39 @@ def declared_types(data: dict[str, Any], key: str) -> dict[str, dict[str, str]]:
     return result
 
 
-def typed_value(value: Any, kind: str | None) -> Any:
+def typed_value(value: Any, kind: str | None, context: str = "OCEL attribute") -> Any:
     if kind is None:
-        raise ValueError("OCEL attribute has no declared type")
+        raise ValueError(f"{context}: attribute has no declared type")
     if kind == "time":
-        return normalize_time(value)
+        try:
+            return normalize_time(value)
+        except ValueError as exc:
+            raise ValueError(f"{context}: {exc}") from exc
     if kind == "string":
         if not isinstance(value, str):
-            raise ValueError(f"expected string OCEL value, got {type(value).__name__}")
+            raise ValueError(
+                f"{context}: expected string OCEL value, got {type(value).__name__} ({value!r})"
+            )
         return value
     if kind == "integer":
         if type(value) is not int:
-            raise ValueError(f"expected integer OCEL value, got {type(value).__name__}")
+            raise ValueError(f"{context}: expected integer OCEL value, got {type(value).__name__}")
         return value
     if kind == "float":
         if type(value) not in {int, float}:
-            raise ValueError(f"expected numeric OCEL value, got {type(value).__name__}")
+            raise ValueError(f"{context}: expected numeric OCEL value, got {type(value).__name__}")
         try:
             finite = math.isfinite(value)
         except OverflowError:
             finite = False
         if not finite:
-            raise ValueError("OCEL float value must be finite")
+            raise ValueError(f"{context}: OCEL float value must be finite")
         return value
     if kind == "boolean":
         if type(value) is not bool:
-            raise ValueError(f"expected boolean OCEL value, got {type(value).__name__}")
+            raise ValueError(f"{context}: expected boolean OCEL value, got {type(value).__name__}")
         return value
-    raise ValueError(f"unsupported OCEL value type: {kind!r}")
+    raise ValueError(f"{context}: unsupported OCEL value type: {kind!r}")
 
 
 def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
@@ -208,7 +213,18 @@ def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
             if name in seen_event_attributes:
                 raise ValueError(f"duplicate event attribute on {event_id}: {name}")
             seen_event_attributes.add(name)
-            attributes.append((name, canonical_value(typed_value(item.get("value"), schema[name]))))
+            attributes.append(
+                (
+                    name,
+                    canonical_value(
+                        typed_value(
+                            item.get("value"),
+                            schema[name],
+                            f"events[{event_index}] {event_id}.{name}",
+                        )
+                    ),
+                )
+            )
         relationships = []
         seen_event_relationships: set[tuple[str, str | None]] = set()
         for relationship_index, raw_relationship in enumerate(raw_relationships):
@@ -277,7 +293,13 @@ def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
                 (
                     name,
                     normalize_time(item.get("time")),
-                    canonical_value(typed_value(item.get("value"), schema[name])),
+                    canonical_value(
+                        typed_value(
+                            item.get("value"),
+                            schema[name],
+                            f"objects[{object_index}] {object_id}.{name}",
+                        )
+                    ),
                 )
             )
         relationships = []
@@ -345,11 +367,17 @@ def main() -> int:
         return 2
 
     try:
-        source_inventory = normalize_inventory(args.source)
+        try:
+            source_inventory = normalize_inventory(args.source)
+        except Exception as exc:
+            raise ValueError(f"source normalization failed: {exc}") from exc
         ocel = pm4py.read_ocel2_json(str(args.source))
         args.roundtrip.parent.mkdir(parents=True, exist_ok=True)
         pm4py.write_ocel2_json(ocel, str(args.roundtrip))
-        roundtrip_inventory = normalize_inventory(args.roundtrip)
+        try:
+            roundtrip_inventory = normalize_inventory(args.roundtrip)
+        except Exception as exc:
+            raise ValueError(f"PM4Py round-trip normalization failed: {exc}") from exc
     except Exception as exc:  # external tool failures must be visible to the gate
         print(f"PM4Py OCEL 2.0 round-trip failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
