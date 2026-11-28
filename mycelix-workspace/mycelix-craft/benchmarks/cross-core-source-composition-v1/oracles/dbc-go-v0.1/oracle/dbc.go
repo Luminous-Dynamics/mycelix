@@ -184,6 +184,11 @@ func Validate(c Capsule) error {
 }
 func CanonicalDigest(c Capsule) (string,error) {
  if err:=Validate(c); err!=nil { return "",err }
+ c.Stages=append([]StageReceipt(nil),c.Stages...)
+ for i:=range c.Stages { c.Stages[i].Inputs=append([]Input(nil),c.Stages[i].Inputs...) }
+ c.External=append([]ExternalBinding(nil),c.External...)
+ c.Unknowns=append([]string(nil),c.Unknowns...)
+ c.Conflicts=append([]string(nil),c.Conflicts...)
  sort.Slice(c.Stages,func(i,j int)bool { for a,x:=range stageOrder { if c.Stages[i].Stage==x { for _,y:=range stageOrder[a+1:] { if c.Stages[j].Stage==y { return true } }; return false } }; return c.Stages[i].Stage<c.Stages[j].Stage })
  for i:=range c.Stages { sort.Slice(c.Stages[i].Inputs,func(a,b int)bool{return c.Stages[i].Inputs[a].Slot<c.Stages[i].Inputs[b].Slot}) }
  sort.Slice(c.External,func(i,j int)bool { if c.External[i].Consumer!=c.External[j].Consumer{return c.External[i].Consumer<c.External[j].Consumer}; return c.External[i].Slot<c.External[j].Slot })
