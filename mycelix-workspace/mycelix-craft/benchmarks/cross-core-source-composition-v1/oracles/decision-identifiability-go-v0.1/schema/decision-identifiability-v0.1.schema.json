@@ -70,9 +70,45 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       }
+    },
+    "fixture_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "coverage_basis": {
+            "const": "fixture_exhaustive"
+          }
+        },
+        "required": [
+          "coverage_basis"
+        ]
+      },
+      "then": {
+        "required": [
+          "fixture_digest"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "fixture_digest"
+          ]
+        }
+      }
+    }
+  ]
 }
