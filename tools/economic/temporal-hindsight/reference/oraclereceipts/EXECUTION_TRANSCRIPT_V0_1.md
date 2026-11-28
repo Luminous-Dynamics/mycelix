@@ -17,6 +17,17 @@ Every step binds:
 
 The public-input digest is recomputed from the exact step fields, the canonical consumed-receipt set and supersession set. The transition digest additionally binds the IVC envelope.
 
+## Commitment-carrying oracle advice
+
+The IVC envelope also carries a three-part advice commitment:
+- PriorAdviceCommitmentDigest: the cumulative advice commitment at the current state/proof head;
+- AdviceDeltaCommitmentDigest: a domain-separated commitment to this step's exact receipt-prefix digest, sequence and canonical consumed receipt-digest set;
+- NextAdviceCommitmentDigest: a domain-separated hash-chain extension of the prior advice commitment with the new advice delta.
+
+The replay verifier recomputes the delta and next commitment, and requires the prior commitment to equal the current advice head. The resulting advice commitment is reconstructed alongside state, proof and receipt-frontier heads and is included in the replay-result integrity seal. A correction therefore appends a new advice delta and a new cumulative advice commitment; it cannot silently rewrite the previously committed oracle inputs.
+
+This adapts the *commitment-carrying IVC* idea from Nebula: its proof carries an incremental commitment to non-deterministic advice across steps, supporting efficient memory/read-write arguments. Here, the "advice" is the canonical set of externally supplied oracle receipts. The present SHA-256 chain is a structural commitment convention, not a hiding vector commitment or an IVC proof. It only identifies the exact receipt inputs; an eventual IVC circuit/proof must demonstrate that its computation consumed those inputs, and an independent verifier must still verify the proof and the oracle receipt signatures/authority. See Arun & Setty, *Nebula: Proving Machine Executions via Folding Schemes* (IEEE S&P 2026): https://www.microsoft.com/en-us/research/publication/nebula-proving-machine-executions-via-folding-schemes/.
+
 ## Replay invariants
 
 1. Execution events are contiguous, append-only and previous-digest chained.
@@ -52,10 +63,10 @@ The original receipt and step remain in the transcript. There is no last-write-w
 ## Model checking
 
 formal/OracleIVCExecution.tla checks:
-- state and proof heads advance together;
+- state, proof and cumulative advice-commitment heads advance together;
 - receipt-frontier high-water mark never regresses;
 - unknown outcomes freeze state/proof/frontier heads;
-- the prepared target is exactly the next state/proof/frontier.
+- the prepared target is exactly the next state/proof/advice/frontier.
 
 Three independent mutants must each be caught:
 - OracleIVCExecution-Regress-Mutant.cfg: rewind the receipt frontier;
