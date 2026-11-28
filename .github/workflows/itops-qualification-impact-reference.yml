@@ -1,0 +1,38 @@
+name: ITOPS Qualification Impact Reference
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-qualification-impact-reference/**"
+      - ".github/workflows/itops-qualification-impact-reference.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-qualification-impact-reference/**"
+      - ".github/workflows/itops-qualification-impact-reference.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: itops-qualification-impact-reference-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Require jq
+        run: command -v jq
+      - name: Install pinned Draft 2020-12 validator
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-cache-dir
+          --only-binary=:all:
+          -r lise-benchmarks/itops-qualification-impact-reference/requirements-validation.txt
+      - name: Validate qualification-impact fixture
+        run: bash lise-benchmarks/itops-qualification-impact-reference/validate.sh
+      - name: Run orthogonal-impact mutation controls
+        run: bash lise-benchmarks/itops-qualification-impact-reference/mutation-tests.sh
