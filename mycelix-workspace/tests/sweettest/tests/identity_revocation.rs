@@ -52,7 +52,11 @@ struct ReinstateInput {
 struct RevocationCheckResult {
     credential_id: String,
     status: String,
+    lookup_status: String,
     reason: Option<String>,
+    effective_from: Option<i64>,
+    recorded_at: Option<i64>,
+    suspension_end: Option<i64>,
     checked_at: i64,
 }
 
