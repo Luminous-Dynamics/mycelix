@@ -22,6 +22,16 @@ The oracle checks the registry against its own expected disposition table:
 
 The hard-coded Go expectation table is not generated from the JSON manifest. This guards against accidental edits to the manifest silently changing the expected outcome.
 
+## Composition profiles and root claim ownership
+
+`DJCC_PROFILES_V0_1.json` defines two profiles:
+- `mycelix.djcc.full-evidence-execution.v0.1`: requires authentication, authority, completeness, effect and truth, with profile-owned stage sets for each claim.
+- `mycelix.djcc.historical-decision-only.v0.1`: requires authentication, authority, completeness and truth, and marks execution/outcome explicitly NotApplicable. It cannot make a physical effect or outcome claim.
+
+Every stage edge declares a non-empty, sorted, unique `required_claims` list. This is deliberately more granular than requiring the parent stage to be entirely Verified. For example, semantic projection can consume the established Authentication claim of a source-trust result while that source-trust stage remains Indeterminate about issuer participation Completeness. A query that needs complete coverage separately requires Completeness from the relevant frontier/source/projection owners.
+
+The profile maps final root claims to the stages that own them. The root disposition is derived from the profile's required claim set, not by turning every unrelated stage abstention into an all-or-nothing failure. A NotApplicable stage must have all its claim dimensions marked NotApplicable and cannot appear as a producer for a required claim.
+
 ## Rust candidate verifier
 
 A separate dependency-free Rust candidate is at `mycelix-workspace/crates/mycelix-djcc-verifier`.
@@ -61,7 +71,7 @@ The Go program validates the public seed manifest against its own expected-resul
 - four UTF-8 strings, each prefixed by a big-endian u32 **byte** length: producer stage, consumer stage, input name, output schema reference;
 - the producer's 32-byte output digest appended as raw bytes.
 
-The Go oracle and Rust candidate independently construct the canonical preimage and compare it with the same frozen known-answer bytes. One vector contains a non-ASCII UTF-8 input name to catch character-count versus byte-count errors.
+The Go oracle and Rust candidate independently construct the canonical preimage and compare it with the same frozen known-answer bytes. Each vector now includes the exact upstream `required_claims` set; canonical preimage encodes a u32 claim count and the sorted claim strings before the output digest. One vector contains a non-ASCII UTF-8 input name to catch character-count versus byte-count errors.
 
 This is only a canonical stage-edge encoding vector. It is not yet a full certificate canonicalization, canonical JSON profile, or signed certificate digest. Root certificate encoding remains a separate deliverable.
 
