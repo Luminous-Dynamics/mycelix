@@ -132,6 +132,81 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 	if schema["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
 		t.Fatalf("unexpected JSON Schema dialect: %v", schema["$schema"])
 	}
+
+	definitions, ok := schema["$defs"].(map[string]any)
+	if !ok {
+		t.Fatal("certificate schema has no $defs registry")
+	}
+	stageDefinition, ok := definitions["stage"].(map[string]any)
+	if !ok {
+		t.Fatal("certificate schema has no reusable stage definition")
+	}
+	stageProperties, ok := stageDefinition["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("reusable stage definition has no properties")
+	}
+	if _, exists := stageProperties["output_schema_ref"]; !exists {
+		t.Fatal("reusable stage definition is missing output_schema_ref")
+	}
+	dependenciesSchema, ok := stageProperties["dependencies"].(map[string]any)
+	if !ok {
+		t.Fatal("reusable stage definition has no dependencies property")
+	}
+	dependencyItems, ok := dependenciesSchema["items"].(map[string]any)
+	if !ok || dependencyItems["$ref"] != "#/$defs/dependency" {
+		t.Fatal("stage dependencies must reference the reusable dependency definition")
+	}
+
+	dependencyDefinition, ok := definitions["dependency"].(map[string]any)
+	if !ok {
+		t.Fatal("certificate schema has no reusable dependency definition")
+	}
+	dependencyProperties, ok := dependencyDefinition["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("reusable dependency definition has no properties")
+	}
+	dependencyRequired, ok := dependencyDefinition["required"].([]any)
+	if !ok {
+		t.Fatal("reusable dependency definition has no required-field list")
+	}
+	for _, requiredField := range []string{"stage_id", "input_name", "required_claims", "output_digest", "schema_ref"} {
+		if _, exists := dependencyProperties[requiredField]; !exists {
+			t.Errorf("dependency definition is missing %q", requiredField)
+		}
+		found := false
+		for _, field := range dependencyRequired {
+			if field == requiredField {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("dependency definition does not require %q", requiredField)
+		}
+	}
+
+	claimSchema, ok := dependencyProperties["required_claims"].(map[string]any)
+	if !ok || claimSchema["type"] != "array" || claimSchema["minItems"] != float64(1) || claimSchema["uniqueItems"] != true {
+		t.Fatal("required_claims must be a non-empty unique array")
+	}
+	claimItems, ok := claimSchema["items"].(map[string]any)
+	if !ok {
+		t.Fatal("required_claims has no item vocabulary")
+	}
+	claimEnum, ok := claimItems["enum"].([]any)
+	includesIndependence := false
+	if ok {
+		for _, claim := range claimEnum {
+			if claim == "independence" {
+				includesIndependence = true
+				break
+			}
+		}
+	}
+	if !includesIndependence {
+		t.Fatal("required_claims schema omits independence")
+	}
+
 	properties, ok := schema["properties"].(map[string]any)
 	if !ok {
 		t.Fatal("certificate schema has no properties object")
@@ -140,90 +215,27 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 	if !ok {
 		t.Fatal("certificate schema has no stages envelope")
 	}
-	stageProperties, ok := stageEnvelope["properties"].(map[string]any)
+	stageEnvelopeProperties, ok := stageEnvelope["properties"].(map[string]any)
 	if !ok {
-		t.Fatal("certificate stages has no property registry")
+		t.Fatal("certificate stages has no stage registry")
 	}
 	for _, stage := range requiredStages {
-		rawStage, exists := stageProperties[string(stage)]
+		rawStage, exists := stageEnvelopeProperties[string(stage)]
 		if !exists {
 			t.Errorf("certificate schema is missing stage %q", stage)
 			continue
 		}
 		stageSchema, ok := rawStage.(map[string]any)
-		if !ok {
-			t.Errorf("stage %q is not a schema object", stage)
-			continue
+		if !ok || stageSchema["$ref"] != "#/$defs/stage" {
+			t.Errorf("stage %q must reference #/$defs/stage", stage)
 		}
-		stageSchemaProperties, ok := stageSchema["properties"].(map[string]any)
-		if !ok {
-			t.Errorf("stage %q has no property registry", stage)
-			continue
-		}
-		if _, exists := stageSchemaProperties["output_schema_ref"]; !exists {
-			t.Errorf("stage %q is missing output_schema_ref", stage)
-		}
-		dependenciesSchema, ok := stageSchemaProperties["dependencies"].(map[string]any)
-		if !ok {
-			t.Errorf("stage %q has no dependency schema", stage)
-			continue
-		}
-		dependencyItems, ok := dependenciesSchema["items"].(map[string]any)
-		if !ok {
-			t.Errorf("stage %q dependency items are not an object schema", stage)
-			continue
-		}
-		dependencyProperties, ok := dependencyItems["properties"].(map[string]any)
-		if !ok {
-			t.Errorf("stage %q dependencies have no properties", stage)
-			continue
-		}
-		for _, requiredDependencyField := range []string{"stage_id", "input_name", "required_claims", "output_digest", "schema_ref"} {
-			if _, exists := dependencyProperties[requiredDependencyField]; !exists {
-				t.Errorf("stage %q dependency schema is missing %q", stage, requiredDependencyField)
-			}
-		}
-		dependencyRequired, ok := dependencyItems["required"].([]any)
-		if !ok {
-			t.Errorf("stage %q dependency schema has no required-field list", stage)
-			continue
-		}
-		for _, requiredDependencyField := range []string{"stage_id", "input_name", "required_claims", "output_digest", "schema_ref"} {
-			found := false
-			for _, field := range dependencyRequired {
-				if field == requiredDependencyField {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("stage %q dependency schema does not require %q", stage, requiredDependencyField)
-			}
-		}
-		claimSchema, ok := dependencyProperties["required_claims"].(map[string]any)
-		if !ok || claimSchema["type"] != "array" || claimSchema["minItems"] != float64(1) || claimSchema["uniqueItems"] != true {
-			t.Errorf("stage %q required_claims schema is not a non-empty unique array", stage)
-			continue
-		}
-		claimItems, ok := claimSchema["items"].(map[string]any)
-		if !ok {
-			t.Errorf("stage %q required_claims schema has no item vocabulary", stage)
-			continue
-		}
-		claimEnum, ok := claimItems["enum"].([]any)
-		includesIndependence := false
-		if ok {
-			for _, claim := range claimEnum {
-				if claim == "independence" { includesIndependence = true; break }
-			}
-		}
-		if !includesIndependence { t.Errorf("stage %q required_claims schema omits independence", stage) }
 	}
 	stageRequired, ok := stageEnvelope["required"].([]any)
 	if !ok || len(stageRequired) != len(requiredStages) {
 		t.Fatalf("certificate schema must require all %d stages", len(requiredStages))
 	}
 }
+
 func TestSharedDJCCStageEdgeCanonicalizationVectors(t *testing.T) {
 	file, err := os.Open("../DJCC_STAGE_EDGE_V1_KAT.tsv")
 	if err != nil {
