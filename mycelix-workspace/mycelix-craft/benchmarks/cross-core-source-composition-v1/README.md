@@ -64,6 +64,23 @@ cargo +1.96.0 run --release --manifest-path "$OUT_DIR/Cargo.toml" \
 
 Benchmark separately at 1,000, 100,000 and 1,000,000 events; reserve 10,000,000 events for a suitably provisioned isolated host, not ordinary CI. Repeat with complaints-per-callout values such as 1, 10, 100 and 1,000 to vary object count and relation fan-out while holding event count fixed. This probes the current whole-document memory behaviour; it is not a streaming result. No performance result is claimed until the exact command, source SHA, generator, CPU/RAM/OS, Rust toolchain and raw JSON output are recorded.
 
+## Temporal relationship claims (experimental follow-on)
+
+The stacked research branch [research/craft-temporal-relationship-claims-v0.1-20261127](https://github.com/Luminous-Dynamics/mycelix/tree/research/craft-temporal-relationship-claims-v0.1-20261127) adds the typed Rust prototype in `harness/src/temporal_relationships.rs`.
+
+A relationship is represented as a claim with a stable relation ID, subject, predicate, object, half-open valid-time interval, source-recorded timestamp, accepted host sequence, source reference/digest, asserting principal and authority scope. Supersede and revoke operations are append-only mutation records. A supersession points to a replacement relation claim and commits to the exact target claim digest. At a given valid-time and accepted-sequence frontier, the projection returns all known relation IDs, currently valid relation IDs, future-valid and expired claims, active edges, known/pending/applied mutation IDs, conflict groups and a deterministic snapshot digest. Every accepted claim—not only active edges—is committed into the digest. Future records beyond the requested accepted-sequence frontier are ignored by that historical query and cannot retroactively poison the snapshot. The prototype uses explicit per-predicate cardinality (`one-to-one`, `one-to-many`, `many-to-one`, `many-to-many`) and surfaces only prohibited endpoint fan-out; it does not impose a universal one-edge-per-subject rule.
+
+The V1 prototype deliberately surfaces competing claims rather than applying a latest-row-wins rule. For example, if an asset has an old zone assignment and a replacement assignment is accepted before the supersession event, both claims remain visible and are returned as a conflict until the supersession is both effective in valid time and inside the accepted-sequence frontier. A revocation similarly changes the projection only when both frontiers include it. Supersession chains are sequence-ordered; a retired relation cannot be reactivated by a later correction. Snapshot receipts bind every known claim's complete digest and temporal status, predicate cardinality, every known mutation payload and its pending/effective status, conflicts and endpoint identities.
+
+Run the focused tests in the materialized workspace:
+
+```sh
+cargo +1.96.0 test --manifest-path "$OUT_DIR/Cargo.toml" \
+  -p craft-water-cross-core-harness temporal_relationships::tests
+```
+
+The module now includes a restricted OCEL 2.0 JSON adapter, `parse_temporal_relationships_ocel20`, that reads `temporal_relation_claim` objects and `temporal_relation_superseded` / `temporal_relation_revoked` events. It enforces the OCEL `objectTypes` / `eventTypes` declarations for consumed attributes, parses typed values and SHA-256 digests, requires exactly one qualified subject/object or target/replacement relationship, and checks global object/event identity uniqueness plus endpoint existence. Tests use separate OCEL object-attribute (`name/time/value`) and event-attribute (`name/value`) shapes. The projection is still in-memory and the adapter is restricted to this declared extension; it is not a full OCEL 2.0 validator or a general temporal graph database. It does not verify source signatures, independently authenticate an asserting principal, prove that authority scope is legally valid, or certify that a relationship is true. The accepted sequence is a knowledge frontier, not trusted transaction time. PM4Py/tEKG interchange and a separate authority-verification oracle remain follow-on work in [#6805](https://github.com/Luminous-Dynamics/mycelix/issues/6805).
+
 ## Claim boundary
 
 A green result establishes that the six pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.

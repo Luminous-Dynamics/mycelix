@@ -1,0 +1,95 @@
+name: Craft temporal relationship claims exact-head
+
+on:
+  push:
+    branches:
+      - research/craft-temporal-relationship-claims-v0.1-20261127
+  pull_request:
+    branches:
+      - research/craft-water-ocel-interoperability-v0.1-20261127
+    paths:
+      - ".github/workflows/craft-temporal-relationship-claims.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/harness/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/materialize.sh"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/components.tsv"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: craft-temporal-relationship-claims-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  exact-head:
+    name: Exact-head materialize, format, test and clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Install Rust 1.96.0
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: clippy, rustfmt
+
+      - name: Assert exact head and materialize pinned owner cores
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$EXPECTED_HEAD"
+          benchmark_dir="mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1"
+          out_dir="$RUNNER_TEMP/craft-temporal-relationship-workspace"
+          MYCELIX_GIT_REMOTE=origin bash "$benchmark_dir/materialize.sh" "$out_dir"
+          grep -F "harness_head" "$out_dir/source-receipt.tsv"
+          grep -F "$EXPECTED_HEAD" "$out_dir/source-receipt.tsv"
+          sha256sum "$out_dir/source-receipt.tsv" | tee "$RUNNER_TEMP/source-receipt.sha256"
+          cargo +1.96.0 generate-lockfile --manifest-path "$out_dir/Cargo.toml"
+          sha256sum "$out_dir/Cargo.lock" | tee "$RUNNER_TEMP/cargo-lock.sha256"
+          {
+            printf 'exact_head\t%s\n' "$EXPECTED_HEAD"
+            cat "$RUNNER_TEMP/source-receipt.sha256"
+            cat "$RUNNER_TEMP/cargo-lock.sha256"
+          } > "$RUNNER_TEMP/exact-head-receipt.tsv"
+          echo "CRAFT_WORKSPACE=$out_dir" >> "$GITHUB_ENV"
+
+      - name: Check formatting on exact materialized workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 fmt --manifest-path "$CRAFT_WORKSPACE/Cargo.toml" --all -- --check
+
+      - name: Run all owner and harness tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 test --manifest-path "$CRAFT_WORKSPACE/Cargo.toml" \
+            --workspace --all-targets --locked
+
+      - name: Run workspace Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 clippy --manifest-path "$CRAFT_WORKSPACE/Cargo.toml" \
+            --workspace --all-targets --locked -- -D warnings
+
+      - name: Upload exact-head qualification receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: craft-temporal-relationship-exact-head-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/exact-head-receipt.tsv
+            ${{ runner.temp }}/source-receipt.sha256
+            ${{ runner.temp }}/cargo-lock.sha256
+          if-no-files-found: warn
+          retention-days: 30

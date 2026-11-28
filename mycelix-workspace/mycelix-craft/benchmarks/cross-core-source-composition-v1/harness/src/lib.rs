@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod ocel_profile;
+pub mod temporal_relationships;
 pub mod temporal_replay;
 
 use std::collections::BTreeSet;
