@@ -659,9 +659,17 @@ mod tests {
                 .equilibria
                 .iter()
                 .map(|equilibrium| {
-                    let row_action = usize::from(equilibrium.strategy_profile[0] == "defect");
+                    let row_action = if equilibrium.strategy_profile[0] == "defect" {
+                        1
+                    } else {
+                        0
+                    };
                     let column_action =
-                        usize::from(equilibrium.strategy_profile[1] == "defect");
+                        if equilibrium.strategy_profile[1] == "defect" {
+                            1
+                        } else {
+                            0
+                        };
                     (row_action, column_action)
                 })
                 .collect();
