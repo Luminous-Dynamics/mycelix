@@ -126,3 +126,24 @@ No autonomous dispatch, sampling, permit, advisory, service closure or other rea
 5. Add OCEL/temporal and acquisition baseline adapters.
 6. Run small-scale semantic parity first, then performance ladders.
 7. Publish all failures and unsupported comparisons.
+
+
+## 9. Additional paradigm shift: epistemic debt and observability budgets
+
+A system should not only report what it knows. It should account for what it cannot know yet, why it cannot know it, what decisions that uncertainty blocks, and the cost/risk of leaving it unresolved. Define an **epistemic debt ledger** per decision episode:
+
+- each unresolved claim or required evidence item;
+- the missing source, time interval, object relation, authority, calibration or dependency;
+- whether the gap is structural, unavailable, stale, disputed, out-of-domain or not yet evaluated;
+- decisions and claim dimensions constrained by the gap;
+- owner/remediation path, expiry and invalidation conditions;
+- whether the gap is mandatory or optional;
+- candidate observations and their EVSI/EIG/cost profile, if admissible.
+
+Benchmark the ledger for completeness against a frozen ground-truth gap set. Measure unknown-detection recall, unsupported-certainty rate, time-to-detect, stale-gap persistence, duplicate-gap rate, and whether each gap correctly constrains the relevant claim ceiling. A system that admits uncertainty accurately should outperform one that emits confident but unsupported completeness.
+
+Add **missing-not-at-random** and strategic-omission scenarios: sources disappear preferentially when they contain adverse outcomes; a source selectively reports successful events; evidence arrives after a decision frontier; a provider changes identifiers; and a party submits a validly signed but selectively incomplete feed. Cryptographic validity must not be scored as universe completeness.
+
+Introduce a budgeted **observability allocation** task: given a fixed human-review, sensor, laboratory, latency and financial budget, choose the next source/observation to reduce decision loss and epistemic debt without relaxing mandatory evidence or safe-action constraints. Compare fixed, random-safe, expert, EIG, EVSI and constrained portfolio policies. Report fairness and burden distribution across affected populations where those data are explicitly available; do not infer missing values.
+
+This is a benchmark dimension, not a new authority to waive required evidence. Mandatory gaps remain blocking regardless of acquisition cost or score.
