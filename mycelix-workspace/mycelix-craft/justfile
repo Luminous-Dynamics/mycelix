@@ -9,3 +9,8 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+
+# Run the standalone evidence-lineage reference core
+core-evidence-lineage:
+    cargo test --manifest-path Cargo.toml -p craft-evidence-lineage-v1
