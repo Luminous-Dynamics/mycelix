@@ -122,17 +122,31 @@ pub mod xapi_verbs {
     pub const EARNED: &str = "https://w3id.org/xapi/tla/verbs/earned";
 }
 
+/// Inputs used to convert one learner event into an xAPI statement.
+#[derive(Clone, Copy, Debug)]
+pub struct LearningEventXapiInput<'a> {
+    pub learner_id: &'a str,
+    pub learner_name: Option<&'a str>,
+    pub event_type: &'a str,
+    pub topic_id: &'a str,
+    pub topic_name: &'a str,
+    pub quality_permille: u16,
+    pub duration_seconds: u32,
+    pub timestamp: &'a str,
+}
+
 /// Convert a learning event into an xAPI statement.
-pub fn learning_event_to_xapi(
-    learner_id: &str,
-    learner_name: Option<&str>,
-    event_type: &str,
-    topic_id: &str,
-    topic_name: &str,
-    quality_permille: u16,
-    duration_seconds: u32,
-    timestamp: &str,
-) -> XapiStatement {
+pub fn learning_event_to_xapi(input: LearningEventXapiInput<'_>) -> XapiStatement {
+    let LearningEventXapiInput {
+        learner_id,
+        learner_name,
+        event_type,
+        topic_id,
+        topic_name,
+        quality_permille,
+        duration_seconds,
+        timestamp,
+    } = input;
     let verb_id = match event_type {
         "SkillMastered" => xapi_verbs::MASTERED,
         "QuizPassed" => xapi_verbs::PASSED,
