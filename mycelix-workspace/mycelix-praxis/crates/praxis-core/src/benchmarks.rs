@@ -72,7 +72,7 @@ mod tests {
         let mut total = 0.0f32;
         for i in 0..iterations {
             let q = (i % 1000) as u16;
-            let d = ((i % 10) * 900 + 900) as u32;
+            let d = (i % 10) * 900 + 900;
             let r = (i % 1000) as u16;
             total += compute_tend_pure(q, d, r, Some(500));
         }
@@ -120,7 +120,7 @@ mod tests {
         let mut total = 0u64;
         for i in 0..iterations {
             let mastery = (i % 1000) as u16;
-            let reviews = (i % 15) as u32;
+            let reviews = i % 15;
             let elapsed = (i % 10000) as f64;
             let s = ebbinghaus_stability(mastery, reviews);
             total += predict_vitality(s, elapsed) as u64;
