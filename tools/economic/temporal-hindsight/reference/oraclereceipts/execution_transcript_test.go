@@ -520,6 +520,75 @@ func TestCorrectionMustSupersedeAnEarlierAppliedStep(t *testing.T) {
 	}
 }
 
+func buildTwoStepCorrectionConeFixture(t testing.TB) (OracleScopeV1, []OracleReceiptV1, []ExecutionEventV1, string) {
+	t.Helper()
+	scope := executionFixtureScope()
+	receipts := executionReceipts(t, scope, 2)
+	scopeDigest, _, state := executionGenesis(t, scope)
+	proof := executionGenesisProofDigest(scopeDigest)
+
+	first := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+		state, proof, "step:one", StepApply, testDigestB, testDigestC)
+	events := appendExecutionEvent(t, scope, nil, "event:one", ExecutionCommitted, &first, "")
+
+	second := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+		testDigestB, testDigestC, "step:two", StepApply, testDigestA, testDigestB)
+	second.IVCUpdate.PriorAdviceCommitmentDigest = first.IVCUpdate.NextAdviceCommitmentDigest
+	second.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, 1, receipts[0].ReceiptDigest, second.ConsumedReceiptDigests)
+	second.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, second.IVCUpdate.PriorAdviceCommitmentDigest, second.IVCUpdate.AdviceDeltaCommitmentDigest)
+	second.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, second)
+	events = appendExecutionEvent(t, scope, events, "event:two", ExecutionCommitted, &second, "")
+	return scope, receipts, events, second.IVCUpdate.NextAdviceCommitmentDigest
+}
+
+func correctionTransitionForCone(t testing.TB, scope OracleScopeV1, receipts []OracleReceiptV1, priorState, priorProof, priorAdvice string, supersedes ...string) ExecutionTransitionV1 {
+	t.Helper()
+	scopeDigest, _, _ := executionGenesis(t, scope)
+	correction := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
+		priorState, priorProof, "step:correction", StepRecomputeAfterCorrection, testDigestC, testDigestA, supersedes...)
+	correction.IVCUpdate.PriorAdviceCommitmentDigest = priorAdvice
+	correction.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, 2, receipts[1].ReceiptDigest, correction.ConsumedReceiptDigests)
+	correction.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, priorAdvice, correction.IVCUpdate.AdviceDeltaCommitmentDigest)
+	correction.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, correction)
+	return correction
+}
+
+func TestCorrectionMustSupersedeWholeDownstreamLinearSuffix(t *testing.T) {
+	scope, receipts, baseEvents, adviceHead := buildTwoStepCorrectionConeFixture(t)
+
+	t.Run("partial cone rejected", func(t *testing.T) {
+		partial := correctionTransitionForCone(t, scope, receipts, testDigestA, testDigestB, adviceHead, "step:one")
+		events := appendExecutionEvent(t, scope, append([]ExecutionEventV1(nil), baseEvents...), "event:correction", ExecutionCommitted, &partial, "")
+		got := replayExecution(t, scope, receipts, events)
+		if got.Disposition != ExecutionChainIndeterminate ||
+			!strings.Contains(got.Reason, "impact cone incomplete") {
+			t.Fatalf("partial downstream correction cone accepted: %+v", got)
+		}
+	})
+
+	t.Run("complete suffix accepted", func(t *testing.T) {
+		complete := correctionTransitionForCone(t, scope, receipts, testDigestA, testDigestB, adviceHead, "step:one", "step:two")
+		events := appendExecutionEvent(t, scope, append([]ExecutionEventV1(nil), baseEvents...), "event:correction", ExecutionCommitted, &complete, "")
+		got := replayExecution(t, scope, receipts, events)
+		if got.Disposition != ExecutionChainStructurallyValid ||
+			got.StateHeadDigest != testDigestC ||
+			got.ProofHeadDigest != testDigestA ||
+			got.AdviceCommitmentDigest != complete.IVCUpdate.NextAdviceCommitmentDigest {
+			t.Fatalf("complete downstream correction cone rejected: %+v", got)
+		}
+		if len(got.AppliedStepIDs) != 3 ||
+			got.AppliedStepIDs[0] != "step:one" ||
+			got.AppliedStepIDs[1] != "step:two" ||
+			got.AppliedStepIDs[2] != "step:correction" {
+			t.Fatalf("correction cone did not preserve ordered historical steps: %+v", got.AppliedStepIDs)
+		}
+	})
+}
+
 func TestUnknownExecutionOutcomeBlocksMutationUntilReconciled(t *testing.T) {
 	scope := executionFixtureScope()
 	receipts := executionReceipts(t, scope, 1)
