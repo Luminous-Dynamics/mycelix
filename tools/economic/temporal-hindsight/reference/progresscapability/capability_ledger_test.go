@@ -315,12 +315,12 @@ func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 		ScopeDigest: scopeDigest,
 		ActiveCapabilities: make([]ActiveCapabilityV1, 5000),
 	}
-	largeAntichain = finalizeReplay(largeAntichain)
 	for i := range largeAntichain.ActiveCapabilities {
 		largeAntichain.ActiveCapabilities[i].OwnerCut = []OwnerCoordinateV1{
 			{OwnerRef: "owner:A", Sequence: uint64(i)},
 		}
 	}
+	largeAntichain = finalizeReplay(largeAntichain)
 	if got := DeriveProgressAntichainV1(scope, largeAntichain); got.Disposition != ProgressUnavailable ||
 		!strings.Contains(got.Reason, "comparison budget") {
 		t.Fatalf("excessive antichain comparisons were not blocked: %+v", got)
