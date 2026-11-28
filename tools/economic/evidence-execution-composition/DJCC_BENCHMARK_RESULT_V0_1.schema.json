@@ -129,6 +129,30 @@
             "minLength": 1,
             "maxLength": 128
           }
+        },
+        "positive_control_class_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Unique adversarial class IDs with an executable positive-control fixture."
+        },
+        "hard_negative_class_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Unique adversarial class IDs with an executable hard-negative fixture."
         }
       }
     },
@@ -661,7 +685,9 @@
     "all count fields must not exceed their corresponding denominators",
     "started_at must be less than or equal to ended_at",
     "qualification requires at least 30 distinct adversarial_class_ids and adversarial_class_count must equal their count",
-    "qualification requires executable_fixture_count >= 30 and symbolic_fixture_count = 0"
+    "qualification requires executable_fixture_count >= 30 and symbolic_fixture_count = 0",
+    "qualification requires 30 distinct adversarial classes, each represented in both positive_control_class_ids and hard_negative_class_ids",
+    "qualification requires at least 60 executable fixtures, zero symbolic fixtures, a fixture-set digest, and an independently versioned/digested oracle"
   ],
   "allOf": [
     {
@@ -694,14 +720,30 @@
                 "uniqueItems": true
               },
               "executable_fixture_count": {
-                "minimum": 30
+                "minimum": 60
               },
               "symbolic_fixture_count": {
                 "const": 0
+              },
+              "fixture_count": {
+                "minimum": 60
+              },
+              "positive_control_class_ids": {
+                "minItems": 30,
+                "uniqueItems": true
+              },
+              "hard_negative_class_ids": {
+                "minItems": 30,
+                "uniqueItems": true
               }
             },
             "required": [
-              "adversarial_class_ids"
+              "adversarial_class_ids",
+              "positive_control_class_ids",
+              "hard_negative_class_ids",
+              "fixture_set_digest",
+              "oracle_version",
+              "oracle_digest"
             ]
           },
           "execution": {
@@ -714,10 +756,10 @@
           "correctness": {
             "properties": {
               "positive_control_total": {
-                "minimum": 1
+                "minimum": 30
               },
               "hard_negative_total": {
-                "minimum": 1
+                "minimum": 30
               },
               "safety_mutant_total": {
                 "minimum": 1
