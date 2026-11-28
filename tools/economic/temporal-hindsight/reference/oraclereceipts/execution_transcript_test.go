@@ -515,8 +515,8 @@ func TestCorrectionMustSupersedeAnEarlierAppliedStep(t *testing.T) {
 	events = appendExecutionEvent(t, scope, events, "event:correction", ExecutionCommitted, &transition, "")
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainIndeterminate ||
-		!strings.Contains(got.Reason, "impact cone mismatch") {
-		t.Fatalf("incorrect correction impact cone accepted: %+v", got)
+		!strings.Contains(got.Reason, "unknown or unapplied") {
+		t.Fatalf("unknown supersession target accepted: %+v", got)
 	}
 }
 
