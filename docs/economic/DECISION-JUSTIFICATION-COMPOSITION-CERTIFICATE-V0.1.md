@@ -228,7 +228,13 @@ authorization also consumes verifier_frontier directly
 
 The graph is encoded as an allowlisted stage-edge table, not supplied by the certificate author. Each edge binds a named consumer input to the exact producer output digest and output-schema reference. Every stage also binds the same canonical scope digest under the selected scope schema. The selected composition profile reference/digest must match the certificate.
 
-The candidate also checks stage output/disposition consistency, canonical dependency/input/reason ordering, profile-limited NotApplicable stages, and claim-ceiling monotonicity. A root claim dimension cannot be EstablishedWithinProfile if any required stage has that dimension as Rejected, Indeterminate, NotEvaluated, UnsupportedByProfile or NotApplicable. A child stage also cannot claim VerifiedForDeclaredClaim when any required producer stage is Rejected or Indeterminate; descendants of a blocked stage must abstain or return their own non-success disposition rather than preserving a false green chain.
+The candidate also checks stage output/disposition consistency, canonical dependency/input/reason ordering, profile-limited NotApplicable stages, and claim-ceiling monotonicity.
+
+**Dependency requirements are claim-specific, not stage-wide.** Each edge carries a non-empty, sorted, unique set drawn from `authentication`, `authority`, `completeness`, `effect`, and `truth`. A verified consumer must see every named claim EstablishedWithinProfile on that exact producer. It may still consume a narrower established claim from a parent whose overall stage disposition is Indeterminate for a different dimension. For example, semantic projection can use an authenticated issuer statement without implying that all issuer statements were submitted; a query that requires complete coverage must separately require the completeness claim.
+
+The selected profile maps final root claims to their responsible stages. The verifier checks that every root dimension declared EstablishedWithinProfile is established by every stage in that profile-owned claim map. Final composition disposition is derived from the profile's required root claim set, not from an all-or-nothing rule over unrelated stage dispositions. A profile must explicitly allow NotApplicable stages; a NotApplicable stage must mark all five of its claim dimensions NotApplicable and cannot be a producer for a required root claim.
+
+The two V0.1 profiles are in `DJCC_PROFILES_V0_1.json`: full evidence-to-outcome composition and historical decision-only composition. The latter explicitly excludes execution/effect and outcome, rather than treating those stages as green.
 
 ### 7.2 Shared stage-edge byte contract
 
@@ -239,9 +245,11 @@ The first shared Go/Rust known-answer contract is `DJCC_STAGE_EDGE_V1_KAT.tsv`. 
 3. consumer stage ID;
 4. consumer input name;
 5. producer output-schema reference;
-6. producer output digest as raw 32 bytes.
+6. big-endian u32 count of required claim dimensions;
+7. each required claim dimension in canonical order;
+8. producer output digest as raw 32 bytes.
 
-Each string is prefixed with a big-endian u32 byte length. The corpus includes ASCII and non-ASCII UTF-8 input names. Go and Rust independently encode and compare the same exact preimage bytes.
+Every string is prefixed by a big-endian u32 **byte** length. Claim dimension order is authentication, authority, completeness, effect, truth. The corpus includes ASCII and non-ASCII UTF-8 input names and both single-claim and multi-claim edges. Go and Rust independently encode and compare the same exact preimage bytes.
 
 This locks down only one edge encoding. It is not a complete certificate canonical encoding, JSON canonicalization profile, or signed certificate digest. Full-certificate canonicalization remains a separate deliverable.
 
