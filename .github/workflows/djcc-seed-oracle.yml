@@ -1,0 +1,132 @@
+name: DJCC V0.1 independent seed oracle
+
+on:
+  pull_request:
+    paths:
+      - "docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md"
+      - "schemas/economic/decision-justification-composition-certificate-v0.1.schema.json"
+      - "tools/economic/evidence-execution-composition/**"
+      - ".github/workflows/djcc-seed-oracle.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md"
+      - "schemas/economic/decision-justification-composition-certificate-v0.1.schema.json"
+      - "tools/economic/evidence-execution-composition/**"
+      - ".github/workflows/djcc-seed-oracle.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: djcc-seed-oracle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: DJCC seed oracle, schema and reproducibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact workflow head and required artifacts
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md
+          test -f schemas/economic/decision-justification-composition-certificate-v0.1.schema.json
+          test -f tools/economic/evidence-execution-composition/DJCC_V0_1_SEEDS.json
+          test -f tools/economic/evidence-execution-composition/go.mod
+          test -f tools/economic/evidence-execution-composition/oracle/oracle.go
+          test -f tools/economic/evidence-execution-composition/oracle/oracle_test.go
+
+      - name: Set up pinned Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+
+      - name: Check Go formatting
+        id: gofmt
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Run independent expected-result oracle and schema tests
+        id: tests
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/djcc"
+          go version 2>&1 | tee "$RUNNER_TEMP/djcc/go.log"
+          go test -v ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Run Go race detector
+        id: race
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Run go vet
+        id: vet
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Assemble exact-head seed qualification receipt
+        if: always()
+        shell: bash
+        env:
+          GOFMT: ${{ steps.gofmt.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          RACE: ${{ steps.race.outcome }}
+          VET: ${{ steps.vet.outcome }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/djcc"
+          mkdir -p "$dir"
+          jq -n \
+            --arg schema "mycelix.djcc-seed-oracle-qualification.v0.1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflow_sha "$(git rev-parse HEAD)" \
+            --arg go "$(go version 2>&1 || printf UNAVAILABLE)" \
+            --arg gofmt "$GOFMT" \
+            --arg tests "$TESTS" \
+            --arg race "$RACE" \
+            --arg vet "$VET" \
+            '{schema:$schema,repository:$repository,run_id:$run_id,run_attempt:$attempt,workflow_sha:$workflow_sha,go_toolchain:$go,outcomes:{gofmt:$gofmt,tests:$tests,race:$race,vet:$vet},claims:{seed_registry_integrity:"ProfileStructuralOnly",certificate_candidate_verification:"NotEvaluated",cross_language_canonicalization:"NotEvaluated",source_authentication:"NotEvaluated",owner_universe_completeness:"NotEvaluated",policy_correctness:"NotEvaluated",authority:"NotEvaluated",effect:"NotEvaluated"}}' \
+            > "$dir/qualification.json"
+          (
+            cd "$dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          )
+
+      - name: Upload DJCC seed evidence bundle
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: djcc-seed-oracle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/djcc/
+          if-no-files-found: error
+          retention-days: 90
