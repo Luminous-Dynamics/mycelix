@@ -13,7 +13,9 @@ The validator checks only the declared V0.1 structural contract:
 - every consumer input binds the exact producer receipt ID, output digest and schema ID;
 - stage/receipt IDs and input slots are unique;
 - causal event frontier and progress antichain have distinct type/schema references;
-- completeness is not promoted from a valid event frontier without an independently established owner-universe claim and stable progress antichain;
+- completeness is not promoted from a valid event frontier without a separately authenticated owner-universe receipt, bound to the same frontier, plus a stable progress antichain bound to that exact owner inventory;
+- temporal projection and replay receipts bind the exact selected event-frontier and source-corpus digests;
+- execution/outcome receipts bind the exact execution transcript and immutable action-plan digest; unknown outcome plus same-scope mutation attempt is rejected;
 - positive independence requires both a failure-domain graph and a separately supplied lineage-attestation reference;
 - positive authority requires a named principal, scoped capability reference and established authority receipt;
 - action coverage binds the exact immutable plan digest and revision;
@@ -34,11 +36,11 @@ go test -cover ./...
 
 ## Fixture suite
 
-`fixtures/dbc-known-answer-v0.1.json` describes the frozen positive and negative mutation set. Test code applies those mutations to a separately constructed valid capsule and checks the expected stable error/disposition. The validator does not generate the expected outcomes.
+`fixtures/dbc-known-answer-v0.1.json` contains 30 frozen positive and negative mutation seeds. The generic test runner now applies every named mutation to an independently constructed positive capsule and checks the fixture-authored expected error code and disposition. The validator does not generate the expected outcomes.
 
 ## Canonicalization
 
-Canonical bytes sort stage receipts by DJCC stage order, input bindings by consumer slot, external bindings by consumer/slot, and reason/unknown/conflict codes. The capsule commitment is domain-separated SHA-256 over that typed internal representation. The Go reference currently validates an in-memory typed model; a wire adapter mapping the JSON Schema's snake_case fields into these Go types is not yet implemented, and no JSON round-trip equivalence is claimed. Any change to a bound receipt, schema, policy, scope, frontier, plan revision or outcome changes the typed-model commitment.
+Canonical bytes sort stage receipts by DJCC stage order, input bindings by consumer slot, external bindings by consumer/slot, and reason/unknown/conflict codes. The capsule commitment is domain-separated SHA-256 over that typed internal representation. Strict `DecodeJSON`/`EncodeJSON` adapters now map the snake_case JSON Schema to the typed Go model, reject unknown fields and trailing JSON values, and have a round-trip canonical-digest known-answer test. The adapter also rejects missing required arrays that JSON `null` could otherwise masquerade as. Any change to a bound receipt, schema, policy, scope, frontier, plan revision or outcome changes the typed-model commitment.
 
 ## Claim ceiling
 
@@ -52,7 +54,7 @@ The DBC keeps three references distinct:
 2. `ProgressAntichain` — the #6804 progress disposition, which may be `StableRelativeToDeclaredProgress` or `Provisional`. Its `source_universe_completeness` is fixed to `NotEvaluated`, matching #6804's claim ceiling.
 3. `OwnerUniverse` — a separate receipt and independent completeness claim. Only this receipt can establish whether the declared source/owner universe is complete.
 
-A stable progress antichain therefore cannot by itself establish completeness, and a structurally valid event frontier cannot establish that no source was omitted. The full-profile capsule requires all three bindings to make a positive completeness claim.
+A stable progress antichain therefore cannot by itself establish completeness, and a structurally valid event frontier cannot establish that no source was omitted. The full-profile capsule requires all three bindings to make a positive completeness claim. The owner-universe inventory receipt is explicitly bound to the event-frontier digest, and the antichain receipt is bound to the same inventory digest.
 
 The supported DJCC profile is deliberately limited to `mycelix.djcc.full-evidence-execution.v0.1`. It does not claim independent corroboration; the independence dimension remains `NotEvaluated` unless a future separately specified profile includes authenticated failure-domain lineage.
 
