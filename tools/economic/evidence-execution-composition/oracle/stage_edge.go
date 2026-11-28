@@ -128,8 +128,13 @@ func parseStageEdgeVectorV1(fields []string) (StageEdgeV1, []byte, error) {
 	if len(claims) == 1 && claims[0] == "" {
 		return StageEdgeV1{}, nil, errors.New("required claim list is empty")
 	}
-	if !sort.StringsAreSorted(claims) {
-		return StageEdgeV1{}, nil, errors.New("required claims are not sorted")
+	for i, claim := range claims {
+		if !validDJCCClaimDimension(claim) {
+			return StageEdgeV1{}, nil, fmt.Errorf("unknown required claim dimension %q", claim)
+		}
+		if i > 0 && claims[i-1] >= claim {
+			return StageEdgeV1{}, nil, errors.New("required claim dimensions must be strictly sorted and unique")
+		}
 	}
 	return StageEdgeV1{
 		ProducerStage: fields[1], ConsumerStage: fields[2],
