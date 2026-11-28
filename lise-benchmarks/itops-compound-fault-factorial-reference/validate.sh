@@ -21,7 +21,7 @@ jq -e '
   def arm($g; $id):
     [ $g.arms[] | select(.arm_id == $id) ][0];
   def y($g; $id):
-    arm($g; $id).terminal.unrecovered_degradation_minutes;
+    arm($g; $id).terminal.service_degraded_minutes;
 
   . as $root
   | $root.suite_id == "itops-compound-fault-factorial-reference"
@@ -51,7 +51,7 @@ jq -e '
         == ([ $g.factor_a.factor_id, $g.factor_b.factor_id ] | sort)
     and ($g.agent_payload_policy.exposes_factor_assignments == false)
     and ($g.agent_payload_policy.exposes_terminal_oracle == false)
-    and ($g.interaction_metric == "unrecovered_degradation_minutes")
+    and ($g.interaction_metric == "service_degraded_minutes")
     and (y($g;"A1B1") - y($g;"A1B0") - y($g;"A0B1") + y($g;"A0B0"))
         == $g.expected_interaction_contrast
     and (
