@@ -47,7 +47,12 @@
         "authority": "EstablishedWithinProfile",
         "effect": "EstablishedWithinProfile"
       },
-      "rationale": "The control is positive only for the explicitly declared synthetic profile and exact scoped outcome. It is not global source truth, legal authority or production readiness."
+      "rationale": "The control is positive only for the explicitly declared synthetic profile and exact scoped outcome. It is not global source truth, legal authority or production readiness.",
+      "risk_tier": "control",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-001:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-001:negative"
+      }
     },
     {
       "id": "DJCC-002",
@@ -77,7 +82,12 @@
         "authority": "NotEvaluated",
         "effect": "NotEvaluated"
       },
-      "rationale": "A correct inclusion path under a caller-supplied root does not authenticate the root or its log identity."
+      "rationale": "A correct inclusion path under a caller-supplied root does not authenticate the root or its log identity.",
+      "risk_tier": "critical",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-002:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-002:negative"
+      }
     },
     {
       "id": "DJCC-003",
@@ -107,7 +117,12 @@
         "authority": "NotEvaluated",
         "effect": "NotEvaluated"
       },
-      "rationale": "Valid proofs for the owners that were supplied do not prove the declared owner universe is complete. Missing coverage cannot become empty or success."
+      "rationale": "Valid proofs for the owners that were supplied do not prove the declared owner universe is complete. Missing coverage cannot become empty or success.",
+      "risk_tier": "critical",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-003:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-003:negative"
+      }
     },
     {
       "id": "DJCC-004",
@@ -137,7 +152,12 @@
         "authority": "EstablishedWithinProfile",
         "effect": "NotApplicable"
       },
-      "rationale": "The correction is not in the historical accepted frontier. The historical result remains byte-identical; a separate Current assessment is required to evaluate the later accepted correction."
+      "rationale": "The correction is not in the historical accepted frontier. The historical result remains byte-identical; a separate Current assessment is required to evaluate the later accepted correction.",
+      "risk_tier": "control",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-004:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-004:negative"
+      }
     },
     {
       "id": "DJCC-005",
@@ -167,7 +187,12 @@
         "authority": "NotEvaluated",
         "effect": "NotEvaluated"
       },
-      "rationale": "Historical decision replay must bind both immutable policy epoch and evaluator build. Replacing either is not replay of the original decision."
+      "rationale": "Historical decision replay must bind both immutable policy epoch and evaluator build. Replacing either is not replay of the original decision.",
+      "risk_tier": "critical",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-005:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-005:negative"
+      }
     },
     {
       "id": "DJCC-006",
@@ -197,7 +222,12 @@
         "authority": "Rejected",
         "effect": "NotEvaluated"
       },
-      "rationale": "Equal action counts do not imply equal authorization sets. The canonical plan digest and authority decision bind the actual action identities."
+      "rationale": "Equal action counts do not imply equal authorization sets. The canonical plan digest and authority decision bind the actual action identities.",
+      "risk_tier": "critical",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-006:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-006:negative"
+      }
     },
     {
       "id": "DJCC-007",
@@ -227,7 +257,12 @@
         "authority": "EstablishedWithinProfile",
         "effect": "Indeterminate"
       },
-      "rationale": "A possible effect with unknown outcome freezes the same idempotency/effect scope until exact reconciliation. A retry cannot assume the prior effect did not occur."
+      "rationale": "A possible effect with unknown outcome freezes the same idempotency/effect scope until exact reconciliation. A retry cannot assume the prior effect did not occur.",
+      "risk_tier": "critical",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-007:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-007:negative"
+      }
     },
     {
       "id": "DJCC-008",
@@ -257,7 +292,14 @@
         "authority": "EstablishedWithinProfile",
         "effect": "Indeterminate"
       },
-      "rationale": "Provider status, work-order completion and execution acknowledgement are not independent measurements of physical restoration or an accepted service outcome."
+      "rationale": "Provider status, work-order completion and execution acknowledgement are not independent measurements of physical restoration or an accepted service outcome.",
+      "risk_tier": "critical",
+      "controls": {
+        "positive_control_ref": "fixture:djcc:v0.1:control:djcc-008:positive",
+        "negative_control_ref": "fixture:djcc:v0.1:control:djcc-008:negative"
+      }
     }
-  ]
+  ],
+  "oracle_version": "mycelix.djcc-independent-go-oracle.v0.1",
+  "control_semantics": "Positive controls preserve the target claim under the same declared profile. Negative controls demonstrate that a single relevant mutation blocks, rejects or changes only the affected claim. These refs are symbolic and remain synthetic until fixture bytes are frozen."
 }
