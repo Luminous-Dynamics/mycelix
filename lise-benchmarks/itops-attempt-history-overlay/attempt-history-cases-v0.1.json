@@ -985,6 +985,81 @@
       "prior_frontier": null,
       "expected_next_step": "HOLD_FOR_RECONCILIATION",
       "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-017",
+      "family": "retry_after_confirmed_effect",
+      "operation": {
+        "operation_id": "op-17",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "attempt_id": "attempt-2",
+          "ordinal": 2,
+          "previous_attempt_id": "attempt-1",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:02:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-17",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-1",
+          "dependency_group": "observer-domain-1",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "REJECT_BLIND_RETRY",
+      "hard_gate_violations": [
+        "duplicate_effect"
+      ]
     }
   ]
 }
