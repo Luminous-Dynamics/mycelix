@@ -16,10 +16,10 @@ const (
 )
 
 type StageEdgeV1 struct {
-	ProducerStage   string  
-	ConsumerStage   string  
-	InputName       string  
-	OutputSchemaRef string  
+	ProducerStage   string
+	ConsumerStage   string
+	InputName       string
+	OutputSchemaRef string
 	RequiredClaims  []string
 	OutputDigest    [32]byte
 }
@@ -136,8 +136,8 @@ func parseStageEdgeVectorV1(fields []string) (StageEdgeV1, []byte, error) {
 		}
 	}
 	return StageEdgeV1{
-		ProducerStage : fields[1], ConsumerStage: fields[2],
-		InputName     : fields[3], OutputSchemaRef: fields[4],
+		ProducerStage:  fields[1], ConsumerStage: fields[2],
+		InputName:      fields[3], OutputSchemaRef: fields[4],
 		RequiredClaims: claims, OutputDigest: digest,
 	}, expected, nil
 }
