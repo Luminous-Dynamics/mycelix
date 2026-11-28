@@ -889,14 +889,22 @@ mod tests {
         }
     }
 
-    fn dependency(stage_id: StageId, output_digest: Digest) -> Dependency {
+    fn dependency_with_claims(
+        stage_id: StageId,
+        output_digest: Digest,
+        required_claims: &[ClaimDimension],
+    ) -> Dependency {
         Dependency {
             stage_id,
             input_name: format!("stage:{}", stage_id.as_str()),
-            required_claims: vec![ClaimDimension::Authentication],
+            required_claims: required_claims.to_vec(),
             output_digest,
             schema_ref: "stage-output:v1".to_owned(),
         }
+    }
+
+    fn dependency(stage_id: StageId, output_digest: Digest) -> Dependency {
+        dependency_with_claims(stage_id, output_digest, &[ClaimDimension::Authentication])
     }
 
     fn valid_profile() -> CompositionProfile {
@@ -1009,7 +1017,11 @@ mod tests {
             stage(
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[1]),
-                vec![dependency(StageId::VerifierFrontier, d[0])],
+                vec![dependency_with_claims(
+                    StageId::VerifierFrontier,
+                    d[0],
+                    &[ClaimDimension::Authentication, ClaimDimension::Completeness],
+                )],
             ),
         );
         stages.insert(
@@ -1018,8 +1030,16 @@ mod tests {
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[2]),
                 vec![
-                    dependency(StageId::VerifierFrontier, d[0]),
-                    dependency(StageId::SourceTrust, d[1]),
+                    dependency_with_claims(
+                        StageId::VerifierFrontier,
+                        d[0],
+                        &[ClaimDimension::Authentication],
+                    ),
+                    dependency_with_claims(
+                        StageId::SourceTrust,
+                        d[1],
+                        &[ClaimDimension::Authentication],
+                    ),
                 ],
             ),
         );
@@ -1029,9 +1049,21 @@ mod tests {
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[3]),
                 vec![
-                    dependency(StageId::VerifierFrontier, d[0]),
-                    dependency(StageId::SourceTrust, d[1]),
-                    dependency(StageId::SemanticProjection, d[2]),
+                    dependency_with_claims(
+                        StageId::VerifierFrontier,
+                        d[0],
+                        &[ClaimDimension::Authentication, ClaimDimension::Completeness],
+                    ),
+                    dependency_with_claims(
+                        StageId::SourceTrust,
+                        d[1],
+                        &[ClaimDimension::Authentication, ClaimDimension::Completeness],
+                    ),
+                    dependency_with_claims(
+                        StageId::SemanticProjection,
+                        d[2],
+                        &[ClaimDimension::Authentication, ClaimDimension::Completeness],
+                    ),
                 ],
             ),
         );
@@ -1040,7 +1072,15 @@ mod tests {
             stage(
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[4]),
-                vec![dependency(StageId::Query, d[3])],
+                vec![dependency_with_claims(
+                    StageId::Query,
+                    d[3],
+                    &[
+                        ClaimDimension::Authentication,
+                        ClaimDimension::Completeness,
+                        ClaimDimension::Truth,
+                    ],
+                )],
             ),
         );
         stages.insert(
@@ -1049,17 +1089,16 @@ mod tests {
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[5]),
                 vec![
-                    dependency(StageId::VerifierFrontier, d[0]),
-                    Dependency {
-                        stage_id: StageId::Policy,
-                        input_name: format!("stage:{}", StageId::Policy.as_str()),
-                        required_claims: vec![
-                            ClaimDimension::Authentication,
-                            ClaimDimension::Truth,
-                        ],
-                        output_digest: d[4],
-                        schema_ref: "stage-output:v1".to_owned(),
-                    },
+                    dependency_with_claims(
+                        StageId::VerifierFrontier,
+                        d[0],
+                        &[ClaimDimension::Authentication],
+                    ),
+                    dependency_with_claims(
+                        StageId::Policy,
+                        d[4],
+                        &[ClaimDimension::Authentication, ClaimDimension::Truth],
+                    ),
                 ],
             ),
         );
@@ -1068,7 +1107,11 @@ mod tests {
             stage(
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[6]),
-                vec![dependency(StageId::Authorization, d[5])],
+                vec![dependency_with_claims(
+                    StageId::Authorization,
+                    d[5],
+                    &[ClaimDimension::Authentication, ClaimDimension::Authority],
+                )],
             ),
         );
         stages.insert(
@@ -1077,9 +1120,21 @@ mod tests {
                 StageDisposition::VerifiedForDeclaredClaim,
                 Some(d[7]),
                 vec![
-                    dependency(StageId::SourceTrust, d[1]),
-                    dependency(StageId::SemanticProjection, d[2]),
-                    dependency(StageId::Execution, d[6]),
+                    dependency_with_claims(
+                        StageId::SourceTrust,
+                        d[1],
+                        &[ClaimDimension::Authentication],
+                    ),
+                    dependency_with_claims(
+                        StageId::SemanticProjection,
+                        d[2],
+                        &[ClaimDimension::Completeness],
+                    ),
+                    dependency_with_claims(
+                        StageId::Execution,
+                        d[6],
+                        &[ClaimDimension::Effect],
+                    ),
                 ],
             ),
         );
@@ -1112,7 +1167,6 @@ mod tests {
         input.stages.get_mut(&StageId::SourceTrust).unwrap().claim_ceiling.authentication =
             ClaimState::Indeterminate;
         for stage_id in [
-            StageId::SemanticProjection,
             StageId::Query,
             StageId::Policy,
             StageId::Authorization,
@@ -1121,6 +1175,9 @@ mod tests {
         ] {
             mark_not_evaluated(&mut input, stage_id);
         }
+        input.declared_claim_ceiling.truth = ClaimState::NotEvaluated;
+        input.declared_claim_ceiling.authority = ClaimState::NotEvaluated;
+        input.declared_claim_ceiling.effect = ClaimState::NotEvaluated;
         input.declared_disposition = CompositionDisposition::Indeterminate;
         input.declared_claim_ceiling.authentication = ClaimState::Indeterminate;
         let report = verify_composition(&input, &valid_profile());
