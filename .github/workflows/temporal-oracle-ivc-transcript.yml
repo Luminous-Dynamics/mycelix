@@ -47,6 +47,7 @@ jobs:
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/execution_transcript_test.go
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/oracle_receipt.go
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/oracle_receipt_test.go
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/ORACLE_IVC_ADVICE_VECTORS_V1.txt
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution.tla
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution.cfg
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution-Regress-Mutant.cfg
