@@ -55,12 +55,23 @@ pub struct RevocationList {
     pub version: u32,
 }
 
+/// Whether the revocation query observed a record or merely found no linked record.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationLookupStatus {
+    RecordObserved,
+    NoRecordObserved,
+}
+
 /// Revocation check request result
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevocationCheckResult {
     pub credential_id: String,
     pub status: RevocationStatus,
+    pub lookup_status: RevocationLookupStatus,
     pub reason: Option<String>,
+    pub effective_from: Option<Timestamp>,
+    pub recorded_at: Option<Timestamp>,
+    pub suspension_end: Option<Timestamp>,
     pub checked_at: Timestamp,
 }
 
