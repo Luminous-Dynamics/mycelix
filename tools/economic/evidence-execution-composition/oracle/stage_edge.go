@@ -36,7 +36,7 @@ func validDJCCStageID(value string) bool {
 
 func validDJCCClaimDimension(value string) bool {
 	switch value {
-	case "authentication", "completeness", "truth", "authority", "effect":
+	case "authentication", "authority", "completeness", "effect", "independence", "truth":
 		return true
 	default:
 		return false
