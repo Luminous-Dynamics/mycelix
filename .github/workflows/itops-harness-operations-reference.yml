@@ -1,0 +1,33 @@
+name: ITOPS Harness Operations Reference
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-harness-operations-reference/**"
+      - ".github/workflows/itops-harness-operations-reference.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-harness-operations-reference/**"
+      - ".github/workflows/itops-harness-operations-reference.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: itops-harness-operations-reference-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Require jq
+        run: command -v jq
+      - name: Validate world-harness factorial fixture
+        run: bash lise-benchmarks/itops-harness-operations-reference/validate.sh
+      - name: Run adversarial mutation controls
+        run: bash lise-benchmarks/itops-harness-operations-reference/mutation-tests.sh
