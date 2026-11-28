@@ -77,11 +77,20 @@ pub struct RevocationList {
     pub version: u32,
 }
 
+/// Whether the revocation query observed a record or merely found no linked record.
+/// NoRecordObserved is not proof that an eventually consistent DHT is globally complete.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationLookupStatus {
+    RecordObserved,
+    NoRecordObserved,
+}
+
 /// Revocation check request result
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevocationCheckResult {
     pub credential_id: String,
     pub status: RevocationStatus,
+    pub lookup_status: RevocationLookupStatus,
     pub reason: Option<String>,
     /// Effective time of the latest observed revocation/suspension record.
     /// Absent means no record was returned; it does not prove DHT completeness.
@@ -546,10 +555,30 @@ mod tests {
     // --- RevocationCheckResult ---
 
     #[test]
+    fn no_record_observed_is_distinct_from_an_active_credential_record() {
+        let result = RevocationCheckResult {
+            credential_id: "cred-not-seen".into(),
+            status: RevocationStatus::Active,
+            lookup_status: RevocationLookupStatus::NoRecordObserved,
+            reason: None,
+            effective_from: None,
+            recorded_at: None,
+            suspension_end: None,
+            checked_at: ts(1_700_000_000_000_000),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let decoded: RevocationCheckResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.lookup_status, RevocationLookupStatus::NoRecordObserved);
+        assert_eq!(decoded.status, RevocationStatus::Active);
+        assert!(decoded.effective_from.is_none());
+    }
+
+    #[test]
     fn revocation_check_result_json_round_trip() {
         let result = RevocationCheckResult {
             credential_id: "cred-001".into(),
             status: RevocationStatus::Revoked,
+            lookup_status: RevocationLookupStatus::RecordObserved,
             reason: Some("Expired".into()),
             effective_from: Some(ts(1_699_999_000_000_000)),
             recorded_at: Some(ts(1_699_999_100_000_000)),
@@ -560,6 +589,7 @@ mod tests {
         let back: RevocationCheckResult = serde_json::from_str(&json).unwrap();
         assert_eq!(back.credential_id, "cred-001");
         assert_eq!(back.status, RevocationStatus::Revoked);
+        assert_eq!(back.lookup_status, RevocationLookupStatus::RecordObserved);
         assert_eq!(back.reason, Some("Expired".into()));
         assert_eq!(back.effective_from, Some(ts(1_699_999_000_000_000)));
         assert_eq!(back.recorded_at, Some(ts(1_699_999_100_000_000)));
