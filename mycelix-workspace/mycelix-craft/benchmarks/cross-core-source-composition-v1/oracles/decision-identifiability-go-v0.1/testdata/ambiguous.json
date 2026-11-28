@@ -1,0 +1,11 @@
+{
+  "schema_id": "mycelix.craft.decision-identifiability.v0.1",
+  "case_id": "CDIE-002-no-invariant-optimum",
+  "coverage_basis": "fixture_exhaustive",
+  "actions": ["repair", "sample", "hold"],
+  "fallback_action": "hold",
+  "worlds": [
+    {"id": "low-risk", "losses": {"repair": 0, "sample": 3, "hold": 5}},
+    {"id": "high-risk", "losses": {"repair": 10, "sample": 3, "hold": 5}}
+  ]
+}
