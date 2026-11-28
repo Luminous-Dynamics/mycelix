@@ -42,7 +42,7 @@ expect_rejected "partial multi-action suffix mislabelled as completed" \
   '(.cases[] | select(.case_id == "ITOPS-AH-016") | .expected_next_step) = "DO_NOT_RETRY"'
 
 expect_rejected "duplicate effect retried after confirmed application" \
-  '(.cases[] | select(.case_id == "ITOPS-AH-017") | .expected_next_step) = "DO_NOT_RETRY" | (.cases[] | select(.case_id == "ITOPS-AH-017") | .hard_gate_violations) = []'
+  '(.cases[] | select(.case_id == "ITOPS-AH-018") | .expected_next_step) = "DO_NOT_RETRY" | (.cases[] | select(.case_id == "ITOPS-AH-017") | .hard_gate_violations) = []'
 expect_rejected "prior frontier names an attempt absent from the current trace" \
   '(.cases[] | select(.case_id == "ITOPS-AH-012") | .prior_frontier.known_attempt_ids) = ["not-in-current-history"]'
 expect_rejected "prior frontier is later than the current knowledge frontier" \
@@ -58,8 +58,11 @@ expect_rejected "event timestamp occurs after evidence observation" \
   '(.cases[] | select(.case_id == "ITOPS-AH-012") | .evidence[0].event_at) = "2026-11-28T21:06:00Z"'
 
 expect_rejected "duplicate-effect evidence for attempt two borrowed from attempt one" \
-  '(.cases[] | select(.case_id == "ITOPS-AH-017") | .evidence[1].attempt_id) = "attempt-1"'
+  '(.cases[] | select(.case_id == "ITOPS-AH-018") | .evidence[1].attempt_id) = "attempt-1"'
 expect_rejected "no-effect evidence detached from the retried attempt" \
   '(.cases[] | select(.case_id == "ITOPS-AH-005") | .evidence[0].attempt_id) = "other-attempt"'
 
-echo "PASS: all 20 attempt-history mutations were rejected."
+expect_rejected "second dispatch after confirmed applied effect is labelled successful" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-017") | .expected_next_step) = "DO_NOT_RETRY" | (.cases[] | select(.case_id == "ITOPS-AH-017") | .hard_gate_violations) = []'
+
+echo "PASS: all 21 attempt-history mutations were rejected."
