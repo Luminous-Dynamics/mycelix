@@ -36,6 +36,10 @@ pub mod epistemic_classifier;
 pub mod federation;
 pub mod fl_bridge;
 pub mod game_theory;
+/// Fail-closed validation for finite normal-form game definitions.
+pub mod game_theory_validation;
+/// Validated pure-strategy Nash analysis for finite normal-form games.
+pub mod game_theory_verified;
 pub mod integration;
 pub mod kredit;
 pub mod kvector_bridge;
@@ -381,6 +385,14 @@ pub use game_theory::{
     ProfitableDeviation,
     Strategy,
     StrategyAction,
+};
+pub use game_theory_validation::{
+    validate_game_definition, GameValidationConfig, GameValidationIssue, GameValidationReport,
+};
+pub use game_theory_verified::{
+    analyze_pure_nash_equilibria, BestResponseEvidence, PayoffTolerance,
+    PureEquilibriumAnalysis, PureEquilibriumConfig, PureEquilibriumError,
+    PureEquilibriumStatus, PureNashCertificate,
 };
 pub use kredit::{consume_kredit, KreditAllocation, SponsorCollateral};
 pub use kvector_bridge::{

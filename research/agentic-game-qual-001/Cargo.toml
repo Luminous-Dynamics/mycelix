@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-agentic-game-qual-harness"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Isolated exact-source tests for Mycelix finite-game validation and pure Nash analysis"
+
+[workspace]
+members = ["."]
+resolver = "3"
+
+[dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "=1.0.150"

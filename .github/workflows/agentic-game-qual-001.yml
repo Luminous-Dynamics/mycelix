@@ -1,0 +1,117 @@
+name: Agentic Game Qualification 001
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/sdk/src/agentic/game_theory.rs'
+      - 'mycelix-workspace/sdk/src/agentic/game_theory_validation.rs'
+      - 'mycelix-workspace/sdk/src/agentic/game_theory_verified.rs'
+      - 'mycelix-workspace/sdk/src/agentic/mod.rs'
+      - 'research/agentic-game-qual-001/**'
+      - '.github/workflows/agentic-game-qual-001.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  exact-source:
+    name: Exact-source validator and pure-Nash harness
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact source revision
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          echo "subject_sha=$(git rev-parse HEAD)"
+          echo "validator_blob=$(git hash-object mycelix-workspace/sdk/src/agentic/game_theory_validation.rs)"
+          echo "solver_blob=$(git hash-object mycelix-workspace/sdk/src/agentic/game_theory_verified.rs)"
+          echo "module_blob=$(git hash-object mycelix-workspace/sdk/src/agentic/mod.rs)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Assert Rust identity
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+          test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+          cargo +1.96.1 --version
+          rustfmt +1.96.1 --version
+
+      - name: Check harness formatting
+        working-directory: research/agentic-game-qual-001
+        run: cargo +1.96.1 fmt --all -- --check
+
+      - name: Check exact production-source formatting
+        run: |
+          set -euo pipefail
+          rustfmt +1.96.1 --check --edition 2024 --config skip_children=true \
+            mycelix-workspace/sdk/src/agentic/game_theory.rs \
+            mycelix-workspace/sdk/src/agentic/game_theory_validation.rs \
+            mycelix-workspace/sdk/src/agentic/game_theory_verified.rs \
+            mycelix-workspace/sdk/src/agentic/mod.rs
+
+      - name: Resolve and record isolated dependency lock
+        working-directory: research/agentic-game-qual-001
+        run: |
+          set -euo pipefail
+          cargo +1.96.1 generate-lockfile
+          sha256sum Cargo.lock | tee cargo-lock.sha256
+
+      - name: Run exact-source tests
+        working-directory: research/agentic-game-qual-001
+        run: |
+          set -o pipefail
+          cargo +1.96.1 test --locked --all-targets 2>&1 | tee cargo-test.log
+
+      - name: Strict Clippy for validated modules
+        working-directory: research/agentic-game-qual-001
+        run: |
+          set -o pipefail
+          cargo +1.96.1 clippy --locked --all-targets -- -D warnings 2>&1 | tee cargo-clippy.log
+
+      - name: Emit exact-source qualification receipt
+        working-directory: research/agentic-game-qual-001
+        run: |
+          set -euo pipefail
+          {
+            echo "status=workflow-step-complete"
+            echo "repository=Luminous-Dynamics/mycelix"
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "workflow_run_id=${{ github.run_id }}"
+            echo "workflow_run_attempt=${{ github.run_attempt }}"
+            echo "rustc=$(rustc +1.96.1 --version)"
+            echo "cargo=$(cargo +1.96.1 --version)"
+            echo "validator_blob=$(git hash-object ../../mycelix-workspace/sdk/src/agentic/game_theory_validation.rs)"
+            echo "solver_blob=$(git hash-object ../../mycelix-workspace/sdk/src/agentic/game_theory_verified.rs)"
+            echo "fixtures_sha256=$(sha256sum fixtures/canonical-finite-games-v0.1.json | awk '{print $1}')"
+            echo "cargo_lock_sha256=$(sha256sum Cargo.lock | awk '{print $1}')"
+          } > qualification-receipt.txt
+
+      - name: Upload dependency-resolution receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: agentic-game-qual-001-lock-and-receipt
+          path: |
+            research/agentic-game-qual-001/Cargo.lock
+            research/agentic-game-qual-001/cargo-lock.sha256
+            research/agentic-game-qual-001/cargo-test.log
+            research/agentic-game-qual-001/cargo-clippy.log
+            research/agentic-game-qual-001/qualification-receipt.txt
+          if-no-files-found: warn
+          retention-days: 30
