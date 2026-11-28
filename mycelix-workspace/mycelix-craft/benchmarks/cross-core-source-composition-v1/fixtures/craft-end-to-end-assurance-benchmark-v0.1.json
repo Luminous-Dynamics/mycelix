@@ -192,6 +192,28 @@
         "constrained_EVSI_policy",
         "budgeted_hindsight_upper_bound"
       ]
+    },
+    {
+      "id": "causal_temporal_adversarial",
+      "metrics": [
+        "historical_frontier_immutability",
+        "late_arrival_recovery",
+        "fork_detection",
+        "parent_closure",
+        "event_time_ingest_time_divergence",
+        "equal_timestamp_noncausality",
+        "source_cut_reproducibility",
+        "cross_object_relation_preservation"
+      ],
+      "scenarios": [
+        "SYN-002",
+        "SYN-003",
+        "SYN-004",
+        "SYN-005",
+        "SYN-009",
+        "SYN-010"
+      ],
+      "target": "zero invalid frontier acceptance and zero historical receipt mutation"
     }
   ],
   "comparators": [
@@ -263,5 +285,34 @@
       "citation": "IETF RFC 9943, 2026-06",
       "url": "https://www.rfc-editor.org/rfc/rfc9943.html"
     }
-  ]
+  ],
+  "synthetic_fixture_registry": {
+    "seed": 20261128,
+    "base_episode": "fixtures/craft-synthetic-multi-source-episode-v0.1.json",
+    "mutation_registry": "fixtures/craft-synthetic-scenario-mutations-v0.1.json",
+    "specification": "CRAFT-SYNTHETIC-MULTI-SOURCE-EPISODE-V0.1.md",
+    "current_cases": [
+      "SYN-001",
+      "SYN-002",
+      "SYN-003",
+      "SYN-004",
+      "SYN-005",
+      "SYN-006",
+      "SYN-007",
+      "SYN-008",
+      "SYN-009",
+      "SYN-010"
+    ],
+    "status": "frozen_static_fixture_and_mutation_registry; deterministic_generator_not_yet_implemented",
+    "generator_requirements": [
+      "no_ambient_clock",
+      "no_network",
+      "stable_ids",
+      "source_universe_separate_from_received_sources",
+      "event_time_distinct_from_ingest_time",
+      "named_missingness_mechanism",
+      "canonical_digests",
+      "mutation_provenance"
+    ]
+  }
 }
