@@ -148,6 +148,41 @@ func benchmarkBool(parent map[string]any, key string) (bool, error) {
 	return value, nil
 }
 
+func benchmarkStringSet(parent map[string]any, key string) (map[string]struct{}, bool, error) {
+	raw, exists := parent[key]
+	if !exists {
+		return nil, false, nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, true, fmt.Errorf("%s must be an array", key)
+	}
+	values := make(map[string]struct{}, len(items))
+	for index, item := range items {
+		value, ok := item.(string)
+		if !ok || strings.TrimSpace(value) != value || value == "" || len(value) > 128 {
+			return nil, true, fmt.Errorf("%s[%d] must be a trimmed non-empty string of at most 128 bytes", key, index)
+		}
+		if _, duplicate := values[value]; duplicate {
+			return nil, true, fmt.Errorf("%s contains duplicate value %q", key, value)
+		}
+		values[value] = struct{}{}
+	}
+	return values, true, nil
+}
+
+func benchmarkStringSetsEqual(left, right map[string]struct{}) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for value := range left {
+		if _, exists := right[value]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
 func validBenchmarkHex(value, prefix string, byteLength int) bool {
 	if !strings.HasPrefix(value, prefix) {
 		return false
@@ -327,26 +362,41 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 		return err
 	}
 
-	adversarialClassIDs := make(map[string]struct{})
-	if rawIDs, exists := corpus["adversarial_class_ids"]; exists {
-		items, ok := rawIDs.([]any)
-		if !ok {
-			return fmt.Errorf("adversarial_class_ids must be an array")
+	adversarialClassIDs, hasAdversarialClassIDs, err := benchmarkStringSet(corpus, "adversarial_class_ids")
+	if err != nil {
+		return err
+	}
+	positiveControlClassIDs, hasPositiveControlClassIDs, err := benchmarkStringSet(corpus, "positive_control_class_ids")
+	if err != nil {
+		return err
+	}
+	hardNegativeClassIDs, hasHardNegativeClassIDs, err := benchmarkStringSet(corpus, "hard_negative_class_ids")
+	if err != nil {
+		return err
+	}
+	if hasAdversarialClassIDs && int64(len(adversarialClassIDs)) != adversarialCount {
+		return fmt.Errorf("adversarial_class_count must equal the number of distinct adversarial_class_ids")
+	}
+	for key, ids := range map[string]map[string]struct{}{
+		"positive_control_class_ids": positiveControlClassIDs,
+		"hard_negative_class_ids":    hardNegativeClassIDs,
+	} {
+		if key == "positive_control_class_ids" && !hasPositiveControlClassIDs {
+			continue
 		}
-		for index, rawID := range items {
-			id, ok := rawID.(string)
-			if !ok || strings.TrimSpace(id) == "" || len(id) > 128 {
-				return fmt.Errorf("adversarial_class_ids[%d] must be a non-empty string of at most 128 bytes", index)
-			}
-			if _, duplicate := adversarialClassIDs[id]; duplicate {
-				return fmt.Errorf("adversarial_class_ids contains duplicate class %q", id)
-			}
-			adversarialClassIDs[id] = struct{}{}
+		if key == "hard_negative_class_ids" && !hasHardNegativeClassIDs {
+			continue
 		}
-		if int64(len(adversarialClassIDs)) != adversarialCount {
-			return fmt.Errorf("adversarial_class_count must equal the number of distinct adversarial_class_ids")
+		if !hasAdversarialClassIDs {
+			return fmt.Errorf("%s requires adversarial_class_ids", key)
+		}
+		for id := range ids {
+			if _, exists := adversarialClassIDs[id]; !exists {
+				return fmt.Errorf("%s contains class %q not declared in adversarial_class_ids", key, id)
+			}
 		}
 	}
+
 	for _, key := range []string{"fixture_set_digest", "oracle_digest"} {
 		if value, exists := corpus[key]; exists {
 			text, ok := value.(string)
@@ -621,8 +671,27 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 		if adversarialCount < 30 || len(adversarialClassIDs) < 30 {
 			return fmt.Errorf("qualification records require at least 30 distinct named adversarial classes")
 		}
-		if int64(len(adversarialClassIDs)) != adversarialCount {
-			return fmt.Errorf("qualification adversarial class count must match its distinct class IDs")
+		if !hasAdversarialClassIDs || !hasPositiveControlClassIDs || !hasHardNegativeClassIDs {
+			return fmt.Errorf("qualification records require named adversarial, positive-control and hard-negative class IDs")
+		}
+		if !benchmarkStringSetsEqual(adversarialClassIDs, positiveControlClassIDs) ||
+			!benchmarkStringSetsEqual(adversarialClassIDs, hardNegativeClassIDs) {
+			return fmt.Errorf("every adversarial class requires paired positive-control and hard-negative fixtures")
+		}
+		if fixtureCount < 60 || executableCount < 60 {
+			return fmt.Errorf("qualification records require at least 60 executable fixtures for 30 paired classes")
+		}
+		if _, exists := corpus["fixture_set_digest"]; !exists {
+			return fmt.Errorf("qualification records require fixture_set_digest")
+		}
+		if err := validateBenchmarkDigest(corpus, "fixture_set_digest"); err != nil {
+			return err
+		}
+		if _, err := benchmarkString(corpus, "oracle_version"); err != nil {
+			return err
+		}
+		if err := validateBenchmarkDigest(corpus, "oracle_digest"); err != nil {
+			return err
 		}
 		if symbolicCount != 0 {
 			return fmt.Errorf("qualification records cannot count symbolic fixtures; all fixtures must be executable")
