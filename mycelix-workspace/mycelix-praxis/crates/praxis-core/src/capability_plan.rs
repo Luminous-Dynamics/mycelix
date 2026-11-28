@@ -489,9 +489,9 @@ fn validate_request(request: &GoalPlanRequest) -> Result<(), GoalPlanError> {
     Ok(())
 }
 
-fn validate_graph<'a>(
-    graph: &'a CapabilityGraph,
-) -> Result<BTreeMap<CapabilityId, &'a CapabilityNode>, GoalPlanError> {
+fn validate_graph(
+    graph: &CapabilityGraph,
+) -> Result<BTreeMap<CapabilityId, &CapabilityNode>, GoalPlanError> {
     validate_identifier(&graph.graph_id, "graph_id")?;
     validate_identifier(&graph.revision, "graph_revision")?;
 
@@ -606,9 +606,9 @@ fn validate_text(
     Ok(())
 }
 
-fn dependency_closure<'a>(
+fn dependency_closure(
     target: &CapabilityId,
-    nodes: &BTreeMap<CapabilityId, &'a CapabilityNode>,
+    nodes: &BTreeMap<CapabilityId, &CapabilityNode>,
 ) -> BTreeSet<CapabilityId> {
     let mut closure = BTreeSet::new();
     let mut stack = vec![target.clone()];
@@ -624,9 +624,9 @@ fn dependency_closure<'a>(
     closure
 }
 
-fn topological_order<'a>(
+fn topological_order(
     closure: &BTreeSet<CapabilityId>,
-    nodes: &BTreeMap<CapabilityId, &'a CapabilityNode>,
+    nodes: &BTreeMap<CapabilityId, &CapabilityNode>,
 ) -> Result<Vec<CapabilityId>, GoalPlanError> {
     let mut in_degree = BTreeMap::<CapabilityId, usize>::new();
     let mut dependents = BTreeMap::<CapabilityId, BTreeSet<CapabilityId>>::new();
@@ -691,7 +691,7 @@ fn canonicalize_graph(mut graph: CapabilityGraph) -> CapabilityGraph {
     for node in &mut graph.nodes {
         node.prerequisites.sort();
         node.practice_options
-            .sort_by(|left, right| practice_option_order(left, right));
+            .sort_by(practice_option_order);
     }
     graph
 }
@@ -1548,7 +1548,7 @@ mod tests {
             for index in 0..size {
                 let mut prerequisites = Vec::new();
                 for prior in 0..index {
-                    if next(&mut state) % 5 == 0 {
+                    if next(&mut state).is_multiple_of(5) {
                         prerequisites.push(format!("cap-{prior:02}"));
                     }
                 }
