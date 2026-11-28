@@ -24,3 +24,7 @@ cargo clippy --locked --all-targets -- -D warnings
 The harness tests structural validation and pure-strategy Nash analysis for finite normal-form games. It does not qualify the legacy mechanism heuristic API, mixed or Bayesian equilibrium, repeated/extensive-form games, real human behaviour, fairness, legitimacy, or legal enforceability.
 
 The dedicated workflow generates and uploads its resolved Cargo.lock because this environment cannot generate it locally. Until the lock is committed or independently preserved, dependency resolution is recorded per workflow run rather than claimed fully source-pinned.
+
+## Independent comparator
+
+See [COMPARATOR_PROTOCOL.md](COMPARATOR_PROTOCOL.md) for the exact Gambit/OpenSpiel cross-check contract, expected canonical equilibrium sets, metamorphic controls, and the required `MATCH` / `MISMATCH` / `UNSUPPORTED` / `NOT_RUN` result receipt. No external comparator run is claimed yet.
