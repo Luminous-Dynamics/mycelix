@@ -268,6 +268,31 @@ pub struct ReinstateInput {
     pub reason: String,
 }
 
+/// Select the state transition that is effective at the requested time.
+/// A later-recorded but future-effective event must not override an earlier
+/// currently-effective state. If all observed transitions are future-dated,
+/// return the nearest future transition so the caller can report its timing
+/// while the current status remains Active.
+fn select_revocation_entry_as_of<'a>(
+    entries: &'a [(Timestamp, RevocationEntry)],
+    at: Timestamp,
+) -> Option<&'a RevocationEntry> {
+    entries
+        .iter()
+        .filter(|(_, entry)| entry.effective_from <= at)
+        .max_by_key(|(link_time, entry)| {
+            (entry.effective_from, entry.recorded_at, *link_time)
+        })
+        .or_else(|| {
+            entries
+                .iter()
+                .min_by_key(|(link_time, entry)| {
+                    (entry.effective_from, entry.recorded_at, *link_time)
+                })
+        })
+        .map(|(_, entry)| entry)
+}
+
 /// Check revocation status of a credential
 #[hdk_extern]
 pub fn check_revocation_status(credential_id: String) -> ExternResult<RevocationCheckResult> {
@@ -294,29 +319,34 @@ pub fn check_revocation_status(credential_id: String) -> ExternResult<Revocation
         });
     }
 
-    // Get the most recent observed revocation entry. If a link exists but its
-    // source record cannot be retrieved, fail the lookup instead of turning
-    // incomplete evidence into an Active result.
-    let latest_link = links.into_iter().max_by_key(|link| link.timestamp)
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Revocation link set was non-empty but no latest link was available".into()
-        )))?;
-    let action_hash = ActionHash::try_from(latest_link.target)
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest(
-            "Latest revocation record is unavailable; status cannot be established".into()
-        )
-    ))?;
-    let entry: RevocationEntry = record
-        .entry()
-        .to_app_option()
-        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid revocation entry".into()
-        )))?;
+    // Read every observed transition. A missing linked record makes the
+    // as-of history incomplete, so do not silently skip it.
+    let mut observed_entries = Vec::with_capacity(links.len());
+    for link in links {
+        let link_timestamp = link.timestamp;
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest(
+                "A linked revocation record is unavailable; as-of status cannot be established".into()
+            )
+        ))?;
+        let entry: RevocationEntry = record
+            .entry()
+            .to_app_option()
+            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Invalid revocation entry".into()
+            )))?;
+        observed_entries.push((link_timestamp, entry));
+    }
 
-    let status = revocation_status_at(&entry, now);
+    let entry = select_revocation_entry_as_of(&observed_entries, now).ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Revocation link set contained no usable state transition".into()
+        )),
+    )?;
+    let status = revocation_status_at(entry, now);
     Ok(RevocationCheckResult {
         credential_id,
         status,
@@ -794,6 +824,70 @@ mod tests {
     fn active_stays_active() {
         let result = resolve_suspension_status(&RevocationStatus::Active, None, 0);
         assert_eq!(result, RevocationStatus::Active);
+    }
+
+    // --- Effective-time event ordering ---
+
+    fn entry_for_timeline(
+        status: RevocationStatus,
+        effective_from: i64,
+        recorded_at: i64,
+        reason: &str,
+    ) -> RevocationEntry {
+        RevocationEntry {
+            credential_id: "cred:timeline".into(),
+            issuer: "did:mycelix:issuer".into(),
+            status,
+            reason: reason.into(),
+            effective_from: Timestamp::from_micros(effective_from),
+            recorded_at: Timestamp::from_micros(recorded_at),
+            suspension_end: None,
+        }
+    }
+
+    #[test]
+    fn future_reinstatement_does_not_override_current_revocation_early() {
+        let revoked = entry_for_timeline(RevocationStatus::Revoked, 100, 100, "revoked");
+        let reinstated = entry_for_timeline(RevocationStatus::Active, 200, 150, "reinstated");
+        let entries = vec![
+            (Timestamp::from_micros(100), revoked),
+            (Timestamp::from_micros(150), reinstated),
+        ];
+
+        let before = select_revocation_entry_as_of(&entries, Timestamp::from_micros(199))
+            .unwrap();
+        assert_eq!(before.reason, "revoked");
+        assert_eq!(
+            revocation_status_at(before, Timestamp::from_micros(199)),
+            RevocationStatus::Revoked
+        );
+
+        let at = select_revocation_entry_as_of(&entries, Timestamp::from_micros(200))
+            .unwrap();
+        assert_eq!(at.reason, "reinstated");
+        assert_eq!(
+            revocation_status_at(at, Timestamp::from_micros(200)),
+            RevocationStatus::Active
+        );
+    }
+
+    #[test]
+    fn future_revocation_is_selected_as_pending_when_no_prior_transition_exists() {
+        let future = entry_for_timeline(RevocationStatus::Revoked, 200, 150, "future revoke");
+        let entries = vec![(Timestamp::from_micros(150), future)];
+        let before = select_revocation_entry_as_of(&entries, Timestamp::from_micros(199))
+            .unwrap();
+        assert_eq!(before.reason, "future revoke");
+        assert_eq!(
+            revocation_status_at(before, Timestamp::from_micros(199)),
+            RevocationStatus::Active
+        );
+        let at = select_revocation_entry_as_of(&entries, Timestamp::from_micros(200))
+            .unwrap();
+        assert_eq!(
+            revocation_status_at(at, Timestamp::from_micros(200)),
+            RevocationStatus::Revoked
+        );
     }
 
     // --- Input/Output type serde ---
