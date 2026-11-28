@@ -2,7 +2,7 @@
 
 This increment addresses the source-composition prerequisite in [issue #6790](https://github.com/Luminous-Dynamics/mycelix/issues/6790).
 
-It materializes six independently developed, standard-library-only Rust owner cores from exact PR head commits into one temporary Cargo workspace:
+It materializes seven independently developed, standard-library-only Rust owner crates from exact PR head commits into one temporary Cargo workspace: six domain owners plus the separate immutable action-denominator owner.
 
 | PR | Owner core | Pinned commit |
 |---|---|---|
@@ -12,6 +12,7 @@ It materializes six independently developed, standard-library-only Rust owner co
 | #6757 | decision-closure-v1 | `c19d12c671a4cb8ddc050dacd3ac7749e38f3314` |
 | #6762 | evidence-lineage-v1 | `2d892c9eaf945ccd31d1816e4edadbbe1236a359` |
 | #6769 | impact-qualification-v1 | `02c140cbaa43ae7ec4276c7edbc904a1526a4803` |
+| #6792 | craft-action-denominator-v1 | `8cbbb38c44bfc69822703f6d28185d33b619894d` |
 
 ## Run
 
@@ -32,11 +33,11 @@ The materializer checks both the remote branch tip and the Git blob IDs for each
 
 ## Claim boundary
 
-A green result establishes that the six pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.
+A green result establishes that all seven pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.
 
 ## Executable cross-core slice (current)
 
-The harness calls the public APIs of all six pinned owners and runs an independent, small service-level oracle:
+The harness calls the public APIs of the six domain owners and the seventh action-denominator owner, then runs an independent, small service-level oracle:
 
 - WSR-001: provider-reported completion with no current pressure-restoration or water-quality support must remain NotEligible; Decision Closure reports OpenMissingElements.
 - WSR-004: current pressure and quality support may reach EligibleForLocalReview, while one of the two required mapping approvals is absent; Decision Closure reports MappingReviewRequired, never Closed.
@@ -47,7 +48,7 @@ The harness calls the public APIs of all six pinned owners and runs an independe
 
 The Need Intake test constructs a valid synthetic community proposal and confirms it remains Draft without community/domain/provenance/safety review and explicit local ratification. Project Formation receives a consenting participant with no capability evidence and returns UnknownEvidence rather than a negative judgement or qualification.
 
-The oracle is deliberately independent of the owner evaluators. The executable slice currently exercises seven named cases among the 16 frozen WSR cases (WSR-001, WSR-004, WSR-006, WSR-009, WSR-010, WSR-011, WSR-012), using ten harness tests. It also checks expiry propagation with an unaffected-source precision control and common-cause independence. It does **not** claim the other nine WSR cases or all 20 registered mutations have executed.
+The oracle is deliberately independent of the owner evaluators. The executable slice currently exercises seven named cases among the 16 frozen WSR cases (WSR-001, WSR-004, WSR-006, WSR-009, WSR-010, WSR-011, WSR-012), using eleven harness tests. It also checks expiry propagation with an unaffected-source precision control and common-cause independence. It does **not** claim the other nine WSR cases or all 20 registered mutations have executed.
 
 ## Claim boundary
 
@@ -60,18 +61,15 @@ See [WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md](WATER-SERVICE-CROSS-CORE
 
 
 
-**WSR-010 implementation update:** the harness now imports the standalone `craft-action-denominator-v1` owner through its public API. The owner recomputes a canonical plan digest from the complete action records, requires sequential authority-bound amendments, binds each observation to the exact plan and evidence-profile digest, and reports the covered/uncovered action IDs. The WSR-010 tests now exercise six/five style count semantics, duplicate suppression, unknown actions, old-revision observation rejection and the rule that complete action coverage cannot auto-close the service episode. Authority signatures and source truth are still not authenticated by this reference core.
+**WSR-010 implementation update:** the harness imports the standalone `craft-action-denominator-v1` owner through its public API. The owner recomputes a canonical plan digest from the complete action records, requires sequential authority-bound amendments, binds each observation to the exact plan and evidence-profile digest, and reports covered/uncovered action IDs. The known-answer fixture now uses a six-action P1 plan, five qualified action observations, 99 identical duplicate replays, and an unauthorized action mutation that must not increase coverage. A separate P1 six-action → authority-approved P2 five-action amendment proves that historical P1 replay is preserved and P1 observations do not count toward P2. Full P2 action coverage still cannot auto-close the service episode. Authority signatures and source truth remain unauthenticated by this reference core.
 
-## Exact-head qualification result
+## Qualification history and current status
 
-Workflow [run #46005931741](https://github.com/Luminous-Dynamics/mycelix/actions/runs/46005931741) passed on harness head `cd5affd6ff41c48aa8e6653170d22d8b4af5d37a`.
+**Historical six-owner baseline:** workflow [#46005931741](https://github.com/Luminous-Dynamics/mycelix/actions/runs/46005931741) passed on earlier harness head `cd5affd6ff41c48aa8e6653170d22d8b4af5d37a`: six domain-owner crates passed 159 tests, ten harness tests passed, formatting and Clippy passed. This is valid evidence for that earlier six-owner source set only; it does not qualify the later action-denominator integration.
 
-- Six source branch heads and both source blob IDs per owner were verified before materialization.
-- Six owner crates passed their combined-workspace unit tests: 159 tests total.
-- Ten cross-core harness tests passed across seven named WSR cases: WSR-001, WSR-004, WSR-006, WSR-009, WSR-010 (two tests), WSR-011 and WSR-012, plus source-expiry propagation with an unaffected-source precision control and common-cause independence.
-- Exact-head formatting and combined-workspace Clippy passed.
-- Generated Cargo.lock SHA-256: `d87aaed918e666446a61dbdb784b1c8fcb252d27d57e4fbce16320be6ae7da63`.
-- Source-manifest SHA-256: `fc0a70c72967cbc366abe9aac866c097dfa96c1cf9648baad9e2a4bf685bb9fe`.
+**Latest completed seven-owner attempt:** workflow [#46045308672](https://github.com/Luminous-Dynamics/mycelix/actions/runs/46045308672) checked out then-current harness head `2f27a4ec65a02913e58e210867d0585e98688ed0`. All seven owner packages materialized; 195 owner tests passed and combined-workspace formatting passed. The harness ran 11 tests: 10 passed and WSR-010 failed because the test helper panicked while trying to construct an observation for an action absent from the sealed plan. The WSR-010 fixture was repaired to mutate a valid plan-bound observation instead. The subsequent revision now expands WSR-010 to the six-action / five-observation / 99-duplicate control and an authorized 6→5 amendment. Clippy and the composition receipt were skipped after the failing test.
 
-The materializer records two harness-source SHA-256 values (Cargo manifest and Rust source) and the seven pinned owner manifest/source blob IDs. The temporary lockfile is regenerated by CI and its digest is recorded; it is not committed as a permanent lock for six changing upstream branches.
+**Current head:** `2b5dcdd8d864341f6d8d277e6a705107083b7db2`. The latest repository check lookup did not yet show a PR-triggered workflow for this exact SHA. Therefore the current seven-owner integration remains **pending exact-head qualification**; no current-head pass is claimed. Any queued, skipped, cancelled or absent check remains unqualified.
+
+The materializer records the harness manifest/source digests and all seven owner manifest/source blob IDs. The lockfile is regenerated from the frozen materialized source set during each run, and its digest belongs in that run's evidence receipt.
 
