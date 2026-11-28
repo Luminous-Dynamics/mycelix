@@ -372,32 +372,35 @@ fn consumes_shared_go_rust_interoperability_vectors() {
         );
     }
 
-#[test]
-fn xenia_checkpoint_v1_payload_has_the_same_rfc9162_leaf_hash() {
-    const VECTOR: &str =
-        include_str!("../../../../tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt");
-    let mut payload_len = None;
-    let mut payload_hex = None;
-    let mut expected_leaf_hex = None;
-    for line in VECTOR.lines().map(str::trim) {
-        if let Some(value) = line.strip_prefix("payload_len=") {
-            payload_len = Some(value.parse::<usize>().expect("valid Xenia payload length"));
-        } else if let Some(value) = line.strip_prefix("payload_hex=") {
-            payload_hex = Some(value);
-        } else if let Some(value) = line.strip_prefix("leaf_hash_sha256=") {
-            expected_leaf_hex = Some(value);
+    #[test]
+    fn xenia_checkpoint_v1_payload_has_the_same_rfc9162_leaf_hash() {
+        const VECTOR: &str = include_str!(
+            "../../../../tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt"
+        );
+        let mut payload_len = None;
+        let mut payload_hex = None;
+        let mut expected_leaf_hex = None;
+        for line in VECTOR.lines().map(str::trim) {
+            if let Some(value) = line.strip_prefix("payload_len=") {
+                payload_len = Some(value.parse::<usize>().expect("valid Xenia payload length"));
+            } else if let Some(value) = line.strip_prefix("payload_hex=") {
+                payload_hex = Some(value);
+            } else if let Some(value) = line.strip_prefix("leaf_hash_sha256=") {
+                expected_leaf_hex = Some(value);
+            }
         }
+        let payload = hex::decode(payload_hex.unwrap_or_else(|| panic!("Xenia payload missing")))
+            .expect("valid Xenia payload hex");
+        assert_eq!(
+            payload.len(),
+            payload_len.expect("Xenia payload length missing")
+        );
+        let expected: Hash =
+            hex::decode(expected_leaf_hex.unwrap_or_else(|| panic!("Xenia leaf hash missing")))
+                .expect("valid Xenia leaf hash hex")
+                .try_into()
+                .expect("32-byte Xenia leaf hash");
+        assert_eq!(leaf_hash(&payload), expected);
     }
-    let payload = hex::decode(payload_hex.unwrap_or_else(|| panic!("Xenia payload missing")))
-        .expect("valid Xenia payload hex");
-    assert_eq!(payload.len(), payload_len.expect("Xenia payload length missing"));
-    let expected: Hash = hex::decode(
-        expected_leaf_hex.unwrap_or_else(|| panic!("Xenia leaf hash missing")),
-    )
-    .expect("valid Xenia leaf hash hex")
-    .try_into()
-    .expect("32-byte Xenia leaf hash");
-    assert_eq!(leaf_hash(&payload), expected);
-}
 
 }
