@@ -44,24 +44,30 @@ jq -e '
     and .duration_seconds > 0
     and (.start_seconds + .duration_seconds) <= $root.scenario.time_profile.horizon_seconds
   )
-  and all($root.scenario.fault_schedule[].target_service_id as $target;
-    any($root.scenario.services[]; .service_id == $target)
+  and all($root.scenario.fault_schedule[];
+    . as $event
+    | any($root.scenario.services[]; .service_id == $event.target_service_id)
+    and all($event.affected_observation_ids[];
+      . as $obs
+      | any($root.scenario.operator_observations[]; .observation_id == $obs)
+    )
   )
-  and all($root.scenario.dependencies[] as $edge;
-    any($root.scenario.services[]; .service_id == $edge.from_service)
+  and all($root.scenario.dependencies[];
+    . as $edge
+    | any($root.scenario.services[]; .service_id == $edge.from_service)
     and any($root.scenario.services[]; .service_id == $edge.to_service)
   )
-  and all($root.scenario.operator_observations[].target_service_id as $target;
-    any($root.scenario.services[]; .service_id == $target)
+  and all($root.scenario.operator_observations[];
+    . as $obs
+    | any($root.scenario.services[]; .service_id == $obs.target_service_id)
   )
-  and all($root.scenario.fault_schedule[].affected_observation_ids[] as $obs;
-    any($root.scenario.operator_observations[]; .observation_id == $obs)
-  )
-  and any($root.scenario.fault_schedule[] as $a;
-    any($root.scenario.fault_schedule[];
-      .event_id != $a.event_id
-      and .start_seconds < ($a.start_seconds + $a.duration_seconds)
-      and $a.start_seconds < (.start_seconds + .duration_seconds)
+  and any($root.scenario.fault_schedule[];
+    . as $a
+    | any($root.scenario.fault_schedule[];
+      . as $b
+      | $b.event_id != $a.event_id
+      and $b.start_seconds < ($a.start_seconds + $a.duration_seconds)
+      and $a.start_seconds < ($b.start_seconds + $b.duration_seconds)
     )
   )
   and $root.scenario.agent_payload_policy.exposes_fault_schedule == false
