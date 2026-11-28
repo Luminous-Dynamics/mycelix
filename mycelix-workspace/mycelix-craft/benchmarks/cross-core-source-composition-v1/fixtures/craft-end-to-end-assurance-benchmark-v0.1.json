@@ -347,7 +347,27 @@
       "named_missingness_mechanism",
       "canonical_digests",
       "mutation_provenance"
-    ]
+    ],
+    "generator": {
+      "module": "oracles/synthetic-episode-go-v0.1/",
+      "entrypoint": "cmd/craft-synth-generate",
+      "source_digest_binding": [
+        "raw_base_fixture_sha256",
+        "raw_scenario_registry_sha256",
+        "canonical_transformed_episode_sha256"
+      ],
+      "output_order": "lexicographic_scenario_id",
+      "local_validation": {
+        "go": "1.23.2",
+        "unit_tests": "passed",
+        "race": "passed",
+        "vet": "passed",
+        "statement_coverage_percent": 77.4,
+        "fixture_scope": "inline_minimal_unit_test_fixture"
+      },
+      "hosted_validation": "pending",
+      "note": "The local module tests validate deterministic operators on an inline minimal fixture. Exact-host workflow is configured to generate the committed ten-scenario fixture twice and byte-compare outputs."
+    }
   },
   "ocel21_fixture_registry": {
     "specification": "OCEL 2.1.0pre5 (2026-10-01)",
