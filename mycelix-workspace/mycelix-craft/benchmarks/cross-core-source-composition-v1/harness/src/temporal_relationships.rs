@@ -1529,7 +1529,7 @@ mod tests {
         );
         late.source_recorded_at = T13.to_owned();
 
-        let before = project_temporal_relationships(&[late.clone()], &[], &cut(T11, 1)).unwrap();
+        let before = project_temporal_relationships(std::slice::from_ref(&late), &[], &cut(T11, 1)).unwrap();
         assert!(before.active_relations.is_empty());
 
         let after = project_temporal_relationships(&[late], &[], &cut(T11, 2)).unwrap();
@@ -1992,7 +1992,7 @@ mod tests {
         expiring.valid_to = Some(T10.to_owned());
 
         let before =
-            project_temporal_relationships(&[expiring.clone()], &[], &cut(T08, 1)).unwrap();
+            project_temporal_relationships(std::slice::from_ref(&expiring), &[], &cut(T08, 1)).unwrap();
         let at_expiry = project_temporal_relationships(&[expiring], &[], &cut(T10, 1)).unwrap();
         assert_eq!(before.active_relations.len(), 1);
         assert!(at_expiry.active_relations.is_empty());
