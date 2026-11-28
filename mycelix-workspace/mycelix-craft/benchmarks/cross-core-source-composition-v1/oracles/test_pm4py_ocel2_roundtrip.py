@@ -79,8 +79,55 @@ class StrictValueTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "timestamp"):
             normalize_time("2026-11-27T08:00:00.123456789Z")
 
+    def test_float_rejects_non_finite_values(self) -> None:
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "finite"):
+                typed_value(value, "float")
+
 
 class SchemaAndInventoryTests(unittest.TestCase):
+    def test_decoder_rejects_duplicate_json_members(self) -> None:
+        serialized = json.dumps(minimal_ocel())
+        serialized = serialized[:-1] + ',"events":[]}'
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "fixture.json"
+            path.write_text(serialized, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate JSON object member: events"):
+                normalize_inventory(path)
+
+    def test_decoder_rejects_nonstandard_nan_token(self) -> None:
+        serialized = json.dumps(minimal_ocel()).replace(
+            '"time": "2026-11-27T08:01:00Z"', '"time": NaN', 1
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "fixture.json"
+            path.write_text(serialized, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "non-standard JSON numeric token"):
+                normalize_inventory(path)
+
+    def test_duplicate_event_relationship_is_rejected(self) -> None:
+        data = minimal_ocel()
+        relationship = data["events"][0]["relationships"][0]
+        data["events"][0]["relationships"].append(dict(relationship))
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "fixture.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate event relationship"):
+                normalize_inventory(path)
+
+    def test_duplicate_object_relationship_is_rejected(self) -> None:
+        data = minimal_ocel()
+        data["objects"].append(
+            {"id": "asset-2", "type": "Asset", "attributes": [], "relationships": []}
+        )
+        relationship = {"objectId": "asset-2", "qualifier": "associated"}
+        data["objects"][0]["relationships"] = [relationship, dict(relationship)]
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "fixture.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate object relationship"):
+                normalize_inventory(path)
+
     def test_duplicate_type_declaration_is_rejected(self) -> None:
         data = {
             "objectTypes": [
