@@ -508,6 +508,84 @@ mod tests {
     }
 
     #[test]
+    fn player_permutation_preserves_equilibrium_under_matching_payoff_permutation() {
+        let original = game(vec![
+            payoff("cooperate", "cooperate", 3.0, 3.0),
+            payoff("cooperate", "defect", 0.0, 5.0),
+            payoff("defect", "cooperate", 5.0, 0.0),
+            payoff("defect", "defect", 1.0, 1.0),
+        ]);
+        let original_result =
+            analyze_pure_nash_equilibria(&original, exact_config()).unwrap();
+
+        let mut swapped = original.clone();
+        swapped.players.swap(0, 1);
+        for entry in &mut swapped.payoffs {
+            entry.strategy_profile.swap(0, 1);
+            entry.payoffs.swap(0, 1);
+        }
+        let swapped_result =
+            analyze_pure_nash_equilibria(&swapped, exact_config()).unwrap();
+
+        assert_eq!(original_result.status, swapped_result.status);
+        assert_eq!(original_result.equilibria.len(), swapped_result.equilibria.len());
+
+        let original_equilibria: Vec<(Vec<String>, Vec<f64>)> = original_result
+            .equilibria
+            .iter()
+            .map(|equilibrium| (
+                equilibrium.strategy_profile.clone(),
+                equilibrium.payoffs.clone(),
+            ))
+            .collect();
+        let swapped_equilibria: Vec<(Vec<String>, Vec<f64>)> = swapped_result
+            .equilibria
+            .iter()
+            .map(|equilibrium| (
+                equilibrium.strategy_profile.clone(),
+                equilibrium.payoffs.clone(),
+            ))
+            .collect();
+        assert_eq!(original_equilibria, swapped_equilibria);
+    }
+
+    #[test]
+    fn strategy_declaration_order_does_not_change_equilibrium_set() {
+        let mut original = game(vec![
+            payoff("cooperate", "cooperate", 3.0, 3.0),
+            payoff("cooperate", "defect", 0.0, 5.0),
+            payoff("defect", "cooperate", 5.0, 0.0),
+            payoff("defect", "defect", 1.0, 1.0),
+        ]);
+        let original_result =
+            analyze_pure_nash_equilibria(&original, exact_config()).unwrap();
+
+        original.strategies.reverse();
+        let reversed_result =
+            analyze_pure_nash_equilibria(&original, exact_config()).unwrap();
+
+        let mut original_set: Vec<(Vec<String>, Vec<f64>)> = original_result
+            .equilibria
+            .iter()
+            .map(|equilibrium| (
+                equilibrium.strategy_profile.clone(),
+                equilibrium.payoffs.clone(),
+            ))
+            .collect();
+        let mut reversed_set: Vec<(Vec<String>, Vec<f64>)> = reversed_result
+            .equilibria
+            .iter()
+            .map(|equilibrium| (
+                equilibrium.strategy_profile.clone(),
+                equilibrium.payoffs.clone(),
+            ))
+            .collect();
+        original_set.sort();
+        reversed_set.sort();
+        assert_eq!(original_set, reversed_set);
+    }
+
+    #[test]
     fn invalid_tolerance_is_rejected_before_analysis() {
         let game = game(vec![
             payoff("cooperate", "cooperate", 3.0, 3.0),
