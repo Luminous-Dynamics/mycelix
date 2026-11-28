@@ -46,6 +46,7 @@ jobs:
           test -f docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md
           test -f schemas/economic/decision-justification-composition-certificate-v0.1.schema.json
           test -f tools/economic/evidence-execution-composition/DJCC_V0_1_SEEDS.json
+          test -f tools/economic/evidence-execution-composition/DJCC_STAGE_EDGE_V1_KAT.tsv
           test -f tools/economic/evidence-execution-composition/go.mod
           test -f tools/economic/evidence-execution-composition/oracle/oracle.go
           test -f tools/economic/evidence-execution-composition/oracle/oracle_test.go
