@@ -77,38 +77,38 @@ type ClaimCeiling struct {
 }
 
 type Scenario struct {
-	ID                   string               `json:"id"`
-	Title                string               `json:"title"`
-	Class                string               `json:"class"`
-	RiskTier             string               `json:"risk_tier"`
-	SyntheticOnly        bool                 `json:"synthetic_only"`
-	FixtureRef           string               `json:"fixture_ref"`
-	Mutation             *Mutation            `json:"mutation"`
-	Controls             Controls             `json:"controls"`
+	ID                   string                  `json:"id"`
+	Title                string                  `json:"title"`
+	Class                string                  `json:"class"`
+	RiskTier             string                  `json:"risk_tier"`
+	SyntheticOnly        bool                    `json:"synthetic_only"`
+	FixtureRef           string                  `json:"fixture_ref"`
+	Mutation             *Mutation               `json:"mutation"`
+	Controls             Controls                `json:"controls"`
 	ExpectedStages       map[StageID]Disposition `json:"expected_stages"`
-	ExpectedComposition  CompositionDisposition `json:"expected_composition"`
-	ExpectedClaimCeiling ClaimCeiling          `json:"expected_claim_ceiling"`
-	Rationale            string               `json:"rationale"`
+	ExpectedComposition  CompositionDisposition  `json:"expected_composition"`
+	ExpectedClaimCeiling ClaimCeiling            `json:"expected_claim_ceiling"`
+	Rationale            string                  `json:"rationale"`
 }
 
 type Manifest struct {
-	Schema           string     `json:"schema"`
-	Status           string     `json:"status"`
-	ClaimBoundary    string     `json:"claim_boundary"`
-	OracleRule       string     `json:"oracle_rule"`
-	OracleVersion    string     `json:"oracle_version"`
-	ControlSemantics string     `json:"control_semantics"`
-	StageIDs         []StageID  `json:"stage_ids"`
+	Schema           string        `json:"schema"`
+	Status           string        `json:"status"`
+	ClaimBoundary    string        `json:"claim_boundary"`
+	OracleRule       string        `json:"oracle_rule"`
+	OracleVersion    string        `json:"oracle_version"`
+	ControlSemantics string        `json:"control_semantics"`
+	StageIDs         []StageID     `json:"stage_ids"`
 	Dispositions     []Disposition `json:"dispositions"`
-	Cases            []Scenario `json:"cases"`
+	Cases            []Scenario    `json:"cases"`
 }
 
 type ExpectedResult struct {
 	Stages       map[StageID]Disposition
-	Composition  CompositionDisposition
-	ClaimCeiling ClaimCeiling
-	Class        string
-	RiskTier     string
+	Composition  CompositionDisposition 
+	ClaimCeiling ClaimCeiling           
+	Class        string                 
+	RiskTier     string                 
 }
 
 func stages(frontier, source, semantic, query, policy, authorization, execution, outcome Disposition) map[StageID]Disposition {
@@ -323,14 +323,14 @@ func equalStages(left, right map[StageID]Disposition) bool {
 type CompositionProfile struct {
 	ProfileRef           string                         `json:"profile_ref"`
 	RequiredClaims       []string                       `json:"required_claims"`
-	AllowedNotApplicable []string                      `json:"allowed_not_applicable"`
+	AllowedNotApplicable []string                       `json:"allowed_not_applicable"`
 	ClaimStages          map[string][]string            `json:"claim_stages"`
 	DependencyClaims     map[string]map[string][]string `json:"dependency_claims"`
 }
 
 type ProfileManifest struct {
-	Schema   string              `json:"schema"`
-	Status   string              `json:"status"`
+	Schema   string               `json:"schema"`
+	Status   string               `json:"status"`
 	Profiles []CompositionProfile `json:"profiles"`
 }
 
@@ -383,9 +383,9 @@ func strictlyOrdered(values []string, order []string) bool {
 }
 
 type expectedProfileV01 struct {
-	RequiredClaims       []string
-	AllowedNotApplicable []string
-	ClaimStages          map[string][]string
+	RequiredClaims       []string                      
+	AllowedNotApplicable []string                      
+	ClaimStages          map[string][]string           
 	DependencyClaims     map[string]map[string][]string
 }
 
@@ -395,10 +395,10 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 		AllowedNotApplicable: []string{},
 		ClaimStages         : map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
-			"authority": {"authorization"},
-			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
-			"effect": {"execution", "outcome"},
-			"truth": {"query", "policy", "outcome"},
+			"authority":      {"authorization"},
+			"completeness":   {"verifier_frontier", "source_trust", "semantic_projection", "query"},
+			"effect":         {"execution", "outcome"},
+			"truth":          {"query", "policy", "outcome"},
 		},
 		DependencyClaims: map[string]map[string][]string{
 			"source_trust": {
@@ -406,11 +406,11 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 			"semantic_projection": {
 				"verifier_frontier": {"authentication"},
-				"source_trust": {"authentication"},
+				"source_trust":      {"authentication"},
 			},
 			"query": {
-				"verifier_frontier": {"authentication", "completeness"},
-				"source_trust": {"authentication", "completeness"},
+				"verifier_frontier":   {"authentication", "completeness"},
+				"source_trust":        {"authentication", "completeness"},
 				"semantic_projection": {"authentication", "completeness"},
 			},
 			"policy": {
@@ -418,15 +418,15 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 			"authorization": {
 				"verifier_frontier": {"authentication"},
-				"policy": {"authentication", "truth"},
+				"policy":            {"authentication", "truth"},
 			},
 			"execution": {
 				"authorization": {"authentication", "authority"},
 			},
 			"outcome": {
-				"source_trust": {"authentication"},
+				"source_trust":        {"authentication"},
 				"semantic_projection": {"completeness"},
-				"execution": {"effect"},
+				"execution":           {"effect"},
 			},
 		},
 	},
@@ -435,9 +435,9 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 		AllowedNotApplicable: []string{"execution", "outcome"},
 		ClaimStages         : map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
-			"authority": {"authorization"},
-			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
-			"truth": {"query", "policy"},
+			"authority":      {"authorization"},
+			"completeness":   {"verifier_frontier", "source_trust", "semantic_projection", "query"},
+			"truth":          {"query", "policy"},
 		},
 		DependencyClaims: map[string]map[string][]string{
 			"source_trust": {
@@ -445,11 +445,11 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 			"semantic_projection": {
 				"verifier_frontier": {"authentication"},
-				"source_trust": {"authentication"},
+				"source_trust":      {"authentication"},
 			},
 			"query": {
-				"verifier_frontier": {"authentication", "completeness"},
-				"source_trust": {"authentication", "completeness"},
+				"verifier_frontier":   {"authentication", "completeness"},
+				"source_trust":        {"authentication", "completeness"},
 				"semantic_projection": {"authentication", "completeness"},
 			},
 			"policy": {
@@ -457,7 +457,7 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 			"authorization": {
 				"verifier_frontier": {"authentication"},
-				"policy": {"authentication", "truth"},
+				"policy":            {"authentication", "truth"},
 			},
 		},
 	},
@@ -466,10 +466,10 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 		AllowedNotApplicable: []string{"execution", "outcome"},
 		ClaimStages         : map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
-			"authority": {"authorization"},
-			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
-			"independence": {"source_trust", "semantic_projection", "query"},
-			"truth": {"query", "policy"},
+			"authority":      {"authorization"},
+			"completeness":   {"verifier_frontier", "source_trust", "semantic_projection", "query"},
+			"independence":   {"source_trust", "semantic_projection", "query"},
+			"truth":          {"query", "policy"},
 		},
 		DependencyClaims: map[string]map[string][]string{
 			"source_trust": {
@@ -477,11 +477,11 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 			"semantic_projection": {
 				"verifier_frontier": {"authentication"},
-				"source_trust": {"authentication"},
+				"source_trust":      {"authentication"},
 			},
 			"query": {
-				"verifier_frontier": {"authentication", "completeness"},
-				"source_trust": {"authentication", "completeness", "independence"},
+				"verifier_frontier":   {"authentication", "completeness"},
+				"source_trust":        {"authentication", "completeness", "independence"},
 				"semantic_projection": {"authentication", "completeness", "independence"},
 			},
 			"policy": {
@@ -489,7 +489,7 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 			},
 			"authorization": {
 				"verifier_frontier": {"authentication"},
-				"policy": {"authentication", "truth"},
+				"policy":            {"authentication", "truth"},
 			},
 		},
 	},
