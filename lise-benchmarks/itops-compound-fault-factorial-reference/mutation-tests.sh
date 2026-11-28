@@ -21,4 +21,8 @@ expect_rejected "remove one required causal factor" '(.groups[0].expected_causal
 expect_rejected "hide metastable persistence on joint arm" '(.groups[0].arms[] | select(.arm_id == "A1B1") | .terminal.fault_persists_after_trigger_removed) = false'
 expect_rejected "relabel synergistic group as additive" '(.groups[0].classification) = "additive_control"'
 expect_rejected "remove required controlled restart remedy" '(.groups[0].required_remediation_action_ids) |= map(select(. != "controlled_restart"))'
-echo "PASS: all 9 compound-interaction mutation controls were rejected."
+expect_rejected "arm identifier disagrees with factor flags" '(.groups[0].arms[] | select(.arm_id == "A1B0") | .factor_b_present) = true'
+expect_rejected "causal factor identity does not match declared mechanisms" '(.groups[0].expected_causal_factor_ids[0]) = "wrong-factor"
+expect_rejected "additive control group removed" '(.groups) |= map(select(.classification != "additive_control"))
+expect_rejected "duplicate or missing factorial class" '(.groups[0].classification) = "additive_control"
+echo "PASS: all 13 compound-interaction mutation controls were rejected."
