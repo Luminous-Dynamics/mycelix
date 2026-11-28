@@ -1,0 +1,135 @@
+{
+  "schema_id": "mycelix.craft.sequential-evsi-complementarity.v0.1",
+  "case": {
+    "id": "XOR-complementarity",
+    "factorization_profile": "conditional_independence_given_complete_latent_state_v0.1",
+    "states": [
+      {
+        "id": "00",
+        "probability": 0.25
+      },
+      {
+        "id": "01",
+        "probability": 0.25
+      },
+      {
+        "id": "10",
+        "probability": 0.25
+      },
+      {
+        "id": "11",
+        "probability": 0.25
+      }
+    ],
+    "actions": [
+      {
+        "id": "A",
+        "loss_by_state": {
+          "10": 10,
+          "11": 0,
+          "00": 0,
+          "01": 10
+        }
+      },
+      {
+        "id": "B",
+        "loss_by_state": {
+          "10": 0,
+          "11": 10,
+          "00": 10,
+          "01": 0
+        }
+      }
+    ],
+    "safe_actions": [
+      "A",
+      "B"
+    ],
+    "observations": [
+      {
+        "id": "observe-X",
+        "cost": 0.3,
+        "available": true,
+        "in_domain": true,
+        "admissible": true,
+        "conditioned_on_latent_state": true,
+        "mandatory": false,
+        "likelihood_by_state": {
+          "10": [
+            {
+              "result_id": "x1",
+              "probability": 1
+            }
+          ],
+          "11": [
+            {
+              "result_id": "x1",
+              "probability": 1
+            }
+          ],
+          "00": [
+            {
+              "result_id": "x0",
+              "probability": 1
+            }
+          ],
+          "01": [
+            {
+              "result_id": "x0",
+              "probability": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "observe-Y",
+        "cost": 0.3,
+        "available": true,
+        "in_domain": true,
+        "admissible": true,
+        "conditioned_on_latent_state": true,
+        "mandatory": false,
+        "likelihood_by_state": {
+          "10": [
+            {
+              "result_id": "y0",
+              "probability": 1
+            }
+          ],
+          "11": [
+            {
+              "result_id": "y1",
+              "probability": 1
+            }
+          ],
+          "00": [
+            {
+              "result_id": "y0",
+              "probability": 1
+            }
+          ],
+          "01": [
+            {
+              "result_id": "y1",
+              "probability": 1
+            }
+          ]
+        }
+      }
+    ],
+    "budget": 0.6,
+    "horizon": 2,
+    "mandatory_evidence_open": false
+  },
+  "expected": {
+    "baseline_expected_loss": 5,
+    "observe_x_one_step_evsi": 0,
+    "observe_y_one_step_evsi": 0,
+    "greedy_one_step_stops": true,
+    "expected_terminal_loss": 0,
+    "expected_acquisition_cost": 0.6,
+    "gross_evsi": 5,
+    "net_decision_value": 4.4,
+    "selected_policy_depth": 2
+  }
+}
