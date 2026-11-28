@@ -37,10 +37,19 @@
         "outcome_claim"
       ],
       "properties": {
-        "reference": { "$ref": "#/$defs/identifier" },
-        "revision": { "type": "integer", "minimum": 1 },
-        "operation": { "$ref": "#/$defs/identifier" },
-        "outcome_claim": { "$ref": "#/$defs/identifier" }
+        "reference": {
+          "$ref": "#/$defs/identifier"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "operation": {
+          "$ref": "#/$defs/identifier"
+        },
+        "outcome_claim": {
+          "$ref": "#/$defs/identifier"
+        }
       }
     },
     "scope": {
@@ -55,12 +64,24 @@
         "valid_time_ref"
       ],
       "properties": {
-        "digest": { "$ref": "#/$defs/digest" },
-        "subject_ref": { "$ref": "#/$defs/identifier" },
-        "resource_ref": { "$ref": "#/$defs/identifier" },
-        "purpose": { "$ref": "#/$defs/identifier" },
-        "jurisdiction": { "$ref": "#/$defs/identifier" },
-        "valid_time_ref": { "$ref": "#/$defs/identifier" }
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "subject_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "purpose": {
+          "$ref": "#/$defs/identifier"
+        },
+        "jurisdiction": {
+          "$ref": "#/$defs/identifier"
+        },
+        "valid_time_ref": {
+          "$ref": "#/$defs/identifier"
+        }
       }
     },
     "assessment": {
@@ -75,15 +96,28 @@
       ],
       "properties": {
         "kind": {
-          "enum": ["Historical", "Current"]
+          "enum": [
+            "Historical",
+            "Current"
+          ]
         },
-        "verifier_ref": { "$ref": "#/$defs/identifier" },
-        "accepted_frontier_digest": { "$ref": "#/$defs/digest" },
-        "policy_epoch": { "$ref": "#/$defs/identifier" },
+        "verifier_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "accepted_frontier_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "policy_epoch": {
+          "$ref": "#/$defs/identifier"
+        },
         "reassesses_certificate_digest": {
           "oneOf": [
-            { "$ref": "#/$defs/digest" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       }
@@ -102,14 +136,30 @@
         "outcome"
       ],
       "properties": {
-        "verifier_frontier": { "$ref": "#/$defs/stage" },
-        "source_trust": { "$ref": "#/$defs/stage" },
-        "semantic_projection": { "$ref": "#/$defs/stage" },
-        "query": { "$ref": "#/$defs/stage" },
-        "policy": { "$ref": "#/$defs/stage" },
-        "authorization": { "$ref": "#/$defs/stage" },
-        "execution": { "$ref": "#/$defs/stage" },
-        "outcome": { "$ref": "#/$defs/stage" }
+        "verifier_frontier": {
+          "$ref": "#/$defs/stage"
+        },
+        "source_trust": {
+          "$ref": "#/$defs/stage"
+        },
+        "semantic_projection": {
+          "$ref": "#/$defs/stage"
+        },
+        "query": {
+          "$ref": "#/$defs/stage"
+        },
+        "policy": {
+          "$ref": "#/$defs/stage"
+        },
+        "authorization": {
+          "$ref": "#/$defs/stage"
+        },
+        "execution": {
+          "$ref": "#/$defs/stage"
+        },
+        "outcome": {
+          "$ref": "#/$defs/stage"
+        }
       }
     },
     "composition": {
@@ -133,25 +183,45 @@
             "UnsupportedByProfile"
           ]
         },
-        "profile_digest": { "$ref": "#/$defs/digest" },
-        "evaluator_build_digest": { "$ref": "#/$defs/digest" },
-        "stage_binding_digest": { "$ref": "#/$defs/digest" },
+        "profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evaluator_build_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "stage_binding_digest": {
+          "$ref": "#/$defs/digest"
+        },
         "reason_codes": {
           "type": "array",
-          "items": { "$ref": "#/$defs/identifier" },
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
           "uniqueItems": true
         },
-        "claim_ceiling": { "$ref": "#/$defs/claimCeiling" }
+        "claim_ceiling": {
+          "$ref": "#/$defs/claimCeiling"
+        }
       }
     },
     "canonical_commitment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "encoding_profile", "digest"],
+      "required": [
+        "algorithm",
+        "encoding_profile",
+        "digest"
+      ],
       "properties": {
-        "algorithm": { "const": "SHA-256" },
-        "encoding_profile": { "$ref": "#/$defs/identifier" },
-        "digest": { "$ref": "#/$defs/digest" }
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "encoding_profile": {
+          "$ref": "#/$defs/identifier"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
       }
     },
     "extensions": {
@@ -202,11 +272,21 @@
         "effect"
       ],
       "properties": {
-        "authentication": { "$ref": "#/$defs/claimState" },
-        "completeness": { "$ref": "#/$defs/claimState" },
-        "truth": { "$ref": "#/$defs/claimState" },
-        "authority": { "$ref": "#/$defs/claimState" },
-        "effect": { "$ref": "#/$defs/claimState" }
+        "authentication": {
+          "$ref": "#/$defs/claimState"
+        },
+        "completeness": {
+          "$ref": "#/$defs/claimState"
+        },
+        "truth": {
+          "$ref": "#/$defs/claimState"
+        },
+        "authority": {
+          "$ref": "#/$defs/claimState"
+        },
+        "effect": {
+          "$ref": "#/$defs/claimState"
+        }
       }
     },
     "producer": {
@@ -219,29 +299,50 @@
         "build_digest"
       ],
       "properties": {
-        "owner_ref": { "$ref": "#/$defs/identifier" },
-        "version_ref": { "$ref": "#/$defs/identifier" },
+        "owner_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "version_ref": {
+          "$ref": "#/$defs/identifier"
+        },
         "source_commit": {
           "type": "string",
           "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
         },
-        "build_digest": { "$ref": "#/$defs/digest" }
+        "build_digest": {
+          "$ref": "#/$defs/digest"
+        }
       }
     },
     "inputBinding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "digest", "schema_ref"],
+      "required": [
+        "name",
+        "digest",
+        "schema_ref"
+      ],
       "properties": {
-        "name": { "$ref": "#/$defs/identifier" },
-        "digest": { "$ref": "#/$defs/digest" },
-        "schema_ref": { "$ref": "#/$defs/identifier" }
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/identifier"
+        }
       }
     },
     "dependency": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["stage_id", "output_digest", "schema_ref"],
+      "required": [
+        "stage_id",
+        "input_name",
+        "output_digest",
+        "schema_ref"
+      ],
       "properties": {
         "stage_id": {
           "enum": [
@@ -255,8 +356,15 @@
             "outcome"
           ]
         },
-        "output_digest": { "$ref": "#/$defs/digest" },
-        "schema_ref": { "$ref": "#/$defs/identifier" }
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "input_name": {
+          "$ref": "#/$defs/identifier"
+        }
       }
     },
     "stage": {
@@ -268,6 +376,7 @@
         "producer",
         "input_bindings",
         "output_digest",
+        "output_schema_ref",
         "claim_ceiling",
         "dependencies",
         "reason_codes",
@@ -275,28 +384,46 @@
         "extensions"
       ],
       "properties": {
-        "disposition": { "$ref": "#/$defs/stageDisposition" },
-        "profile_ref": { "$ref": "#/$defs/identifier" },
-        "producer": { "$ref": "#/$defs/producer" },
+        "disposition": {
+          "$ref": "#/$defs/stageDisposition"
+        },
+        "profile_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "producer": {
+          "$ref": "#/$defs/producer"
+        },
         "input_bindings": {
           "type": "array",
-          "items": { "$ref": "#/$defs/inputBinding" }
+          "items": {
+            "$ref": "#/$defs/inputBinding"
+          }
         },
         "output_digest": {
           "oneOf": [
-            { "$ref": "#/$defs/digest" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
-        "claim_ceiling": { "$ref": "#/$defs/claimCeiling" },
+        "claim_ceiling": {
+          "$ref": "#/$defs/claimCeiling"
+        },
         "dependencies": {
           "type": "array",
-          "items": { "$ref": "#/$defs/dependency" },
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
           "uniqueItems": true
         },
         "reason_codes": {
           "type": "array",
-          "items": { "$ref": "#/$defs/identifier" },
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
           "uniqueItems": true
         },
         "details": {
@@ -307,6 +434,9 @@
           "type": "object",
           "description": "Namespaced optional extension fields.",
           "additionalProperties": true
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/identifier"
         }
       },
       "allOf": [
@@ -321,16 +451,22 @@
                 ]
               }
             },
-            "required": ["disposition"]
+            "required": [
+              "disposition"
+            ]
           },
           "then": {
             "properties": {
-              "output_digest": { "type": "null" }
+              "output_digest": {
+                "type": "null"
+              }
             }
           },
           "else": {
             "properties": {
-              "output_digest": { "$ref": "#/$defs/digest" }
+              "output_digest": {
+                "$ref": "#/$defs/digest"
+              }
             }
           }
         }
