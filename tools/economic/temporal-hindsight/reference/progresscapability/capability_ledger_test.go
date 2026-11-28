@@ -296,8 +296,13 @@ func TestRevokeConsumesCapabilityAndRemovesProgressPoint(t *testing.T) {
 
 func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 	scope := fixtureScope("owner:A")
+	scopeDigest, err := ScopeDigestV1(scope)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tooMany := ReplayResultV1{
 		Disposition: LedgerValid,
+		ScopeDigest: scopeDigest,
 		ActiveCapabilities: make([]ActiveCapabilityV1, MaxActiveCapabilities+1),
 	}
 	if got := DeriveProgressAntichainV1(scope, tooMany); got.Disposition != ProgressUnavailable {
@@ -306,6 +311,7 @@ func TestDerivedProgressEnforcesCapabilityAndComparisonBudgets(t *testing.T) {
 
 	largeAntichain := ReplayResultV1{
 		Disposition: LedgerValid,
+		ScopeDigest: scopeDigest,
 		ActiveCapabilities: make([]ActiveCapabilityV1, 5000),
 	}
 	for i := range largeAntichain.ActiveCapabilities {
