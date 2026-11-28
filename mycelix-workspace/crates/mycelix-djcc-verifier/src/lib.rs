@@ -94,6 +94,27 @@ pub enum StageDisposition {
     NotApplicable,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum ClaimDimension {
+    Authentication,
+    Completeness,
+    Truth,
+    Authority,
+    Effect,
+}
+
+impl ClaimDimension {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ClaimDimension::Authentication => "authentication",
+            ClaimDimension::Completeness => "completeness",
+            ClaimDimension::Truth => "truth",
+            ClaimDimension::Authority => "authority",
+            ClaimDimension::Effect => "effect",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClaimState {
     EstablishedWithinProfile,
@@ -193,6 +214,7 @@ pub struct InputBinding {
 pub struct Dependency {
     pub stage_id: StageId,
     pub input_name: String,
+    pub required_claims: Vec<ClaimDimension>,
     pub output_digest: Digest,
     pub schema_ref: String,
 }
@@ -396,6 +418,14 @@ fn validate_stage_dependencies(
                 format!("{stage_id}: dependency {} has an empty input_name/schema_ref", dependency.stage_id),
             ));
         }
+        if dependency.required_claims.is_empty()
+            || dependency.required_claims.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            out.push(violation(
+                "DJCC-DEPENDENCY-CLAIMS",
+                format!("{stage_id}: dependency {} must name a non-empty sorted unique claim requirement set", dependency.stage_id),
+            ));
+        }
         let matching_input = stage.input_bindings.iter().filter(|binding| {
             binding.name == dependency.input_name
                 && binding.digest == dependency.output_digest
@@ -409,16 +439,21 @@ fn validate_stage_dependencies(
         }
         match stages.get(&dependency.stage_id) {
             Some(parent) => {
-                if stage.disposition == StageDisposition::VerifiedForDeclaredClaim
-                    && parent.disposition != StageDisposition::VerifiedForDeclaredClaim
-                {
-                    out.push(violation(
-                        "DJCC-DOWNSTREAM-DISPOSITION-WIDENED",
-                        format!(
-                            "{stage_id}: verified stage depends on {} with disposition {:?}",
-                            dependency.stage_id, parent.disposition
-                        ),
-                    ));
+                if stage.disposition == StageDisposition::VerifiedForDeclaredClaim {
+                    for required_claim in &dependency.required_claims {
+                        if claim_state(parent.claim_ceiling, *required_claim)
+                            != ClaimState::EstablishedWithinProfile
+                        {
+                            out.push(violation(
+                                "DJCC-DEPENDENCY-CLAIM-UNMET",
+                                format!(
+                                    "{stage_id}: dependency {} does not establish required claim {}",
+                                    dependency.stage_id,
+                                    required_claim.as_str()
+                                ),
+                            ));
+                        }
+                    }
                 }
                 if parent.output_schema_ref != dependency.schema_ref {
                     out.push(violation(
@@ -449,6 +484,16 @@ fn validate_stage_dependencies(
                 format!("{stage_id}: dependency {} is absent", dependency.stage_id),
             )),
         }
+    }
+}
+
+fn claim_state(ceiling: ClaimCeiling, dimension: ClaimDimension) -> ClaimState {
+    match dimension {
+        ClaimDimension::Authentication => ceiling.authentication,
+        ClaimDimension::Completeness => ceiling.completeness,
+        ClaimDimension::Truth => ceiling.truth,
+        ClaimDimension::Authority => ceiling.authority,
+        ClaimDimension::Effect => ceiling.effect,
     }
 }
 
@@ -742,6 +787,7 @@ mod tests {
         Dependency {
             stage_id,
             input_name: format!("stage:{}", stage_id.as_str()),
+            required_claims: vec![ClaimDimension::Authentication],
             output_digest,
             schema_ref: "stage-output:v1".to_owned(),
         }
@@ -1167,16 +1213,49 @@ mod tests {
     }
 
     #[test]
-    fn verified_child_cannot_consume_an_indeterminate_parent() {
+    fn verified_child_can_use_an_established_claim_from_partially_indeterminate_parent() {
         let mut input = positive_input();
         let source = input.stages.get_mut(&StageId::SourceTrust).unwrap();
         source.disposition = StageDisposition::Indeterminate;
-        source.claim_ceiling.authentication = ClaimState::Indeterminate;
+        source.claim_ceiling.completeness = ClaimState::Indeterminate;
+        // The semantic projection edge requires only source authentication,
+        // which remains established. Incomplete universe coverage must not
+        // erase the narrower, independently verified parsing claim.
+        let report = verify_composition(&input, &valid_profile());
+        assert!(!report.violations.iter().any(|item| {
+            item.code == "DJCC-DEPENDENCY-CLAIM-UNMET"
+        }));
+        assert_eq!(report.derived_disposition, CompositionDisposition::Indeterminate);
+    }
+
+    #[test]
+    fn verified_child_cannot_use_an_unmet_required_claim_from_parent() {
+        let mut input = positive_input();
+        let semantic = input.stages.get_mut(&StageId::SemanticProjection).unwrap();
+        semantic.disposition = StageDisposition::Indeterminate;
+        semantic.claim_ceiling.completeness = ClaimState::Indeterminate;
+        let query = input.stages.get_mut(&StageId::Query).unwrap();
+        query.dependencies[2].required_claims = vec![ClaimDimension::Completeness];
         let report = verify_composition(&input, &valid_profile());
         assert!(report
             .violations
             .iter()
-            .any(|item| item.code == "DJCC-DOWNSTREAM-DISPOSITION-WIDENED"));
+            .any(|item| item.code == "DJCC-DEPENDENCY-CLAIM-UNMET"));
+    }
+
+    #[test]
+    fn dependency_claim_requirements_must_be_sorted_unique_and_nonempty() {
+        let mut input = positive_input();
+        let query = input.stages.get_mut(&StageId::Query).unwrap();
+        query.dependencies[0].required_claims = vec![
+            ClaimDimension::Truth,
+            ClaimDimension::Authentication,
+        ];
+        let report = verify_composition(&input, &valid_profile());
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-DEPENDENCY-CLAIMS"));
     }
 
 
