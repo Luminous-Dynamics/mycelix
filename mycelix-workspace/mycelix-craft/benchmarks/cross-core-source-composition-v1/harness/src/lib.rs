@@ -1350,9 +1350,16 @@ mod tests {
             None,
             "authority-decision:wsr010:p1",
             [0x81; 32],
-            &["isolate", "repair", "pressure-check", "quality-sample"],
+            &[
+                "isolate",
+                "repair",
+                "pressure-check",
+                "quality-sample",
+                "site-safety-check",
+                "handover-documentation",
+            ],
         ))
-        .expect("the initial four-action denominator is canonical and valid");
+        .expect("the initial six-action denominator is canonical and valid");
 
         let isolate = wsr_action_denominator_observation(
             &plan,
@@ -1366,6 +1373,24 @@ mod tests {
             "repair",
             "independent:field-crew",
         );
+        let pressure_check = wsr_action_denominator_observation(
+            &plan,
+            "obs:pressure-check",
+            "pressure-check",
+            "independent:pressure-team",
+        );
+        let quality_sample = wsr_action_denominator_observation(
+            &plan,
+            "obs:quality-sample",
+            "quality-sample",
+            "independent:laboratory",
+        );
+        let safety_check = wsr_action_denominator_observation(
+            &plan,
+            "obs:site-safety-check",
+            "site-safety-check",
+            "independent:safety-inspector",
+        );
         let mut extra = wsr_action_denominator_observation(
             &plan,
             "obs:extra",
@@ -1376,29 +1401,41 @@ mod tests {
         // identity. This exercises the owner's UnknownAction rejection without
         // asking the fixture constructor to invent an action absent from the plan.
         extra.action_id = "unapproved-extra-work".to_owned();
-        let observations = vec![isolate, repair.clone(), repair, extra];
+        let mut observations = vec![
+            isolate,
+            repair.clone(),
+            pressure_check,
+            quality_sample,
+            safety_check,
+            extra,
+        ];
+        // One real action observation repeated 100 times must still contribute
+        // exactly one action to the numerator.
+        observations.extend(std::iter::repeat_n(repair, 99));
         let receipt = action_denominator::evaluate_action_coverage_v1(&plan, &observations, 200)
             .expect("owner evaluates a plan-bound observation set");
-        assert_eq!(receipt.denominator_count, 4);
-        assert_eq!(receipt.covered_count, 2);
-        assert_eq!(receipt.coverage_basis_points, 5_000);
+        assert_eq!(receipt.denominator_count, 6);
+        assert_eq!(receipt.covered_count, 5);
+        assert_eq!(receipt.coverage_basis_points, 8_333);
         assert_eq!(
             receipt.uncovered_action_ids,
-            vec!["pressure-check", "quality-sample"]
+            vec!["handover-documentation"]
         );
-        assert_eq!(receipt.identical_duplicate_observations_ignored, 1);
+        assert_eq!(receipt.identical_duplicate_observations_ignored, 99);
         assert!(receipt.rejected_observations.iter().any(|rejected| {
             rejected.action_id == "unapproved-extra-work"
                 && rejected.reason == action_denominator::RejectionReasonV1::UnknownAction
         }));
 
         let mut expanded_observations = observations;
-        expanded_observations.push(wsr_action_denominator_observation(
+        let mut second_extra = wsr_action_denominator_observation(
             &plan,
             "obs:another-extra",
-            "another-unapproved-action",
+            "repair",
             "independent:field-crew",
-        ));
+        );
+        second_extra.action_id = "another-unapproved-action".to_owned();
+        expanded_observations.push(second_extra);
         let expanded =
             action_denominator::evaluate_action_coverage_v1(&plan, &expanded_observations, 200)
                 .unwrap();
@@ -1414,7 +1451,14 @@ mod tests {
                 None,
                 "authority-decision:wsr010:p1",
                 [0x82; 32],
-                &["isolate", "repair", "pressure-check", "quality-sample"],
+                &[
+                    "isolate",
+                    "repair",
+                    "pressure-check",
+                    "quality-sample",
+                    "site-safety-check",
+                    "handover-documentation",
+                ],
             ))
             .unwrap();
         let original_observations = vec![
@@ -1429,6 +1473,24 @@ mod tests {
                 "p1:obs:repair",
                 "repair",
                 "independent:field-crew",
+            ),
+            wsr_action_denominator_observation(
+                &original,
+                "p1:obs:pressure-check",
+                "pressure-check",
+                "independent:pressure-team",
+            ),
+            wsr_action_denominator_observation(
+                &original,
+                "p1:obs:quality-sample",
+                "quality-sample",
+                "independent:laboratory",
+            ),
+            wsr_action_denominator_observation(
+                &original,
+                "p1:obs:site-safety-check",
+                "site-safety-check",
+                "independent:safety-inspector",
             ),
         ];
         let original_receipt =
@@ -1447,7 +1509,7 @@ mod tests {
                     "repair",
                     "pressure-check",
                     "quality-sample",
-                    "monitoring-handover",
+                    "site-safety-check",
                 ],
             ),
         )
@@ -1457,6 +1519,12 @@ mod tests {
             action_denominator::evaluate_action_coverage_v1(&original, &original_observations, 200)
                 .unwrap();
         assert_eq!(historical_replay, original_receipt);
+        assert_eq!(historical_replay.denominator_count, 6);
+        assert_eq!(historical_replay.covered_count, 5);
+        assert_eq!(
+            historical_replay.uncovered_action_ids,
+            vec!["handover-documentation"]
+        );
 
         let prior_on_amended =
             action_denominator::evaluate_action_coverage_v1(&amended, &original_observations, 200)
@@ -1470,26 +1538,29 @@ mod tests {
                 rejected.reason == action_denominator::RejectionReasonV1::WrongPlan
             }));
 
-        let revised_observations = vec![
-            wsr_action_denominator_observation(
-                &amended,
-                "p2:obs:isolate",
-                "isolate",
-                "independent:field-crew",
-            ),
-            wsr_action_denominator_observation(
-                &amended,
-                "p2:obs:repair",
-                "repair",
-                "independent:field-crew",
-            ),
-        ];
+        let revised_observations: Vec<_> = amended
+            .actions()
+            .iter()
+            .map(|action| {
+                wsr_action_denominator_observation(
+                    &amended,
+                    &format!("p2:obs:{}", action.action_id),
+                    &action.action_id,
+                    &format!("independent:p2:{}", action.action_id),
+                )
+            })
+            .collect();
         let revised_receipt =
             action_denominator::evaluate_action_coverage_v1(&amended, &revised_observations, 200)
                 .unwrap();
-        assert_eq!(revised_receipt.covered_count, 2);
+        assert_eq!(revised_receipt.covered_count, 5);
         assert_eq!(revised_receipt.denominator_count, 5);
-        assert_eq!(original_receipt.denominator_count, 4);
+        assert_eq!(
+            revised_receipt.disposition,
+            action_denominator::CoverageDispositionV1::CompleteForAuthorizedPlan
+        );
+        assert_eq!(original_receipt.covered_count, 5);
+        assert_eq!(original_receipt.denominator_count, 6);
     }
 
     #[test]
@@ -1499,7 +1570,14 @@ mod tests {
             None,
             "authority-decision:wsr010:complete",
             [0x84; 32],
-            &["isolate", "repair", "pressure-check", "quality-sample"],
+            &[
+                "isolate",
+                "repair",
+                "pressure-check",
+                "quality-sample",
+                "site-safety-check",
+                "handover-documentation",
+            ],
         ))
         .unwrap();
         let observations: Vec<_> = plan
