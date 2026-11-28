@@ -5,7 +5,7 @@ use mycelix_agentic_game_qual_harness::agentic::game_theory::{
     StrategyAction,
 };
 use mycelix_agentic_game_qual_harness::agentic::game_theory_verified::{
-    analyze_pure_nash_equilibria, PureEquilibriumConfig, PureEquilibriumStatus,
+    PureEquilibriumConfig, PureEquilibriumStatus, analyze_pure_nash_equilibria,
 };
 use serde::Deserialize;
 
@@ -152,12 +152,7 @@ fn canonical_json_fixtures_match_the_verified_solver() {
         let expected: Vec<(Vec<String>, Vec<f64>)> = fixture
             .expected_pure_equilibria
             .iter()
-            .map(|equilibrium| {
-                (
-                    equilibrium.profile.clone(),
-                    equilibrium.payoffs.clone(),
-                )
-            })
+            .map(|equilibrium| (equilibrium.profile.clone(), equilibrium.payoffs.clone()))
             .collect();
 
         assert_eq!(actual, expected, "wrong pure equilibria for {}", fixture.id);
