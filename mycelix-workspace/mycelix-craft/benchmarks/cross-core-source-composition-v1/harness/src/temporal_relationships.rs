@@ -42,6 +42,9 @@ pub struct TemporalRelationClaimV1 {
     pub valid_from: String,
     pub valid_to: Option<String>,
     pub source_recorded_at: String,
+    /// Pre-admitted harness frontier only. When decoded from OCEL, this value
+    /// is source-supplied data, not proof of host acceptance. Production
+    /// adapters must bind it to a verified host append-log receipt.
     pub accepted_sequence: u64,
     pub source_ref: String,
     pub source_digest: [u8; 32],
@@ -64,6 +67,9 @@ pub struct TemporalRelationMutationV1 {
     /// When the mutation is effective in the modeled domain.
     pub effective_at: String,
     pub source_recorded_at: String,
+    /// Pre-admitted harness frontier only. When decoded from OCEL, this value
+    /// is source-supplied data, not proof of host acceptance. Production
+    /// adapters must bind it to a verified host append-log receipt.
     pub accepted_sequence: u64,
     pub source_ref: String,
     pub source_digest: [u8; 32],
@@ -641,6 +647,9 @@ fn parse_cardinality(
 /// Relation claim objects require exactly one subject and one object O2O
 /// relationship. Mutation events require one target_claim relationship;
 /// supersession events also require one replacement_claim relationship.
+/// This adapter does not authenticate acceptance order: accepted_sequence
+/// decoded from an OCEL attribute is pre-admitted fixture input only. Production
+/// callers must bind the projection to a verified host append-log receipt.
 pub fn parse_temporal_relationships_ocel20(
     input: &str,
 ) -> Result<
