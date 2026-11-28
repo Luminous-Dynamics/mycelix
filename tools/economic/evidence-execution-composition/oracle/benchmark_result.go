@@ -671,6 +671,10 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 		if adversarialCount < 30 || len(adversarialClassIDs) < 30 {
 			return fmt.Errorf("qualification records require at least 30 distinct named adversarial classes")
 		}
+		if counts["positive_control_total"] < int64(len(adversarialClassIDs)) ||
+			counts["hard_negative_total"] < int64(len(adversarialClassIDs)) {
+			return fmt.Errorf("qualification requires a positive control and hard negative for every adversarial class")
+		}
 		if !hasAdversarialClassIDs || !hasPositiveControlClassIDs || !hasHardNegativeClassIDs {
 			return fmt.Errorf("qualification records require named adversarial, positive-control and hard-negative class IDs")
 		}
