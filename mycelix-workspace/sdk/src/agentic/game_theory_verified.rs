@@ -580,8 +580,8 @@ mod tests {
                 equilibrium.payoffs.clone(),
             ))
             .collect();
-        original_set.sort();
-        reversed_set.sort();
+        original_set.sort_by(|left, right| left.0.cmp(&right.0));
+        reversed_set.sort_by(|left, right| left.0.cmp(&right.0));
         assert_eq!(original_set, reversed_set);
     }
 
