@@ -287,8 +287,7 @@ pub fn replay_temporal_frontier(
         .filter(|event| event.kind != EventKind::Revocation && !retired.contains(&event.id))
         .map(|event| event.id.clone())
         .collect::<Vec<_>>();
-    let visible_event_ids: Vec<String> =
-        visible.iter().map(|event| event.id.clone()).collect();
+    let visible_event_ids: Vec<String> = visible.iter().map(|event| event.id.clone()).collect();
 
     let canonical = format!(
         "valid_time_as_of={}\nknown_through_sequence={}\nvisible={}\neffective={}\nsuperseded={}\nrevoked={}\nmutations={}\n",
