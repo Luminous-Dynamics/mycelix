@@ -1,6 +1,6 @@
 # Water Service Repair cross-core benchmark protocol V1
 
-Status: proposed qualification protocol with a six-test executable slice. No field pilot, real service outcome, or comparative performance result is claimed.
+Status: proposed qualification protocol with an eleven-test executable cross-core harness slice. No field pilot, real service outcome, or comparative performance result is claimed.
 
 ## 1. Research question
 
@@ -8,7 +8,9 @@ Can a frozen water-service episode be translated through the six authoritative o
 
 The composition target is:
 
-`episode → Need Intake → Project Formation → Claim Support → Impact Qualification → Evidence Lineage → Decision Closure → independent oracle`
+`episode → Need Intake → Project Formation → Claim Support → Impact Qualification → Evidence Lineage → Decision Closure`
+
+The immutable action-denominator owner is a separate authority-bound owner consumed by WSR-010; it does not replace any of the six domain owners or grant execution authority.
 
 Every owner result remains visible, including abstention and safety-gate dispositions. The cross-core receipt binds each owner result to its source revision, packet digest and evaluator revision. It is an audit artifact, not an authority token.
 
@@ -23,7 +25,7 @@ Compare semantic responsibilities separately.
 | Event-sourced / append-only journal | Replayable event history and state reconstruction | Same correction, revocation, identity, idempotency and historical replay semantics |
 | OCEL 2.1 / process-mining workflow | Object-centric event extraction, process discovery and conformance/deviation analysis | Same normalized events, object identities, source timestamps and provenance |
 | Human-reviewed source packet | Independent domain judgement against source material | Blinded, pre-adjudicated outcomes, reviewer qualifications and recorded reasons |
-| Mycelix six-owner composition | Typed responsibility boundaries, evidence support, impact sufficiency, lineage invalidation and conclusion-relative closure | Exact same source packets, revisions, authority scopes and expected dispositions |
+| Mycelix six-domain-owner plus immutable-denominator composition | Typed responsibility boundaries, evidence support, impact sufficiency, lineage invalidation and conclusion-relative closure | Exact same source packets, revisions, authority scopes and expected dispositions |
 
 A conventional workflow may be operationally excellent without claiming cryptographic or semantic completeness. Do not penalize it for failing obligations it was not designed to claim; report the obligation gap instead. Conversely, do not let Mycelix win by treating an owner abstention as success or by lowering the comparator's burden.
 
@@ -85,9 +87,12 @@ Current executable slice:
 - WSR-006: a wrong-zone pressure observation has a contradictory Scope qualifier; Claim Support returns HumanReviewRequired rather than Supported.
 - Source expiry propagates NeedsRevalidation to dependent claim and decision artifacts while an unrelated quality source remains Current.
 - WSR-009: an expired permit and revoked crew qualification produce a safety gate block and targeted work-authorization revalidation.
+- WSR-010: a six-action authority-sealed P1 plan with five qualified observations reports 5/6 coverage; 99 identical replays of one observation do not inflate coverage, and an unknown action is rejected. A distinct authorized P2 revision with five actions cannot reuse P1 observations; complete P2 coverage still does not close the service episode.
+- WSR-011: a repeat burst is a new episode; it does not rewrite the prior episode's closure.
+- WSR-012: unresolved high-consequence water-quality evidence blocks review eligibility.
 - Two observations sharing one independence group do not satisfy a two-independent-source rule.
 
-The six tests call all six public owner evaluators. The service-level oracle is separately authored and does not call the owner evaluators. This slice is not the full WSR benchmark: four of the 16 known-answer cases are implemented; the remaining 12 cases and most other metamorphic relations are not yet run through the adapters.
+The eleven harness tests exercise the six domain-owner APIs and the separate action-denominator owner. The service-level oracle is separately authored and does not call the owner evaluators. Seven of the 16 known-answer WSR cases are represented in the executable slice; the remaining nine cases and most other metamorphic relations are not yet run through the adapters.
 
 ## 4. Correctness gates
 
