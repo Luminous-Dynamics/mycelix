@@ -672,6 +672,49 @@ mod tests {
     }
 
     #[test]
+    fn inapplicable_profile_row_is_rejected_when_player_has_other_legal_actions() {
+        let mut game = complete_two_player_game();
+        game.players[1].player_type = PlayerType::Malicious;
+        game.strategies.push(Strategy {
+            id: "malicious_only".to_string(),
+            name: "Malicious-only action".to_string(),
+            description: "A strategy restricted to Malicious players".to_string(),
+            actions: vec![StrategyAction {
+                action_type: ActionType::Defect,
+                probability: 1.0,
+                conditions: vec![ActionCondition::Always],
+            }],
+            applicable_types: vec![PlayerType::Malicious],
+        });
+        game.payoffs = vec![
+            PayoffEntry {
+                strategy_profile: vec!["cooperate".into(), "malicious_only".into()],
+                payoffs: vec![2.0, 3.0],
+            },
+            PayoffEntry {
+                strategy_profile: vec!["defect".into(), "malicious_only".into()],
+                payoffs: vec![1.0, 4.0],
+            },
+            PayoffEntry {
+                strategy_profile: vec!["cooperate".into(), "defect".into()],
+                payoffs: vec![0.0, 0.0],
+            },
+        ];
+
+        let report = validate_game_definition(&game, GameValidationConfig::default());
+
+        assert!(!report.is_valid);
+        assert!(report.issues.iter().any(|issue| matches!(
+            issue,
+            GameValidationIssue::InapplicableStrategyInProfile {
+                player_index: 1,
+                strategy_id,
+                ..
+            } if strategy_id == "defect"
+        )));
+    }
+
+    #[test]
     fn legal_profile_count_overflow_is_rejected_without_enumeration() {
         let mut game = complete_two_player_game();
         game.players = (0..70)
