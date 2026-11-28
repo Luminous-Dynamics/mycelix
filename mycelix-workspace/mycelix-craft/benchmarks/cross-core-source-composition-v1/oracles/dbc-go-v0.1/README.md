@@ -40,7 +40,7 @@ go test -cover ./...
 
 ## Canonicalization
 
-Canonical bytes sort stage receipts by DJCC stage order, input bindings by consumer slot, external bindings by consumer/slot, and reason/unknown/conflict codes. The capsule commitment is domain-separated SHA-256 over that typed internal representation. Strict `DecodeJSON`/`EncodeJSON` adapters now map the snake_case JSON Schema to the typed Go model, reject unknown fields and trailing JSON values, and have a round-trip canonical-digest known-answer test. The adapter also rejects missing required arrays that JSON `null` could otherwise masquerade as. Any change to a bound receipt, schema, policy, scope, frontier, plan revision or outcome changes the typed-model commitment.
+Canonical bytes sort stage receipts by DJCC stage order, input bindings by consumer slot, external bindings by consumer/slot, and reason/unknown/conflict codes. The capsule commitment is domain-separated SHA-256 over that typed internal representation. Strict `DecodeJSON`/`EncodeJSON` adapters now map the snake_case JSON Schema to the typed Go model, recursively reject duplicate object keys, reject unknown fields and trailing JSON values, and have a round-trip canonical-digest known-answer test. The adapter also rejects missing required arrays that JSON `null` could otherwise masquerade as. Any change to a bound receipt, schema, policy, scope, frontier, plan revision or outcome changes the typed-model commitment.
 
 ## Claim ceiling
 
