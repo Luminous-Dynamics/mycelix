@@ -74,7 +74,7 @@ mycelix/
 ## Prerequisites
 
 - [Nix](https://nixos.org/) with flakes enabled
-- Holochain 0.6.0 (provided via Nix)
+- Holochain 0.6.1 (central workspace dependency pin; see `mycelix-workspace/Cargo.toml`)
 
 ## Quick Start
 
@@ -127,13 +127,15 @@ Cross-cluster communication via `CallTargetCell::OtherRole` in the unified hApp.
 - **TEND** — Time Exchange Notes for Development (time banking)
 - **MYCEL** — Mycelial Recognition (reputation/contribution)
 
+> **Version scope:** the versions below are the central `mycelix-workspace` dependency pins. This repository contains multiple domain clusters, older projects, and separately versioned components; the table is not a claim that every historical component has completed migration to the same runtime. For current per-cluster maturity, prefer the workspace's maintained status and release documents over older ecosystem snapshots.
+
 ## Holochain Version
 
 | Component | Version |
 |-----------|---------|
-| holochain | 0.6.0 |
-| hdk | 0.6.0 |
-| hdi | 0.7.0 |
+| holochain | 0.6.1 |
+| hdk | 0.6.1 |
+| hdi | 0.7.1 |
 
 ## License
 
