@@ -298,9 +298,11 @@ fn pairwise_lineage_overlaps(
 /// exhaustive, or claim that the surviving channels are mutually independent.
 pub fn assess_failure_scenarios(
     graph: &FailureDomainGraph,
+    profile: &IndependenceProfile,
     scenarios: &[FailureScenario],
     minimum_survivor_floor: usize,
 ) -> Result<FailureScenarioAssessment, String> {
+    let _profile_assessment = assess_independence(graph, profile)?;
     let (nodes, channel_lineage) = build_channel_lineages(graph)?;
     if scenarios.is_empty() {
         return Err("failure scenario suite must not be empty".to_owned());
@@ -334,24 +336,6 @@ pub fn assess_failure_scenarios(
         return Err("failure scenarios must be sorted by unique scenario_ref".to_owned());
     }
 
-    let profile_for_overlap = IndependenceProfile {
-        profile_ref: "internal:failure-scenario-overlap".to_owned(),
-        required_classes: BTreeSet::from([FailureDomainClass::CollectionDevice]),
-        material_shared_classes: BTreeSet::from([
-            FailureDomainClass::OrganizationOperator,
-            FailureDomainClass::AdministrativeControlPlane,
-            FailureDomainClass::SigningKeyCustody,
-            FailureDomainClass::CollectionDevice,
-            FailureDomainClass::CalibrationChain,
-            FailureDomainClass::NetworkTransport,
-            FailureDomainClass::UpstreamSource,
-            FailureDomainClass::TransformationPipeline,
-            FailureDomainClass::PowerSupply,
-            FailureDomainClass::EconomicControl,
-        ]),
-        explicitly_non_material_shared_classes: BTreeSet::new(),
-    };
-
     let mut outcomes = Vec::with_capacity(scenarios.len());
     for scenario in scenarios {
         let failed: BTreeSet<_> = scenario.failed_domain_refs.iter().cloned().collect();
@@ -368,7 +352,7 @@ pub fn assess_failure_scenarios(
             }
         }
         let survivor_graph = FailureDomainGraph {
-            nodes: graph.nodes.clone(),
+            nodes: Vec::new(),
             channels: graph
                 .channels
                 .iter()
@@ -376,13 +360,21 @@ pub fn assess_failure_scenarios(
                 .cloned()
                 .collect(),
         };
+        let survivor_lineage: BTreeMap<_, _> = survivor_graph
+            .channels
+            .iter()
+            .filter_map(|channel| {
+                channel_lineage
+                    .get(&channel.evidence_ref)
+                    .map(|lineage| (channel.evidence_ref.clone(), lineage.clone()))
+            })
+            .collect();
         let surviving_pairwise_overlaps = if survivor_graph.channels.len() >= 2 {
-            let (_, survivor_lineage) = build_channel_lineages(&survivor_graph)?;
             pairwise_lineage_overlaps(
                 &survivor_graph,
                 &nodes,
                 &survivor_lineage,
-                &profile_for_overlap,
+                profile,
             )?
         } else {
             Vec::new()
@@ -765,7 +757,7 @@ mod tests {
                 failed_domain_refs: vec!["a-feed".to_owned()],
             },
         ];
-        let result = assess_failure_scenarios(&graph, &scenarios, 2).unwrap();
+        let result = assess_failure_scenarios(&graph, &profile(), &scenarios, 2).unwrap();
         assert!(!result.all_declared_scenarios_meet_survivor_floor);
         assert_eq!(
             result.outcomes[0].surviving_channels,
@@ -791,7 +783,7 @@ mod tests {
             failed_domain_refs: vec!["not-in-graph".to_owned()],
         }];
         assert!(
-            assess_failure_scenarios(&graph, &unknown, 1)
+            assess_failure_scenarios(&graph, &profile(), &unknown, 1)
                 .unwrap_err()
                 .contains("unknown domain")
         );
@@ -799,9 +791,9 @@ mod tests {
             scenario_ref: "scenario:valid".to_owned(),
             failed_domain_refs: vec!["a-device".to_owned()],
         }];
-        assert!(assess_failure_scenarios(&graph, &[], 1).is_err());
-        assert!(assess_failure_scenarios(&graph, &valid, 0).is_err());
-        assert!(assess_failure_scenarios(&graph, &valid, 3).is_err());
+        assert!(assess_failure_scenarios(&graph, &profile(), &[], 1).is_err());
+        assert!(assess_failure_scenarios(&graph, &profile(), &valid, 0).is_err());
+        assert!(assess_failure_scenarios(&graph, &profile(), &valid, 3).is_err());
     }
 
     #[test]
@@ -811,7 +803,7 @@ mod tests {
             scenario_ref: "scenario:independent-local-loss".to_owned(),
             failed_domain_refs: vec!["c-device".to_owned()],
         }];
-        let result = assess_failure_scenarios(&graph, &scenarios, 2).unwrap();
+        let result = assess_failure_scenarios(&graph, &profile(), &scenarios, 2).unwrap();
         let survivors = &result.outcomes[0].surviving_pairwise_overlaps;
         assert_eq!(survivors.len(), 1);
         assert_eq!(
