@@ -52,6 +52,17 @@ jobs:
           test -f tools/economic/evidence-execution-composition/DJCC_V0_1_SEEDS.json
           test -f tools/economic/evidence-execution-composition/DJCC_PROFILES_V0_1.json
           test -f tools/economic/evidence-execution-composition/DJCC_STAGE_EDGE_V1_KAT.tsv
+          test -f tools/economic/evidence-execution-composition/DJCC_BENCHMARK_PROTOCOL_V0_1.md
+          test -f tools/economic/evidence-execution-composition/DJCC_BENCHMARK_RESULT_V0_1.schema.json
+          jq -e '
+            .["$schema"] == "https://json-schema.org/draft/2020-12/schema" and
+            .properties.schema.const == "mycelix.djcc-benchmark-result.v0.1" and
+            (.required | index("run_class") != null) and
+            (.required | index("qualification_outcome") != null) and
+            (.properties.correctness.required | index("false_authentication_count") != null) and
+            (.allOf | length >= 2) and
+            (.["x-semantic-invariants"] | length >= 8)
+          ' tools/economic/evidence-execution-composition/DJCC_BENCHMARK_RESULT_V0_1.schema.json >/dev/null
           test -f tools/economic/evidence-execution-composition/go.mod
           test -f tools/economic/evidence-execution-composition/oracle/oracle.go
           test -f tools/economic/evidence-execution-composition/oracle/oracle_test.go
