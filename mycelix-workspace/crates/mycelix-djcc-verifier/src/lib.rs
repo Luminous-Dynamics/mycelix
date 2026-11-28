@@ -1690,6 +1690,7 @@ mod tests {
             "authority" => ClaimDimension::Authority,
             "completeness" => ClaimDimension::Completeness,
             "effect" => ClaimDimension::Effect,
+            "independence" => ClaimDimension::Independence,
             "truth" => ClaimDimension::Truth,
             other => panic!("unknown claim dimension {other}"),
         }
@@ -1735,7 +1736,7 @@ mod tests {
             );
             seen += 1;
         }
-        assert_eq!(seen, 3, "all shared stage-edge vectors must execute");
+        assert_eq!(seen, 4, "all shared stage-edge vectors must execute");
     }
 
     #[test]
