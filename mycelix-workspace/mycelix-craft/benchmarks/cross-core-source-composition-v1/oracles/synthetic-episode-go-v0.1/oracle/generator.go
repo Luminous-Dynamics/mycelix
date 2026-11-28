@@ -9,6 +9,7 @@ import (
  "encoding/json"
  "errors"
  "fmt"
+ "io"
  "sort"
 )
 
@@ -47,7 +48,7 @@ type Bundle struct {
 func decodeObject(raw []byte) (map[string]any,error) {
  d:=json.NewDecoder(bytes.NewReader(raw)); d.UseNumber(); var v map[string]any
  if err:=d.Decode(&v); err!=nil{return nil,err}; if v==nil{return nil,errors.New("root must be object")}
- var extra any; if err:=d.Decode(&extra); err==nil{return nil,errors.New("trailing JSON")}
+ var extra any; if err:=d.Decode(&extra); err!=io.EOF{return nil,errors.New("trailing JSON or invalid trailing bytes")}
  return v,nil
 }
 func canonical(v any)([]byte,error){return json.Marshal(v)}
@@ -88,7 +89,7 @@ func apply(ep map[string]any,c MutationCase)error{
 
 func Generate(baseRaw,registryRaw []byte)([]Bundle,error){
  base,e:=decodeObject(baseRaw);if e!=nil{return nil,fmt.Errorf("base episode: %w",e)}
- d:=json.NewDecoder(bytes.NewReader(registryRaw));d.UseNumber();var reg Registry;if e=d.Decode(&reg);e!=nil{return nil,e};var trailing any;if e=d.Decode(&trailing);e==nil{return nil,errors.New("trailing registry JSON")}
+ d:=json.NewDecoder(bytes.NewReader(registryRaw));d.UseNumber();var reg Registry;if e=d.Decode(&reg);e!=nil{return nil,e};var trailing any;if e=d.Decode(&trailing);e!=io.EOF{return nil,errors.New("trailing registry JSON or invalid trailing bytes")}
  if reg.SchemaID!="mycelix.craft.synthetic-scenario-mutations.v0.1"||reg.FixtureID==""||len(reg.Mutations)==0{return nil,errors.New("invalid registry header")}
  baseDigest:=RawDigest(EpisodeDomain,baseRaw);regDigest:=RawDigest(EpisodeDomain,registryRaw)
  cases:=append([]MutationCase(nil),reg.Mutations...);sort.Slice(cases,func(i,j int)bool{return cases[i].ID<cases[j].ID})
