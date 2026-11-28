@@ -163,6 +163,19 @@ func DecodeJSON(data []byte) (Capsule, error) {
 	if err := decoder.Decode(&wire); err != nil {
 		return Capsule{}, fmt.Errorf("decode DBC wire capsule: %w", err)
 	}
+	if wire.External == nil || wire.Stages == nil || wire.Unknowns == nil || wire.Conflicts == nil {
+		return Capsule{}, fmt.Errorf("DBC wire external_bindings, stages, unknowns and conflicts must be JSON arrays")
+	}
+	for _, stage := range wire.Stages {
+		if stage.Inputs == nil || stage.Claims == nil {
+			return Capsule{}, fmt.Errorf("DBC stage %q inputs and claims must be present", stage.Stage)
+		}
+		for _, input := range stage.Inputs {
+			if input.RequiredClaims == nil {
+				return Capsule{}, fmt.Errorf("DBC stage %q input %q required_claims must be a JSON array", stage.Stage, input.Slot)
+			}
+		}
+	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		if err == nil {
@@ -284,12 +297,15 @@ func EncodeJSON(c Capsule) ([]byte, error) {
 			item.Inputs = append(item.Inputs, wireInput{Slot: input.Slot, ProducerStage: string(input.Producer),
 				ProducerReceiptID: input.ReceiptID, ProducerSchemaID: input.Schema, ProducerDigest: input.Digest, RequiredClaims: input.Required})
 		}
+		if item.Inputs == nil { item.Inputs = []wireInput{} }
 		sort.Slice(item.Inputs, func(i, j int) bool { return item.Inputs[i].Slot < item.Inputs[j].Slot })
 		wire.Stages = append(wire.Stages, item)
 	}
 	sort.Slice(wire.Stages, func(i, j int) bool {
 		return stageRank(wire.Stages[i].Stage) < stageRank(wire.Stages[j].Stage)
 	})
+	if wire.Unknowns == nil { wire.Unknowns = []string{} }
+	if wire.Conflicts == nil { wire.Conflicts = []string{} }
 	for _, binding := range c.External {
 		wire.External = append(wire.External, wireExternalBinding{
 			ConsumerStage: string(binding.Consumer), Slot: binding.Slot, ReceiptID: binding.ReceiptID,
