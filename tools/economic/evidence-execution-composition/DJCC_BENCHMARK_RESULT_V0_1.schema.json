@@ -810,7 +810,8 @@
               "hard_negative_class_ids",
               "fixture_set_digest",
               "oracle_version",
-              "oracle_digest"
+              "oracle_digest",
+              "fixture_records"
             ]
           },
           "execution": {
@@ -837,9 +838,7 @@
             }
           }
         },
-        "required": [
-          "fixture_records"
-        ]
+        "required": []
       }
     },
     {
