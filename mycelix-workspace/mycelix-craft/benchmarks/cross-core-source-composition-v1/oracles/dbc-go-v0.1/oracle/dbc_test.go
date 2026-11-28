@@ -257,7 +257,7 @@ func TestJSONWireRoundTripPreservesCanonicalDBC(t *testing.T) {
 	if before != after { t.Fatalf("wire round-trip changed canonical DBC: %s != %s", before, after) }
 }
 
-func TestJSONWireDecoderRejectsUnknownFieldsAndTrailingValues(t *testing.T) {
+func TestJSONWireDecoderRejectsUnknownFieldsTrailingValuesAndDuplicateKeys(t *testing.T) {
 	wire, err := EncodeJSON(base())
 	if err != nil { t.Fatal(err) }
 	unknown := strings.TrimSuffix(string(wire), "}") + `,"unvalidated_extension":true}`
@@ -266,6 +266,13 @@ func TestJSONWireDecoderRejectsUnknownFieldsAndTrailingValues(t *testing.T) {
 	}
 	if _, err := DecodeJSON(append(wire, []byte("{}")...)); err == nil {
 		t.Fatal("a second JSON value after the capsule was accepted")
+	}
+	duplicate := strings.Replace(string(wire), `"query_id":"query-1"`, `"query_id":"query-1","query_id":"forged-query"`, 1)
+	if duplicate == string(wire) {
+		t.Fatal("test fixture did not locate query_id in encoded JSON")
+	}
+	if _, err := DecodeJSON([]byte(duplicate)); err == nil {
+		t.Fatal("duplicate JSON object key was silently accepted")
 	}
 }
 
