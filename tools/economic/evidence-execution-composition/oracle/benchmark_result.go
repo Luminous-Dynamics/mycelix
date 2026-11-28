@@ -326,6 +326,27 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 	if err != nil {
 		return err
 	}
+
+	adversarialClassIDs := make(map[string]struct{})
+	if rawIDs, exists := corpus["adversarial_class_ids"]; exists {
+		items, ok := rawIDs.([]any)
+		if !ok {
+			return fmt.Errorf("adversarial_class_ids must be an array")
+		}
+		for index, rawID := range items {
+			id, ok := rawID.(string)
+			if !ok || strings.TrimSpace(id) == "" || len(id) > 128 {
+				return fmt.Errorf("adversarial_class_ids[%d] must be a non-empty string of at most 128 bytes", index)
+			}
+			if _, duplicate := adversarialClassIDs[id]; duplicate {
+				return fmt.Errorf("adversarial_class_ids contains duplicate class %q", id)
+			}
+			adversarialClassIDs[id] = struct{}{}
+		}
+		if int64(len(adversarialClassIDs)) != adversarialCount {
+			return fmt.Errorf("adversarial_class_count must equal the number of distinct adversarial_class_ids")
+		}
+	}
 	for _, key := range []string{"fixture_set_digest", "oracle_digest"} {
 		if value, exists := corpus[key]; exists {
 			text, ok := value.(string)
@@ -597,8 +618,11 @@ func ValidateBenchmarkResultV01(raw []byte) error {
 		if !workingTreeClean {
 			return fmt.Errorf("qualification records require a clean source tree")
 		}
-		if adversarialCount < 30 {
-			return fmt.Errorf("qualification records require at least 30 adversarial classes")
+		if adversarialCount < 30 || len(adversarialClassIDs) < 30 {
+			return fmt.Errorf("qualification records require at least 30 distinct named adversarial classes")
+		}
+		if int64(len(adversarialClassIDs)) != adversarialCount {
+			return fmt.Errorf("qualification adversarial class count must match its distinct class IDs")
 		}
 		if symbolicCount != 0 {
 			return fmt.Errorf("qualification records cannot count symbolic fixtures; all fixtures must be executable")
