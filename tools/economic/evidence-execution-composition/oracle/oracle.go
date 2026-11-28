@@ -32,16 +32,16 @@ const (
 	UnsupportedByProfile     Disposition = "UnsupportedByProfile"
 	NotApplicable            Disposition = "NotApplicable"
 
-	JustifiedAtFrontier CompositionDisposition = "DecisionJustifiedAtAcceptedFrontier"
-	NotJustified        CompositionDisposition = "DecisionNotJustifiedAtAcceptedFrontier"
-	CompositionUnknown  CompositionDisposition = "Indeterminate"
-	ReplayMismatch      CompositionDisposition = "HistoricalReplayMismatch"
+	JustifiedAtFrontier    CompositionDisposition = "DecisionJustifiedAtAcceptedFrontier"
+	NotJustified           CompositionDisposition = "DecisionNotJustifiedAtAcceptedFrontier"
+	CompositionUnknown     CompositionDisposition = "Indeterminate"
+	ReplayMismatch         CompositionDisposition = "HistoricalReplayMismatch"
 	CompositionUnsupported CompositionDisposition = "UnsupportedByProfile"
 
-	Established ClaimState = "EstablishedWithinProfile"
-	ClaimRejected ClaimState = "Rejected"
-	ClaimUnknown ClaimState = "Indeterminate"
-	ClaimNotEvaluated ClaimState = "NotEvaluated"
+	Established        ClaimState = "EstablishedWithinProfile"
+	ClaimRejected      ClaimState = "Rejected"
+	ClaimUnknown       ClaimState = "Indeterminate"
+	ClaimNotEvaluated  ClaimState = "NotEvaluated"
 	ClaimUnsupported ClaimState = "UnsupportedByProfile"
 	ClaimNotApplicable ClaimState = "NotApplicable"
 )
@@ -319,7 +319,6 @@ func equalStages(left, right map[StageID]Disposition) bool {
 	return true
 }
 
-
 type CompositionProfile struct {
 	ProfileRef           string                         `json:"profile_ref"`
 	RequiredClaims       []string                       `json:"required_claims"`
@@ -393,7 +392,7 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 	"mycelix.djcc.full-evidence-execution.v0.1": {
 		RequiredClaims:       []string{"authentication", "authority", "completeness", "effect", "truth"},
 		AllowedNotApplicable: []string{},
-		ClaimStages:          map[string][]string{
+		ClaimStages: map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
 			"authority":      {"authorization"},
 			"completeness":   {"verifier_frontier", "source_trust", "semantic_projection", "query"},
@@ -433,7 +432,7 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 	"mycelix.djcc.historical-decision-only.v0.1": {
 		RequiredClaims:       []string{"authentication", "authority", "completeness", "truth"},
 		AllowedNotApplicable: []string{"execution", "outcome"},
-		ClaimStages:          map[string][]string{
+		ClaimStages: map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
 			"authority":      {"authorization"},
 			"completeness":   {"verifier_frontier", "source_trust", "semantic_projection", "query"},
@@ -464,7 +463,7 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 	"mycelix.djcc.independent-corroboration.v0.1": {
 		RequiredClaims:       []string{"authentication", "authority", "completeness", "independence", "truth"},
 		AllowedNotApplicable: []string{"execution", "outcome"},
-		ClaimStages:          map[string][]string{
+		ClaimStages: map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
 			"authority":      {"authorization"},
 			"completeness":   {"verifier_frontier", "source_trust", "semantic_projection", "query"},
