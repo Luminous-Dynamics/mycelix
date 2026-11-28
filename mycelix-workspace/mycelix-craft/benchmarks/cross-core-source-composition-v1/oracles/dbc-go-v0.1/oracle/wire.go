@@ -46,34 +46,34 @@ type wireExternalBinding struct {
 }
 
 type wireFrontier struct {
-	Kind          string   `json:"kind"`
-	Receipt       wireRef  `json:"receipt"`
-	Status        string   `json:"status"`
-	Prefix        State    `json:"accepted_prefix_completeness"`
+	Kind    string  `json:"kind"`
+	Receipt wireRef `json:"receipt"`
+	Status  string  `json:"status"`
+	Prefix  State   `json:"accepted_prefix_completeness"`
 }
 
 type wireProgress struct {
-	Kind           string   `json:"kind"`
-	Receipt        wireRef  `json:"receipt"`
-	Status         string   `json:"status"`
-	Universe       State    `json:"source_universe_completeness"`
-	OwnerDigest    string   `json:"owner_inventory_digest"`
+	Kind        string  `json:"kind"`
+	Receipt     wireRef `json:"receipt"`
+	Status      string  `json:"status"`
+	Universe    State   `json:"source_universe_completeness"`
+	OwnerDigest string  `json:"owner_inventory_digest"`
 }
 
 type wireOwner struct {
-	Receipt         wireRef `json:"receipt"`
-	Authentication  State   `json:"authentication"`
-	Completeness    State   `json:"completeness"`
-	FrontierDigest  string  `json:"frontier_digest"`
+	Receipt        wireRef `json:"receipt"`
+	Authentication State   `json:"authentication"`
+	Completeness   State   `json:"completeness"`
+	FrontierDigest string  `json:"frontier_digest"`
 }
 
 type wireTemporal struct {
-	OCELProfile       wireRef `json:"ocel_profile"`
-	SourceCorpus      wireRef `json:"source_corpus"`
-	Projection        wireRef `json:"projection_receipt"`
-	Replay            wireRef `json:"replay_receipt"`
-	FrontierDigest    string  `json:"frontier_digest"`
-	SourceCorpusDigest string `json:"source_corpus_digest"`
+	OCELProfile        wireRef `json:"ocel_profile"`
+	SourceCorpus       wireRef `json:"source_corpus"`
+	Projection         wireRef `json:"projection_receipt"`
+	Replay             wireRef `json:"replay_receipt"`
+	FrontierDigest     string  `json:"frontier_digest"`
+	SourceCorpusDigest string  `json:"source_corpus_digest"`
 }
 
 type wireEvidence struct {
@@ -90,53 +90,55 @@ type wireAuthority struct {
 }
 
 type wireActionPlan struct {
-	Receipt           wireRef `json:"receipt"`
-	Digest            string  `json:"plan_digest"`
-	Revision          string  `json:"revision"`
-	Count             uint64  `json:"action_count"`
-	Covered           uint64  `json:"covered_action_count"`
-	CoverageDigest    string  `json:"coverage_plan_digest"`
-	CoverageRevision  string  `json:"coverage_revision"`
-	Coverage          wireRef `json:"coverage_receipt"`
+	Receipt          wireRef `json:"receipt"`
+	Digest           string  `json:"plan_digest"`
+	Revision         string  `json:"revision"`
+	Count            uint64  `json:"action_count"`
+	Covered          uint64  `json:"covered_action_count"`
+	CoverageDigest   string  `json:"coverage_plan_digest"`
+	CoverageRevision string  `json:"coverage_revision"`
+	Coverage         wireRef `json:"coverage_receipt"`
 }
 
 type wireOutcome struct {
-	Receipt                 wireRef `json:"receipt"`
-	Status                  string  `json:"status"`
-	Reconciliation          string  `json:"reconciliation"`
-	ExecutionDigest         string  `json:"execution_digest"`
-	ActionPlanDigest        string  `json:"plan_digest"`
-	MutationScope           string  `json:"mutation_scope"`
+	Receipt                  wireRef `json:"receipt"`
+	Status                   string  `json:"status"`
+	Reconciliation           string  `json:"reconciliation"`
+	ExecutionDigest          string  `json:"execution_digest"`
+	ActionPlanDigest         string  `json:"plan_digest"`
+	MutationScope            string  `json:"mutation_scope"`
 	SameScopeMutationAttempt bool    `json:"same_scope_mutation_attempt"`
 }
 
 type wireCapsule struct {
-	SchemaID      string                `json:"schema_id"`
-	ProfileRef    string                `json:"profile_ref"`
-	ProfileDigest string                `json:"profile_digest"`
-	DecisionID    string                `json:"decision_id"`
-	QueryID       string                `json:"query_id"`
-	QueryDigest   string                `json:"query_digest"`
-	QuerySchema   string                `json:"query_schema_id"`
-	ScopeDigest   string                `json:"scope"`
-	ValidAt       string                `json:"valid_at"`
-	Policy        struct { Receipt wireRef `json:"receipt"` } `json:"policy"`
-	Frontier      wireFrontier          `json:"causal_event_frontier"`
-	Progress      wireProgress          `json:"progress_antichain"`
-	Owner         wireOwner             `json:"owner_universe"`
-	Temporal      wireTemporal          `json:"temporal"`
-	Evidence      wireEvidence          `json:"evidence"`
-	Authority     wireAuthority         `json:"authority"`
-	Action        wireActionPlan        `json:"action_plan"`
-	Execution     wireRef               `json:"execution"`
-	Outcome       wireOutcome           `json:"outcome"`
-	External      []wireExternalBinding `json:"external_bindings"`
-	Stages        []wireStage           `json:"stages"`
-	Claims        map[string]State      `json:"claims"`
-	Disposition   Disposition           `json:"disposition"`
-	Unknowns      []string              `json:"unknowns"`
-	Conflicts     []string              `json:"conflicts"`
-	Abstention    string                `json:"abstention_reason,omitempty"`
+	SchemaID      string `json:"schema_id"`
+	ProfileRef    string `json:"profile_ref"`
+	ProfileDigest string `json:"profile_digest"`
+	DecisionID    string `json:"decision_id"`
+	QueryID       string `json:"query_id"`
+	QueryDigest   string `json:"query_digest"`
+	QuerySchema   string `json:"query_schema_id"`
+	ScopeDigest   string `json:"scope"`
+	ValidAt       string `json:"valid_at"`
+	Policy        struct {
+		Receipt wireRef `json:"receipt"`
+	} `json:"policy"`
+	Frontier    wireFrontier          `json:"causal_event_frontier"`
+	Progress    wireProgress          `json:"progress_antichain"`
+	Owner       wireOwner             `json:"owner_universe"`
+	Temporal    wireTemporal          `json:"temporal"`
+	Evidence    wireEvidence          `json:"evidence"`
+	Authority   wireAuthority         `json:"authority"`
+	Action      wireActionPlan        `json:"action_plan"`
+	Execution   wireRef               `json:"execution"`
+	Outcome     wireOutcome           `json:"outcome"`
+	External    []wireExternalBinding `json:"external_bindings"`
+	Stages      []wireStage           `json:"stages"`
+	Claims      map[string]State      `json:"claims"`
+	Disposition Disposition           `json:"disposition"`
+	Unknowns    []string              `json:"unknowns"`
+	Conflicts   []string              `json:"conflicts"`
+	Abstention  string                `json:"abstention_reason,omitempty"`
 }
 
 func refFromWire(r wireRef) Ref {
@@ -260,40 +262,40 @@ func DecodeJSON(data []byte) (Capsule, error) {
 	}
 
 	capsule := Capsule{
-		SchemaID: wire.SchemaID,
-		ProfileRef: wire.ProfileRef,
+		SchemaID:      wire.SchemaID,
+		ProfileRef:    wire.ProfileRef,
 		ProfileDigest: wire.ProfileDigest,
-		DecisionID: wire.DecisionID,
-		QueryID: wire.QueryID,
-		QueryDigest: wire.QueryDigest,
-		QuerySchema: wire.QuerySchema,
-		ScopeDigest: wire.ScopeDigest,
-		ValidAt: wire.ValidAt,
-		Policy: refFromWire(wire.Policy.Receipt),
-		Frontier: FrontierBinding{Kind: wire.Frontier.Kind, Receipt: refFromWire(wire.Frontier.Receipt), Status: wire.Frontier.Status, Prefix: wire.Frontier.Prefix},
-		Progress: ProgressBinding{Kind: wire.Progress.Kind, Receipt: refFromWire(wire.Progress.Receipt), Status: wire.Progress.Status, Universe: wire.Progress.Universe, OwnerInventoryDigest: wire.Progress.OwnerDigest},
-		Owner: OwnerBinding{Receipt: refFromWire(wire.Owner.Receipt), Authentication: wire.Owner.Authentication, Completeness: wire.Owner.Completeness, FrontierDigest: wire.Owner.FrontierDigest},
+		DecisionID:    wire.DecisionID,
+		QueryID:       wire.QueryID,
+		QueryDigest:   wire.QueryDigest,
+		QuerySchema:   wire.QuerySchema,
+		ScopeDigest:   wire.ScopeDigest,
+		ValidAt:       wire.ValidAt,
+		Policy:        refFromWire(wire.Policy.Receipt),
+		Frontier:      FrontierBinding{Kind: wire.Frontier.Kind, Receipt: refFromWire(wire.Frontier.Receipt), Status: wire.Frontier.Status, Prefix: wire.Frontier.Prefix},
+		Progress:      ProgressBinding{Kind: wire.Progress.Kind, Receipt: refFromWire(wire.Progress.Receipt), Status: wire.Progress.Status, Universe: wire.Progress.Universe, OwnerInventoryDigest: wire.Progress.OwnerDigest},
+		Owner:         OwnerBinding{Receipt: refFromWire(wire.Owner.Receipt), Authentication: wire.Owner.Authentication, Completeness: wire.Owner.Completeness, FrontierDigest: wire.Owner.FrontierDigest},
 		Temporal: struct {
 			OCELProfile, SourceCorpus, Projection, Replay Ref
-			FrontierDigest, SourceCorpusDigest string
+			FrontierDigest, SourceCorpusDigest            string
 		}{
-			OCELProfile: refFromWire(wire.Temporal.OCELProfile),
-			SourceCorpus: refFromWire(wire.Temporal.SourceCorpus),
-			Projection: refFromWire(wire.Temporal.Projection),
-			Replay: refFromWire(wire.Temporal.Replay),
-			FrontierDigest: wire.Temporal.FrontierDigest,
+			OCELProfile:        refFromWire(wire.Temporal.OCELProfile),
+			SourceCorpus:       refFromWire(wire.Temporal.SourceCorpus),
+			Projection:         refFromWire(wire.Temporal.Projection),
+			Replay:             refFromWire(wire.Temporal.Replay),
+			FrontierDigest:     wire.Temporal.FrontierDigest,
 			SourceCorpusDigest: wire.Temporal.SourceCorpusDigest,
 		},
-		Evidence: EvidenceBinding{IndependenceStatus: wire.Evidence.IndependenceStatus},
-		Authority: AuthorityBinding{Receipt: refFromWire(wire.Authority.Receipt), Principal: wire.Authority.Principal, Scope: wire.Authority.Scope, Validity: wire.Authority.Validity},
-		Action: ActionBinding{Receipt: refFromWire(wire.Action.Receipt), Digest: wire.Action.Digest, Revision: wire.Action.Revision, CoverageRevision: wire.Action.CoverageRevision, Count: wire.Action.Count, Covered: wire.Action.Covered, CoverageDigest: wire.Action.CoverageDigest, Coverage: refFromWire(wire.Action.Coverage)},
-		Execution: refFromWire(wire.Execution),
-		Outcome: OutcomeBinding{Receipt: refFromWire(wire.Outcome.Receipt), Status: wire.Outcome.Status, Reconciliation: wire.Outcome.Reconciliation, ExecutionDigest: wire.Outcome.ExecutionDigest, ActionPlanDigest: wire.Outcome.ActionPlanDigest, MutationScope: wire.Outcome.MutationScope, SameScopeMutationAttempt: wire.Outcome.SameScopeMutationAttempt},
-		Claims: wire.Claims,
+		Evidence:    EvidenceBinding{IndependenceStatus: wire.Evidence.IndependenceStatus},
+		Authority:   AuthorityBinding{Receipt: refFromWire(wire.Authority.Receipt), Principal: wire.Authority.Principal, Scope: wire.Authority.Scope, Validity: wire.Authority.Validity},
+		Action:      ActionBinding{Receipt: refFromWire(wire.Action.Receipt), Digest: wire.Action.Digest, Revision: wire.Action.Revision, CoverageRevision: wire.Action.CoverageRevision, Count: wire.Action.Count, Covered: wire.Action.Covered, CoverageDigest: wire.Action.CoverageDigest, Coverage: refFromWire(wire.Action.Coverage)},
+		Execution:   refFromWire(wire.Execution),
+		Outcome:     OutcomeBinding{Receipt: refFromWire(wire.Outcome.Receipt), Status: wire.Outcome.Status, Reconciliation: wire.Outcome.Reconciliation, ExecutionDigest: wire.Outcome.ExecutionDigest, ActionPlanDigest: wire.Outcome.ActionPlanDigest, MutationScope: wire.Outcome.MutationScope, SameScopeMutationAttempt: wire.Outcome.SameScopeMutationAttempt},
+		Claims:      wire.Claims,
 		Disposition: wire.Disposition,
-		Unknowns: wire.Unknowns,
-		Conflicts: wire.Conflicts,
-		Abstention: wire.Abstention,
+		Unknowns:    wire.Unknowns,
+		Conflicts:   wire.Conflicts,
+		Abstention:  wire.Abstention,
 	}
 	if wire.Evidence.FailureDomainGraph != nil {
 		value := refFromWire(*wire.Evidence.FailureDomainGraph)
@@ -305,7 +307,9 @@ func DecodeJSON(data []byte) (Capsule, error) {
 	}
 	for _, item := range wire.Stages {
 		stage, err := parseStage(item.Stage)
-		if err != nil { return Capsule{}, err }
+		if err != nil {
+			return Capsule{}, err
+		}
 		receipt := StageReceipt{
 			ID: item.ID, Stage: stage, Schema: item.SchemaID, OutputSchema: item.OutputSchema,
 			ProfileDigest: item.ProfileDigest, ScopeDigest: item.ScopeDigest, SourceCommit: item.SourceCommit,
@@ -313,7 +317,9 @@ func DecodeJSON(data []byte) (Capsule, error) {
 		}
 		for _, input := range item.Inputs {
 			producer, err := parseStage(input.ProducerStage)
-			if err != nil { return Capsule{}, err }
+			if err != nil {
+				return Capsule{}, err
+			}
 			receipt.Inputs = append(receipt.Inputs, Input{
 				Slot: input.Slot, Producer: producer, ReceiptID: input.ProducerReceiptID,
 				Schema: input.ProducerSchemaID, Digest: input.ProducerDigest, Required: input.RequiredClaims,
@@ -323,7 +329,9 @@ func DecodeJSON(data []byte) (Capsule, error) {
 	}
 	for _, item := range wire.External {
 		consumer, err := parseStage(item.ConsumerStage)
-		if err != nil { return Capsule{}, err }
+		if err != nil {
+			return Capsule{}, err
+		}
 		capsule.External = append(capsule.External, ExternalBinding{
 			Consumer: consumer, Slot: item.Slot, ReceiptID: item.ReceiptID, Schema: item.SchemaID, Digest: item.Digest,
 		})
@@ -336,16 +344,18 @@ func EncodeJSON(c Capsule) ([]byte, error) {
 		SchemaID: c.SchemaID, ProfileRef: c.ProfileRef, ProfileDigest: c.ProfileDigest,
 		DecisionID: c.DecisionID, QueryID: c.QueryID, QueryDigest: c.QueryDigest,
 		QuerySchema: c.QuerySchema, ScopeDigest: c.ScopeDigest, ValidAt: c.ValidAt,
-		Policy: struct { Receipt wireRef `json:"receipt"` }{Receipt: refToWire(c.Policy)},
+		Policy: struct {
+			Receipt wireRef `json:"receipt"`
+		}{Receipt: refToWire(c.Policy)},
 		Frontier: wireFrontier{Kind: c.Frontier.Kind, Receipt: refToWire(c.Frontier.Receipt), Status: c.Frontier.Status, Prefix: c.Frontier.Prefix},
 		Progress: wireProgress{Kind: c.Progress.Kind, Receipt: refToWire(c.Progress.Receipt), Status: c.Progress.Status, Universe: c.Progress.Universe, OwnerDigest: c.Progress.OwnerInventoryDigest},
-		Owner: wireOwner{Receipt: refToWire(c.Owner.Receipt), Authentication: c.Owner.Authentication, Completeness: c.Owner.Completeness, FrontierDigest: c.Owner.FrontierDigest},
+		Owner:    wireOwner{Receipt: refToWire(c.Owner.Receipt), Authentication: c.Owner.Authentication, Completeness: c.Owner.Completeness, FrontierDigest: c.Owner.FrontierDigest},
 		Temporal: wireTemporal{
 			OCELProfile: refToWire(c.Temporal.OCELProfile), SourceCorpus: refToWire(c.Temporal.SourceCorpus),
 			Projection: refToWire(c.Temporal.Projection), Replay: refToWire(c.Temporal.Replay),
 			FrontierDigest: c.Temporal.FrontierDigest, SourceCorpusDigest: c.Temporal.SourceCorpusDigest,
 		},
-		Evidence: wireEvidence{IndependenceStatus: c.Evidence.IndependenceStatus},
+		Evidence:  wireEvidence{IndependenceStatus: c.Evidence.IndependenceStatus},
 		Authority: wireAuthority{Receipt: refToWire(c.Authority.Receipt), Principal: c.Authority.Principal, Scope: c.Authority.Scope, Validity: c.Authority.Validity},
 		Action: wireActionPlan{Receipt: refToWire(c.Action.Receipt), Digest: c.Action.Digest, Revision: c.Action.Revision,
 			Count: c.Action.Count, Covered: c.Action.Covered, CoverageDigest: c.Action.CoverageDigest,
@@ -372,15 +382,21 @@ func EncodeJSON(c Capsule) ([]byte, error) {
 			item.Inputs = append(item.Inputs, wireInput{Slot: input.Slot, ProducerStage: string(input.Producer),
 				ProducerReceiptID: input.ReceiptID, ProducerSchemaID: input.Schema, ProducerDigest: input.Digest, RequiredClaims: input.Required})
 		}
-		if item.Inputs == nil { item.Inputs = []wireInput{} }
+		if item.Inputs == nil {
+			item.Inputs = []wireInput{}
+		}
 		sort.Slice(item.Inputs, func(i, j int) bool { return item.Inputs[i].Slot < item.Inputs[j].Slot })
 		wire.Stages = append(wire.Stages, item)
 	}
 	sort.Slice(wire.Stages, func(i, j int) bool {
 		return stageRank(wire.Stages[i].Stage) < stageRank(wire.Stages[j].Stage)
 	})
-	if wire.Unknowns == nil { wire.Unknowns = []string{} }
-	if wire.Conflicts == nil { wire.Conflicts = []string{} }
+	if wire.Unknowns == nil {
+		wire.Unknowns = []string{}
+	}
+	if wire.Conflicts == nil {
+		wire.Conflicts = []string{}
+	}
 	for _, binding := range c.External {
 		wire.External = append(wire.External, wireExternalBinding{
 			ConsumerStage: string(binding.Consumer), Slot: binding.Slot, ReceiptID: binding.ReceiptID,
@@ -400,14 +416,20 @@ func EncodeJSON(c Capsule) ([]byte, error) {
 
 func stageRank(value string) int {
 	for i, stage := range stageOrder {
-		if string(stage) == value { return i }
+		if string(stage) == value {
+			return i
+		}
 	}
 	return len(stageOrder)
 }
 
 func ValidateJSON(data []byte) (Capsule, error) {
 	capsule, err := DecodeJSON(data)
-	if err != nil { return Capsule{}, err }
-	if err := Validate(capsule); err != nil { return Capsule{}, err }
+	if err != nil {
+		return Capsule{}, err
+	}
+	if err := Validate(capsule); err != nil {
+		return Capsule{}, err
+	}
 	return capsule, nil
 }

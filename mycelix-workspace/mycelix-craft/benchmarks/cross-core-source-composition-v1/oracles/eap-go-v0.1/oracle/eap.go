@@ -3,9 +3,9 @@ package oracle
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"io"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"sort"
 	"strings"
@@ -13,116 +13,116 @@ import (
 )
 
 type Ref struct {
-	ID string `json:"id"`
+	ID     string `json:"id"`
 	Schema string `json:"schema_id"`
 	Digest string `json:"digest"`
 }
 
 type Cost struct {
-	Money float64 `json:"money"`
-	Delay float64 `json:"delay"`
+	Money  float64 `json:"money"`
+	Delay  float64 `json:"delay"`
 	Burden float64 `json:"burden"`
-	Risk float64 `json:"risk"`
+	Risk   float64 `json:"risk"`
 }
 
 type CostWeights struct {
-	Money float64 `json:"money_weight"`
-	Delay float64 `json:"delay_weight"`
+	Money  float64 `json:"money_weight"`
+	Delay  float64 `json:"delay_weight"`
 	Burden float64 `json:"burden_weight"`
-	Risk float64 `json:"risk_weight"`
+	Risk   float64 `json:"risk_weight"`
 }
 
 type DecisionBasis struct {
-	Receipt Ref `json:"receipt"`
-	ProfileRef string `json:"profile_ref"`
-	Disposition string `json:"disposition"`
-	DecisionID string `json:"decision_id"`
-	QueryID string `json:"query_id"`
-	ScopeDigest string `json:"scope_digest"`
+	Receipt        Ref    `json:"receipt"`
+	ProfileRef     string `json:"profile_ref"`
+	Disposition    string `json:"disposition"`
+	DecisionID     string `json:"decision_id"`
+	QueryID        string `json:"query_id"`
+	ScopeDigest    string `json:"scope_digest"`
 	FrontierDigest string `json:"frontier_digest"`
-	ValidAt string `json:"valid_at"`
+	ValidAt        string `json:"valid_at"`
 }
 
 type EVSIEvaluation struct {
-	Receipt Ref `json:"receipt"`
-	FrontierDigest string `json:"frontier_digest"`
-	ScopeDigest string `json:"scope_digest"`
-	DecisionID string `json:"decision_id"`
-	EvaluatorDigest string `json:"evaluator_digest"`
-	LossProfileDigest string `json:"loss_profile_digest"`
-	CandidateSetDigest string `json:"candidate_set_digest"`
-	ObservationModelDigest string `json:"observation_model_digest"`
-	ModelStatus string `json:"model_status"`
-	EVSI float64 `json:"evsi"`
-	EIGBits float64 `json:"eig_bits"`
-	Costs Cost `json:"costs"`
-	Weights CostWeights `json:"cost_weights"`
-	NetDecisionValue float64 `json:"net_decision_value"`
+	Receipt                Ref         `json:"receipt"`
+	FrontierDigest         string      `json:"frontier_digest"`
+	ScopeDigest            string      `json:"scope_digest"`
+	DecisionID             string      `json:"decision_id"`
+	EvaluatorDigest        string      `json:"evaluator_digest"`
+	LossProfileDigest      string      `json:"loss_profile_digest"`
+	CandidateSetDigest     string      `json:"candidate_set_digest"`
+	ObservationModelDigest string      `json:"observation_model_digest"`
+	ModelStatus            string      `json:"model_status"`
+	EVSI                   float64     `json:"evsi"`
+	EIGBits                float64     `json:"eig_bits"`
+	Costs                  Cost        `json:"costs"`
+	Weights                CostWeights `json:"cost_weights"`
+	NetDecisionValue       float64     `json:"net_decision_value"`
 }
 
 type ResultImpact struct {
-	ResultID string `json:"result_id"`
+	ResultID    string `json:"result_id"`
 	Disposition string `json:"decision_impact"`
 	Explanation string `json:"explanation"`
 }
 
 type Candidate struct {
-	CandidateID string `json:"candidate_id"`
-	Method string `json:"method"`
-	TargetClaim string `json:"target_claim"`
-	QualifiedRole string `json:"qualified_role"`
-	Mandatory bool `json:"mandatory"`
-	SafeUnderCurrentPolicy bool `json:"safe_under_current_policy"`
-	AdmissibleForDecision bool `json:"admissible_for_decision"`
-	Available bool `json:"available"`
-	InDomain bool `json:"in_domain"`
-	ConditionedOnCurrentEvidence bool `json:"conditioned_on_current_evidence"`
-	IndependenceRequired bool `json:"independence_required"`
-	CandidateSetDigest string `json:"candidate_set_digest"`
-	ObservationModelDigest string `json:"observation_model_digest"`
-	FailureDomainProfileDigest string `json:"failure_domain_profile_digest"`
-	ExistingDependencyGraphDigest string `json:"existing_dependency_graph_digest"`
-	ResultImpacts []ResultImpact `json:"result_impacts"`
+	CandidateID                   string         `json:"candidate_id"`
+	Method                        string         `json:"method"`
+	TargetClaim                   string         `json:"target_claim"`
+	QualifiedRole                 string         `json:"qualified_role"`
+	Mandatory                     bool           `json:"mandatory"`
+	SafeUnderCurrentPolicy        bool           `json:"safe_under_current_policy"`
+	AdmissibleForDecision         bool           `json:"admissible_for_decision"`
+	Available                     bool           `json:"available"`
+	InDomain                      bool           `json:"in_domain"`
+	ConditionedOnCurrentEvidence  bool           `json:"conditioned_on_current_evidence"`
+	IndependenceRequired          bool           `json:"independence_required"`
+	CandidateSetDigest            string         `json:"candidate_set_digest"`
+	ObservationModelDigest        string         `json:"observation_model_digest"`
+	FailureDomainProfileDigest    string         `json:"failure_domain_profile_digest"`
+	ExistingDependencyGraphDigest string         `json:"existing_dependency_graph_digest"`
+	ResultImpacts                 []ResultImpact `json:"result_impacts"`
 }
 
-	type Proposal struct {
-	SchemaID string `json:"schema_id"`
-	ProposalID string `json:"proposal_id"`
-	CapabilityBoundary string `json:"capability_boundary"`
-	AdvisoryOnly bool `json:"advisory_only"`
-	AuthorizedEffects []string `json:"authorized_effects"`
-	PriorDecisionBasis DecisionBasis `json:"prior_decision_basis"`
-	LossProfile Ref `json:"loss_profile"`
-	EVSI EVSIEvaluation `json:"evsi_evaluation"`
-	Candidate Candidate `json:"candidate"`
-	Disposition string `json:"disposition"`
-	IssuedAt string `json:"issued_at"`
-	ValidUntil string `json:"valid_until"`
-	InvalidatedBy []string `json:"invalidated_by"`
-	AbstentionReason string `json:"abstention_reason"`
+type Proposal struct {
+	SchemaID           string         `json:"schema_id"`
+	ProposalID         string         `json:"proposal_id"`
+	CapabilityBoundary string         `json:"capability_boundary"`
+	AdvisoryOnly       bool           `json:"advisory_only"`
+	AuthorizedEffects  []string       `json:"authorized_effects"`
+	PriorDecisionBasis DecisionBasis  `json:"prior_decision_basis"`
+	LossProfile        Ref            `json:"loss_profile"`
+	EVSI               EVSIEvaluation `json:"evsi_evaluation"`
+	Candidate          Candidate      `json:"candidate"`
+	Disposition        string         `json:"disposition"`
+	IssuedAt           string         `json:"issued_at"`
+	ValidUntil         string         `json:"valid_until"`
+	InvalidatedBy      []string       `json:"invalidated_by"`
+	AbstentionReason   string         `json:"abstention_reason"`
 }
 
 type Violation struct {
-	Code string `json:"code"`
-	Path string `json:"path"`
+	Code    string `json:"code"`
+	Path    string `json:"path"`
 	Message string `json:"message"`
 }
 
 type Report struct {
-	ProposalDigest string `json:"proposal_digest"`
-	Disposition string `json:"disposition"`
-	Violations []Violation `json:"violations"`
+	ProposalDigest string      `json:"proposal_digest"`
+	Disposition    string      `json:"disposition"`
+	Violations     []Violation `json:"violations"`
 }
 
 const (
-	SchemaID = "mycelix.craft.evidence-acquisition-proposal.v0.1"
-	DBCProfile = "mycelix.djcc.full-evidence-execution.v0.1"
-	AdvisoryBoundary = "AdvisoryOnly"
+	SchemaID          = "mycelix.craft.evidence-acquisition-proposal.v0.1"
+	DBCProfile        = "mycelix.djcc.full-evidence-execution.v0.1"
+	AdvisoryBoundary  = "AdvisoryOnly"
 	RecommendOptional = "RecommendOptionalObservation"
-	AcquireMandatory = "AcquireMandatoryEvidence"
-	RequestReview = "RequestAuthorizedHumanReview"
-	DoNotAcquire = "DoNotAcquireOptionalObservation"
-	Abstain = "AbstainOrEscalate"
+	AcquireMandatory  = "AcquireMandatoryEvidence"
+	RequestReview     = "RequestAuthorizedHumanReview"
+	DoNotAcquire      = "DoNotAcquireOptionalObservation"
+	Abstain           = "AbstainOrEscalate"
 )
 
 var requiredInvalidators = []string{
@@ -163,7 +163,9 @@ func parseCanonicalUTC(value string) (time.Time, bool) {
 
 func strictlySorted(values []string) bool {
 	for i := 1; i < len(values); i++ {
-		if values[i-1] >= values[i] { return false }
+		if values[i-1] >= values[i] {
+			return false
+		}
 	}
 	return true
 }
@@ -178,13 +180,17 @@ func expectedNet(evsi float64, costs Cost, weights CostWeights) float64 {
 
 func Validate(p Proposal) Report {
 	violations := make([]Violation, 0)
-	if p.SchemaID != SchemaID { add(&violations, "EAP-SCHEMA", "schema_id", "unsupported proposal schema") }
+	if p.SchemaID != SchemaID {
+		add(&violations, "EAP-SCHEMA", "schema_id", "unsupported proposal schema")
+	}
 	switch p.Disposition {
 	case RecommendOptional, AcquireMandatory, RequestReview, DoNotAcquire, Abstain:
 	default:
 		add(&violations, "EAP-DISPOSITION", "disposition", "unknown proposal disposition")
 	}
-	if strings.TrimSpace(p.ProposalID) == "" { add(&violations, "EAP-ID", "proposal_id", "proposal ID is required") }
+	if strings.TrimSpace(p.ProposalID) == "" {
+		add(&violations, "EAP-ID", "proposal_id", "proposal ID is required")
+	}
 	if p.CapabilityBoundary != AdvisoryBoundary || !p.AdvisoryOnly || len(p.AuthorizedEffects) != 0 {
 		add(&violations, "EAP-ADVISORY-ONLY", "capability_boundary", "proposal must be advisory-only and authorize no operational effects")
 	}
@@ -225,10 +231,16 @@ func Validate(p Proposal) Report {
 	costs := []float64{p.EVSI.Costs.Money, p.EVSI.Costs.Delay, p.EVSI.Costs.Burden, p.EVSI.Costs.Risk}
 	weights := []float64{p.EVSI.Weights.Money, p.EVSI.Weights.Delay, p.EVSI.Weights.Burden, p.EVSI.Weights.Risk}
 	for _, value := range costs {
-		if !finiteNonNegative(value) { add(&violations, "EAP-COST", "evsi_evaluation.costs", "cost components must be finite and non-negative"); break }
+		if !finiteNonNegative(value) {
+			add(&violations, "EAP-COST", "evsi_evaluation.costs", "cost components must be finite and non-negative")
+			break
+		}
 	}
 	for _, value := range weights {
-		if !finiteNonNegative(value) { add(&violations, "EAP-COST-WEIGHTS", "evsi_evaluation.cost_weights", "cost weights must be finite and non-negative"); break }
+		if !finiteNonNegative(value) {
+			add(&violations, "EAP-COST-WEIGHTS", "evsi_evaluation.cost_weights", "cost weights must be finite and non-negative")
+			break
+		}
 	}
 	if !finiteNonNegative(math.Abs(p.EVSI.NetDecisionValue)) {
 		add(&violations, "EAP-NET-VALUE-NONFINITE", "evsi_evaluation.net_decision_value", "net decision value must be finite")
@@ -244,7 +256,9 @@ func Validate(p Proposal) Report {
 		strings.TrimSpace(p.Candidate.TargetClaim) == "" || strings.TrimSpace(p.Candidate.QualifiedRole) == "" {
 		add(&violations, "EAP-CANDIDATE-IDENTITY", "candidate", "candidate ID, method, target claim and qualified role are required")
 	}
-	if !validDigest(p.EVSI.CandidateSetDigest) { add(&violations, "EAP-CANDIDATE-SET", "evsi_evaluation.candidate_set_digest", "candidate set digest is invalid") }
+	if !validDigest(p.EVSI.CandidateSetDigest) {
+		add(&violations, "EAP-CANDIDATE-SET", "evsi_evaluation.candidate_set_digest", "candidate set digest is invalid")
+	}
 	if p.Candidate.CandidateSetDigest != p.EVSI.CandidateSetDigest || !validDigest(p.Candidate.CandidateSetDigest) {
 		add(&violations, "EAP-CANDIDATE-SET-MISMATCH", "candidate.candidate_set_digest", "candidate must be a member of the exact candidate set evaluated by EVSI")
 	}
@@ -276,7 +290,7 @@ func Validate(p Proposal) Report {
 	if len(p.Candidate.ResultImpacts) == 0 {
 		add(&violations, "EAP-RESULTS-MISSING", "candidate.result_impacts", "expected result vocabulary and decision impacts are required")
 	}
-	if (p.Disposition == RecommendOptional) {
+	if p.Disposition == RecommendOptional {
 		if p.Candidate.Mandatory {
 			add(&violations, "EAP-MANDATORY-NOT-OPTIONAL", "disposition", "mandatory evidence cannot be represented as an optional EVSI recommendation")
 		}
@@ -319,12 +333,23 @@ func Validate(p Proposal) Report {
 	}
 	for _, required := range requiredInvalidators {
 		found := false
-		for _, actual := range p.InvalidatedBy { if actual == required { found = true; break } }
-		if !found { add(&violations, "EAP-INVALIDATION-INCOMPLETE", "invalidated_by", "missing required invalidation trigger "+required) }
+		for _, actual := range p.InvalidatedBy {
+			if actual == required {
+				found = true
+				break
+			}
+		}
+		if !found {
+			add(&violations, "EAP-INVALIDATION-INCOMPLETE", "invalidated_by", "missing required invalidation trigger "+required)
+		}
 	}
-	sort.Slice(violations, func(i,j int) bool {
-		if violations[i].Code != violations[j].Code { return violations[i].Code < violations[j].Code }
-		if violations[i].Path != violations[j].Path { return violations[i].Path < violations[j].Path }
+	sort.Slice(violations, func(i, j int) bool {
+		if violations[i].Code != violations[j].Code {
+			return violations[i].Code < violations[j].Code
+		}
+		if violations[i].Path != violations[j].Path {
+			return violations[i].Path < violations[j].Path
+		}
 		return violations[i].Message < violations[j].Message
 	})
 	canonical, err := json.Marshal(p)
@@ -334,23 +359,31 @@ func Validate(p Proposal) Report {
 		digest = hex.EncodeToString(sum[:])
 	}
 	disposition := p.Disposition
-	if len(violations) > 0 { disposition = Abstain }
-	return Report{ProposalDigest:digest,Disposition:disposition,Violations:violations}
+	if len(violations) > 0 {
+		disposition = Abstain
+	}
+	return Report{ProposalDigest: digest, Disposition: disposition, Violations: violations}
 }
 
-func CanonicalDigest(p Proposal) (string,error) {
+func CanonicalDigest(p Proposal) (string, error) {
 	report := Validate(p)
-	if len(report.Violations) > 0 { return "", fmt.Errorf("%s: %s",report.Violations[0].Code,report.Violations[0].Message) }
-	p.InvalidatedBy = append([]string(nil),p.InvalidatedBy...)
-	p.AuthorizedEffects = append([]string(nil),p.AuthorizedEffects...)
-	p.Candidate.ResultImpacts = append([]ResultImpact(nil),p.Candidate.ResultImpacts...)
+	if len(report.Violations) > 0 {
+		return "", fmt.Errorf("%s: %s", report.Violations[0].Code, report.Violations[0].Message)
+	}
+	p.InvalidatedBy = append([]string(nil), p.InvalidatedBy...)
+	p.AuthorizedEffects = append([]string(nil), p.AuthorizedEffects...)
+	p.Candidate.ResultImpacts = append([]ResultImpact(nil), p.Candidate.ResultImpacts...)
 	sort.Strings(p.InvalidatedBy)
 	sort.Strings(p.AuthorizedEffects)
-	sort.Slice(p.Candidate.ResultImpacts,func(i,j int)bool{return p.Candidate.ResultImpacts[i].ResultID<p.Candidate.ResultImpacts[j].ResultID})
-	b,err:=json.Marshal(p)
-	if err!=nil{return "",err}
-	sum:=sha256.Sum256(append([]byte("MYCELIX-CRAFT-EAP-V0.1\x00"),b...))
-	return hex.EncodeToString(sum[:]),nil
+	sort.Slice(p.Candidate.ResultImpacts, func(i, j int) bool {
+		return p.Candidate.ResultImpacts[i].ResultID < p.Candidate.ResultImpacts[j].ResultID
+	})
+	b, err := json.Marshal(p)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(append([]byte("MYCELIX-CRAFT-EAP-V0.1\x00"), b...))
+	return hex.EncodeToString(sum[:]), nil
 }
 func rejectDuplicateJSONKeys(data []byte) error {
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
@@ -358,76 +391,117 @@ func rejectDuplicateJSONKeys(data []byte) error {
 	var readValue func() error
 	readValue = func() error {
 		token, err := decoder.Token()
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		delimiter, ok := token.(json.Delim)
-		if !ok { return nil }
+		if !ok {
+			return nil
+		}
 		switch delimiter {
 		case '{':
 			seen := map[string]bool{}
 			for decoder.More() {
 				keyToken, err := decoder.Token()
-				if err != nil { return err }
+				if err != nil {
+					return err
+				}
 				key, ok := keyToken.(string)
-				if !ok { return fmt.Errorf("object key is not a string") }
-				if seen[key] { return fmt.Errorf("duplicate JSON object key %q", key) }
+				if !ok {
+					return fmt.Errorf("object key is not a string")
+				}
+				if seen[key] {
+					return fmt.Errorf("duplicate JSON object key %q", key)
+				}
 				seen[key] = true
-				if err := readValue(); err != nil { return err }
+				if err := readValue(); err != nil {
+					return err
+				}
 			}
 			end, err := decoder.Token()
-			if err != nil { return err }
-			if end != json.Delim('}') { return fmt.Errorf("malformed object terminator") }
+			if err != nil {
+				return err
+			}
+			if end != json.Delim('}') {
+				return fmt.Errorf("malformed object terminator")
+			}
 		case '[':
-			for decoder.More() { if err := readValue(); err != nil { return err } }
+			for decoder.More() {
+				if err := readValue(); err != nil {
+					return err
+				}
+			}
 			end, err := decoder.Token()
-			if err != nil { return err }
-			if end != json.Delim(']') { return fmt.Errorf("malformed array terminator") }
+			if err != nil {
+				return err
+			}
+			if end != json.Delim(']') {
+				return fmt.Errorf("malformed array terminator")
+			}
 		default:
 			return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
 		}
 		return nil
 	}
-	if err := readValue(); err != nil { return fmt.Errorf("scan EAP JSON keys: %w", err) }
+	if err := readValue(); err != nil {
+		return fmt.Errorf("scan EAP JSON keys: %w", err)
+	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil { return fmt.Errorf("multiple JSON values are not permitted") }
+		if err == nil {
+			return fmt.Errorf("multiple JSON values are not permitted")
+		}
 		return fmt.Errorf("trailing JSON data: %w", err)
 	}
 	return nil
 }
 
-func EncodeJSON(p Proposal) ([]byte,error) {
-	if p.AuthorizedEffects == nil { p.AuthorizedEffects = []string{} }
-	p.AuthorizedEffects = append([]string(nil),p.AuthorizedEffects...)
-	p.InvalidatedBy = append([]string(nil),p.InvalidatedBy...)
-	p.Candidate.ResultImpacts = append([]ResultImpact(nil),p.Candidate.ResultImpacts...)
+func EncodeJSON(p Proposal) ([]byte, error) {
+	if p.AuthorizedEffects == nil {
+		p.AuthorizedEffects = []string{}
+	}
+	p.AuthorizedEffects = append([]string(nil), p.AuthorizedEffects...)
+	p.InvalidatedBy = append([]string(nil), p.InvalidatedBy...)
+	p.Candidate.ResultImpacts = append([]ResultImpact(nil), p.Candidate.ResultImpacts...)
 	sort.Strings(p.AuthorizedEffects)
 	sort.Strings(p.InvalidatedBy)
-	sort.Slice(p.Candidate.ResultImpacts,func(i,j int)bool{return p.Candidate.ResultImpacts[i].ResultID<p.Candidate.ResultImpacts[j].ResultID})
+	sort.Slice(p.Candidate.ResultImpacts, func(i, j int) bool {
+		return p.Candidate.ResultImpacts[i].ResultID < p.Candidate.ResultImpacts[j].ResultID
+	})
 	return json.Marshal(p)
 }
 
-func DecodeJSON(data []byte) (Proposal,error) {
-	if err:=rejectDuplicateJSONKeys(data); err!=nil { return Proposal{},err }
-	decoder:=json.NewDecoder(strings.NewReader(string(data)))
+func DecodeJSON(data []byte) (Proposal, error) {
+	if err := rejectDuplicateJSONKeys(data); err != nil {
+		return Proposal{}, err
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
 	var p Proposal
-	if err:=decoder.Decode(&p); err!=nil { return Proposal{},fmt.Errorf("decode EAP proposal: %w",err) }
+	if err := decoder.Decode(&p); err != nil {
+		return Proposal{}, fmt.Errorf("decode EAP proposal: %w", err)
+	}
 	var trailing any
-	if err:=decoder.Decode(&trailing); err!=io.EOF {
-		if err==nil { return Proposal{},fmt.Errorf("multiple JSON values are not permitted") }
-		return Proposal{},fmt.Errorf("trailing JSON data: %w",err)
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return Proposal{}, fmt.Errorf("multiple JSON values are not permitted")
+		}
+		return Proposal{}, fmt.Errorf("trailing JSON data: %w", err)
 	}
-	if p.AuthorizedEffects==nil || p.InvalidatedBy==nil || p.Candidate.ResultImpacts==nil {
-		return Proposal{},fmt.Errorf("required EAP arrays must be JSON arrays, not null or missing")
+	if p.AuthorizedEffects == nil || p.InvalidatedBy == nil || p.Candidate.ResultImpacts == nil {
+		return Proposal{}, fmt.Errorf("required EAP arrays must be JSON arrays, not null or missing")
 	}
-	return p,nil
+	return p, nil
 }
 
-func ValidateJSON(data []byte) (Proposal,Report,error) {
-	p,err:=DecodeJSON(data)
-	if err!=nil { return Proposal{},Report{},err }
-	r:=Validate(p)
-	if len(r.Violations)>0 { return p,r,fmt.Errorf("%s: %s",r.Violations[0].Code,r.Violations[0].Message) }
-	return p,r,nil
+func ValidateJSON(data []byte) (Proposal, Report, error) {
+	p, err := DecodeJSON(data)
+	if err != nil {
+		return Proposal{}, Report{}, err
+	}
+	r := Validate(p)
+	if len(r.Violations) > 0 {
+		return p, r, fmt.Errorf("%s: %s", r.Violations[0].Code, r.Violations[0].Message)
+	}
+	return p, r, nil
 }
-
