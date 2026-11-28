@@ -176,6 +176,11 @@ func expectedNet(evsi float64, costs Cost, weights CostWeights) float64 {
 func Validate(p Proposal) Report {
 	violations := make([]Violation, 0)
 	if p.SchemaID != SchemaID { add(&violations, "EAP-SCHEMA", "schema_id", "unsupported proposal schema") }
+	switch p.Disposition {
+	case RecommendOptional, AcquireMandatory, RequestReview, DoNotAcquire, Abstain:
+	default:
+		add(&violations, "EAP-DISPOSITION", "disposition", "unknown proposal disposition")
+	}
 	if strings.TrimSpace(p.ProposalID) == "" { add(&violations, "EAP-ID", "proposal_id", "proposal ID is required") }
 	if p.CapabilityBoundary != AdvisoryBoundary || !p.AdvisoryOnly || len(p.AuthorizedEffects) != 0 {
 		add(&violations, "EAP-ADVISORY-ONLY", "capability_boundary", "proposal must be advisory-only and authorize no operational effects")
@@ -214,8 +219,15 @@ func Validate(p Proposal) Report {
 	for _, value := range weights {
 		if !finiteNonNegative(value) { add(&violations, "EAP-COST-WEIGHTS", "evsi_evaluation.cost_weights", "cost weights must be finite and non-negative"); break }
 	}
+	if !finiteNonNegative(math.Abs(p.EVSI.NetDecisionValue)) {
+		add(&violations, "EAP-NET-VALUE-NONFINITE", "evsi_evaluation.net_decision_value", "net decision value must be finite")
+	}
 	if math.Abs(p.EVSI.NetDecisionValue-expectedNet(p.EVSI.EVSI, p.EVSI.Costs, p.EVSI.Weights)) > 1e-8 {
 		add(&violations, "EAP-NET-VALUE-MISMATCH", "evsi_evaluation.net_decision_value", "net decision value does not equal EVSI minus the explicitly weighted cost components")
+	}
+	if p.EVSI.ModelStatus != "CalibratedWithinDeclaredModel" && p.EVSI.ModelStatus != "Uncalibrated" &&
+		p.EVSI.ModelStatus != "OutOfDomain" && p.EVSI.ModelStatus != "NotEvaluated" {
+		add(&violations, "EAP-MODEL-STATUS", "evsi_evaluation.model_status", "unknown observation-model status")
 	}
 	if strings.TrimSpace(p.Candidate.CandidateID) == "" || strings.TrimSpace(p.Candidate.Method) == "" ||
 		strings.TrimSpace(p.Candidate.TargetClaim) == "" || strings.TrimSpace(p.Candidate.QualifiedRole) == "" {
