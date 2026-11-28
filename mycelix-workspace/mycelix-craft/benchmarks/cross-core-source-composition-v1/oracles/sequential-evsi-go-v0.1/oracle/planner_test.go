@@ -80,3 +80,35 @@ func TestGreedyOneStepMandatoryEvidencePreempts(t *testing.T) {
  id,value,err:=GreedyOneStep(c);if err!=nil{t.Fatal(err)}
  if id!=""||value!=0{t.Fatalf("greedy selected optional evidence with mandatory evidence open %q (%v)",id,value)}
 }
+
+func TestAdaptivePolicyChoosesBranchSpecificFollowUp(t *testing.T) {
+ data,err:=os.ReadFile(filepath.Join("..","fixtures","sequential-evsi-adaptive-followup-v0.1.json"));if err!=nil{t.Fatal(err)}
+ var fixture struct {
+  SchemaID string `json:"schema_id"`
+  Case Case `json:"case"`
+  Expected struct {
+   Baseline float64 `json:"baseline_expected_loss"`
+   GreedyNet float64 `json:"greedy_one_step_net_value"`
+   Terminal float64 `json:"expected_terminal_loss"`
+   Cost float64 `json:"expected_acquisition_cost"`
+   Gross float64 `json:"gross_evsi"`
+   Net float64 `json:"net_decision_value"`
+   First string `json:"first_observation"`
+   Z0 string `json:"z0_followup"`
+   Z1 string `json:"z1_followup"`
+  } `json:"expected"`
+ }
+ if err:=json.Unmarshal(data,&fixture);err!=nil{t.Fatal(err)}
+ if fixture.SchemaID!="mycelix.craft.sequential-evsi-adaptive-followup.v0.1"{t.Fatalf("schema %q",fixture.SchemaID)}
+ r,err:=Solve(fixture.Case);if err!=nil{t.Fatal(err)}
+ near(t,"baseline",r.BaselineExpectedLoss,fixture.Expected.Baseline)
+ near(t,"terminal",r.ExpectedTerminalLoss,fixture.Expected.Terminal)
+ near(t,"cost",r.ExpectedAcquisitionCost,fixture.Expected.Cost)
+ near(t,"gross EVSI",r.GrossEVSI,fixture.Expected.Gross)
+ near(t,"net",r.NetDecisionValue,fixture.Expected.Net)
+ if r.Plan.ObservationID!=fixture.Expected.First{t.Fatalf("first observation %q",r.Plan.ObservationID)}
+ if r.Plan.Branches["z0"].ObservationID!=fixture.Expected.Z0||r.Plan.Branches["z1"].ObservationID!=fixture.Expected.Z1{t.Fatalf("branches %#v",r.Plan.Branches)}
+ _,greedyNet,err:=GreedyOneStep(fixture.Case);if err!=nil{t.Fatal(err)}
+ near(t,"greedy",greedyNet,fixture.Expected.GreedyNet)
+ if r.NetDecisionValue<=greedyNet{t.Fatalf("adaptive %v did not beat greedy %v",r.NetDecisionValue,greedyNet)}
+}
