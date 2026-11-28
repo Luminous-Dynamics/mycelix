@@ -287,6 +287,7 @@ pub struct CompositionProfile {
     pub allowed_not_applicable: BTreeSet<StageId>,
     pub required_claims: BTreeSet<ClaimDimension>,
     pub claim_stages: BTreeMap<ClaimDimension, BTreeSet<StageId>>,
+    pub dependency_claims: BTreeMap<StageId, BTreeMap<StageId, BTreeSet<ClaimDimension>>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -385,6 +386,7 @@ fn validate_stage_dependencies(
     stage_id: StageId,
     stage: &StageEvidence,
     stages: &BTreeMap<StageId, StageEvidence>,
+    profile: &CompositionProfile,
     out: &mut Vec<Violation>,
 ) {
     let expected = stage_id.required_dependencies();
@@ -442,6 +444,23 @@ fn validate_stage_dependencies(
                 "DJCC-DEPENDENCY-CLAIMS",
                 format!("{stage_id}: dependency {} must name a non-empty sorted unique claim requirement set", dependency.stage_id),
             ));
+        }
+        match profile
+            .dependency_claims
+            .get(&stage_id)
+            .and_then(|parents| parents.get(&dependency.stage_id))
+        {
+            Some(profile_claims)
+                if dependency.required_claims.iter().copied().collect::<BTreeSet<_>>()
+                    == *profile_claims => {}
+            Some(_) => out.push(violation(
+                "DJCC-EDGE-CLAIMS-WEAKENED",
+                format!("{stage_id}: dependency {} claim requirements differ from the selected profile", dependency.stage_id),
+            )),
+            None => out.push(violation(
+                "DJCC-EDGE-OUTSIDE-PROFILE",
+                format!("{stage_id}: dependency {} is not declared by the selected profile", dependency.stage_id),
+            )),
         }
         let matching_input = stage.input_bindings.iter().filter(|binding| {
             binding.name == dependency.input_name
@@ -796,7 +815,13 @@ pub fn verify_composition(
         validate_stage_disposition_claims(*stage_id, stage, &mut violations);
 
         validate_bindings(*stage_id, &stage.input_bindings, &mut violations);
-        validate_stage_dependencies(*stage_id, stage, &input.stages, &mut violations);
+        validate_stage_dependencies(
+            *stage_id,
+            stage,
+            &input.stages,
+            profile,
+            &mut violations,
+        );
 
         let mut previous: Option<&str> = None;
         for reason in &stage.reason_codes {
@@ -951,6 +976,111 @@ mod tests {
                         StageId::Query,
                         StageId::Policy,
                         StageId::Outcome,
+                    ]),
+                ),
+            ]),
+            dependency_claims: BTreeMap::from([
+                (
+                    StageId::SourceTrust,
+                    BTreeMap::from([(
+                        StageId::VerifierFrontier,
+                        BTreeSet::from([
+                            ClaimDimension::Authentication,
+                            ClaimDimension::Completeness,
+                        ]),
+                    )]),
+                ),
+                (
+                    StageId::SemanticProjection,
+                    BTreeMap::from([
+                        (
+                            StageId::VerifierFrontier,
+                            BTreeSet::from([ClaimDimension::Authentication]),
+                        ),
+                        (
+                            StageId::SourceTrust,
+                            BTreeSet::from([ClaimDimension::Authentication]),
+                        ),
+                    ]),
+                ),
+                (
+                    StageId::Query,
+                    BTreeMap::from([
+                        (
+                            StageId::VerifierFrontier,
+                            BTreeSet::from([
+                                ClaimDimension::Authentication,
+                                ClaimDimension::Completeness,
+                            ]),
+                        ),
+                        (
+                            StageId::SourceTrust,
+                            BTreeSet::from([
+                                ClaimDimension::Authentication,
+                                ClaimDimension::Completeness,
+                            ]),
+                        ),
+                        (
+                            StageId::SemanticProjection,
+                            BTreeSet::from([
+                                ClaimDimension::Authentication,
+                                ClaimDimension::Completeness,
+                            ]),
+                        ),
+                    ]),
+                ),
+                (
+                    StageId::Policy,
+                    BTreeMap::from([(
+                        StageId::Query,
+                        BTreeSet::from([
+                            ClaimDimension::Authentication,
+                            ClaimDimension::Completeness,
+                            ClaimDimension::Truth,
+                        ]),
+                    )]),
+                ),
+                (
+                    StageId::Authorization,
+                    BTreeMap::from([
+                        (
+                            StageId::VerifierFrontier,
+                            BTreeSet::from([ClaimDimension::Authentication]),
+                        ),
+                        (
+                            StageId::Policy,
+                            BTreeSet::from([
+                                ClaimDimension::Authentication,
+                                ClaimDimension::Truth,
+                            ]),
+                        ),
+                    ]),
+                ),
+                (
+                    StageId::Execution,
+                    BTreeMap::from([(
+                        StageId::Authorization,
+                        BTreeSet::from([
+                            ClaimDimension::Authentication,
+                            ClaimDimension::Authority,
+                        ]),
+                    )]),
+                ),
+                (
+                    StageId::Outcome,
+                    BTreeMap::from([
+                        (
+                            StageId::SourceTrust,
+                            BTreeSet::from([ClaimDimension::Authentication]),
+                        ),
+                        (
+                            StageId::SemanticProjection,
+                            BTreeSet::from([ClaimDimension::Completeness]),
+                        ),
+                        (
+                            StageId::Execution,
+                            BTreeSet::from([ClaimDimension::Effect]),
+                        ),
                     ]),
                 ),
             ]),
