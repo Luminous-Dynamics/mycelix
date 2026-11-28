@@ -1175,6 +1175,48 @@ mod tests {
                 .unwrap_err()
                 .contains("does not bind")
         );
+        let mut substituted_evidence = context.clone();
+        substituted_evidence.evidence_ref = "evidence:other".to_owned();
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_evidence)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_profile = context.clone();
+        substituted_profile.profile_ref = "profile:other".to_owned();
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_profile)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_profile_digest = context.clone();
+        substituted_profile_digest.profile_digest = [9; 32];
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_profile_digest)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_key = context.clone();
+        substituted_key.issuer_key_ref = "key:other".to_owned();
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_key)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_trust_policy = context.clone();
+        substituted_trust_policy.trust_policy_ref = "policy:other".to_owned();
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_trust_policy)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_registry = context.clone();
+        substituted_registry.identity_registry_digest = [9; 32];
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_registry)
+                .unwrap_err()
+                .contains("does not bind")
+        );
     }
 
     #[test]
