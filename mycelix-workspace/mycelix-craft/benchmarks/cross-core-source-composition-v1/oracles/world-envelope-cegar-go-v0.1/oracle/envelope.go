@@ -350,11 +350,6 @@ func Evaluate(p Problem) (Result, error) {
 		key, _ := AssignmentKey(world.Assignment)
 		worldsByKey[key] = world
 	}
-	constraintsByID := make(map[string]ForbiddenConstraint, len(p.Constraints))
-	for _, constraint := range p.Constraints {
-		constraintsByID[constraint.ID] = constraint
-	}
-
 	concrete := make([]WorldEvaluation, 0, len(assignments))
 	abstract := make([]WorldEvaluation, 0, len(assignments))
 	spurious := make([]WorldEvaluation, 0)
@@ -404,7 +399,6 @@ func Evaluate(p Problem) (Result, error) {
 	result.ConcreteSummary = Summarize(p.Actions, concrete)
 	result.AbstractSummary = Summarize(p.Actions, abstract)
 	result.SpuriousDecisionFlip = findSpuriousDecisionFlip(spurious, concrete, p.Constraints)
-	_ = constraintsByID
 	return result, nil
 }
 
@@ -509,7 +503,6 @@ func Summarize(actions []string, worlds []WorldEvaluation) DecisionSummary {
 		identified[action] = struct{}{}
 	}
 	bestLoss := make([]int64, len(worlds))
-	worldOptima := make([]map[string]struct{}, len(worlds))
 	for i, world := range worlds {
 		minimum := int64(int64(^uint64(0) >> 1))
 		safe := make([]string, 0, len(ordered))
@@ -527,7 +520,6 @@ func Summarize(actions []string, worlds []WorldEvaluation) DecisionSummary {
 			for action := range identified {
 				delete(identified, action)
 			}
-			worldOptima[i] = map[string]struct{}{}
 			bestLoss[i] = int64(^uint64(0) >> 1)
 			continue
 		}
@@ -538,7 +530,6 @@ func Summarize(actions []string, worlds []WorldEvaluation) DecisionSummary {
 				optimum[action] = struct{}{}
 			}
 		}
-		worldOptima[i] = optimum
 		for action := range identified {
 			if _, ok := optimum[action]; !ok {
 				delete(identified, action)
