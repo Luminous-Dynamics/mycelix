@@ -14,35 +14,35 @@ type LineageDisclosureStatus string
 type LineageAttestationBasis string
 
 const (
-	LineageDisclosureComplete  LineageDisclosureStatus = "complete"
+	LineageDisclosureComplete   LineageDisclosureStatus = "complete"
 	LineageDisclosureIncomplete LineageDisclosureStatus = "incomplete"
 	LineageDisclosureWithheld   LineageDisclosureStatus = "withheld"
 
-	LineageBasisIssuerDeclared LineageAttestationBasis = "issuer-declared"
+	LineageBasisIssuerDeclared       LineageAttestationBasis = "issuer-declared"
 	LineageBasisIndependentlyAudited LineageAttestationBasis = "independently-audited"
 )
 
 type LineageAttestationV1 struct {
-	AttestationRef          string
-	IssuerRef               string
-	IssuerKeyRef            string
-	IssuerKeyEpoch          uint64
-	EvidenceRef             string
-	ScopeDigest             [32]byte
-	GraphDigest             [32]byte
-	ProfileRef              string
-	ProfileDigest           [32]byte
-	VerifierFrontierDigest  [32]byte
-	TrustPolicyRef          string
-	TrustPolicyDigest       [32]byte
-	IdentityRegistryDigest  [32]byte
-	AssuranceBasisRef       string
-	StatementDigest         [32]byte
-	IssuedAtUnixSeconds     uint64
-	ValidFromUnixSeconds    uint64
-	ValidUntilUnixSeconds   uint64
-	DisclosureStatus        LineageDisclosureStatus
-	AssuranceBasis          LineageAttestationBasis
+	AttestationRef         string
+	IssuerRef              string
+	IssuerKeyRef           string
+	IssuerKeyEpoch         uint64
+	EvidenceRef            string
+	ScopeDigest            [32]byte
+	GraphDigest            [32]byte
+	ProfileRef             string
+	ProfileDigest          [32]byte
+	VerifierFrontierDigest [32]byte
+	TrustPolicyRef         string
+	TrustPolicyDigest      [32]byte
+	IdentityRegistryDigest [32]byte
+	AssuranceBasisRef      string
+	StatementDigest        [32]byte
+	IssuedAtUnixSeconds    uint64
+	ValidFromUnixSeconds   uint64
+	ValidUntilUnixSeconds  uint64
+	DisclosureStatus       LineageDisclosureStatus
+	AssuranceBasis         LineageAttestationBasis
 }
 
 func writeLineageStringV1(buffer *bytes.Buffer, value string) error {
