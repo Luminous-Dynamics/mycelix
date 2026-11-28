@@ -10,6 +10,7 @@ import (
 )
 
 const vectorFile = "../../../../../tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+const xeniaCheckpointVectorFile = "../../../../../tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt"
 
 func decodeHash(t *testing.T, value string) Hash {
 	t.Helper()
@@ -70,6 +71,46 @@ func TestSharedRFC9162Vectors(t *testing.T) {
 		if err := VerifyInclusion(leaves[vector.name],vector.index,vector.size,vector.root,vector.path); err != nil {
 			t.Fatalf("inclusion %s at %d: %v",vector.name,vector.index,err)
 		}
+	}
+}
+
+func TestXeniaCheckpointV1PayloadHasTheSameRFC9162LeafHash(t *testing.T) {
+	content, err := os.ReadFile(xeniaCheckpointVectorFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payloadHex string
+	var expectedLeafHex string
+	var payloadLength int
+	for _, line := range strings.Split(string(content), "\n") {
+		fields := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(fields) != 2 {
+			continue
+		}
+		switch fields[0] {
+		case "payload_len":
+			payloadLength, err = strconv.Atoi(fields[1])
+			if err != nil {
+				t.Fatal(err)
+			}
+		case "payload_hex":
+			payloadHex = fields[1]
+		case "leaf_hash_sha256":
+			expectedLeafHex = fields[1]
+		}
+	}
+	if payloadHex == "" || expectedLeafHex == "" || payloadLength == 0 {
+		t.Fatal("Xenia checkpoint vector is incomplete")
+	}
+	payload, err := hex.DecodeString(payloadHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) != payloadLength {
+		t.Fatalf("Xenia payload length = %d, want %d", len(payload), payloadLength)
+	}
+	if got, want := LeafHash(payload), decodeHash(t, expectedLeafHex); got != want {
+		t.Fatalf("Xenia checkpoint leaf hash = %x, want %x", got, want)
 	}
 }
 
