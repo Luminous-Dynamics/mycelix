@@ -420,6 +420,78 @@ mod tests {
     }
 
     #[test]
+    fn asymmetric_player_legal_sets_have_unique_equilibrium() {
+        let malicious_strategy = |id: &str| Strategy {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: format!("{id} strategy"),
+            actions: vec![StrategyAction {
+                action_type: ActionType::Defect,
+                probability: 1.0,
+                conditions: vec![ActionCondition::Always],
+            }],
+            applicable_types: vec![PlayerType::Malicious],
+        };
+        let mut game = game(vec![
+            PayoffEntry {
+                strategy_profile: vec!["provide".into(), "attack".into()],
+                payoffs: vec![0.0, 3.0],
+            },
+            PayoffEntry {
+                strategy_profile: vec!["provide".into(), "abstain".into()],
+                payoffs: vec![4.0, 0.0],
+            },
+            PayoffEntry {
+                strategy_profile: vec!["withhold".into(), "attack".into()],
+                payoffs: vec![1.0, 2.0],
+            },
+            PayoffEntry {
+                strategy_profile: vec!["withhold".into(), "abstain".into()],
+                payoffs: vec![2.0, 1.0],
+            },
+        ]);
+        game.players[0].id = "provider".to_string();
+        game.players[1].id = "attacker".to_string();
+        game.players[1].player_type = PlayerType::Malicious;
+        game.strategies = vec![
+            Strategy {
+                id: "provide".to_string(),
+                name: "provide".to_string(),
+                description: "provide".to_string(),
+                actions: vec![StrategyAction {
+                    action_type: ActionType::Cooperate,
+                    probability: 1.0,
+                    conditions: vec![ActionCondition::Always],
+                }],
+                applicable_types: vec![PlayerType::Rational],
+            },
+            Strategy {
+                id: "withhold".to_string(),
+                name: "withhold".to_string(),
+                description: "withhold".to_string(),
+                actions: vec![StrategyAction {
+                    action_type: ActionType::Defect,
+                    probability: 1.0,
+                    conditions: vec![ActionCondition::Always],
+                }],
+                applicable_types: vec![PlayerType::Rational],
+            },
+            malicious_strategy("attack"),
+            malicious_strategy("abstain"),
+        ];
+
+        let result = analyze_pure_nash_equilibria(&game, exact_config()).unwrap();
+
+        assert_eq!(result.status, PureEquilibriumStatus::Found);
+        assert_eq!(result.profiles_evaluated, 4);
+        assert_eq!(result.equilibria.len(), 1);
+        assert_eq!(
+            result.equilibria[0].strategy_profile,
+            vec!["withhold".to_string(), "attack".to_string()]
+        );
+    }
+
+    #[test]
     fn incomplete_payoff_table_returns_validation_error() {
         let game = game(vec![
             payoff("cooperate", "cooperate", 3.0, 3.0),
