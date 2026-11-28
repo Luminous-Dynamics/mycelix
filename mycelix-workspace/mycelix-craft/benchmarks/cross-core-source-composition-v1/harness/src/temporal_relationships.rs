@@ -178,12 +178,7 @@ fn valid_utc_second(value: &str) -> bool {
         _ => 0,
     };
 
-    year > 0
-        && day > 0
-        && day <= days_in_month
-        && hour <= 23
-        && minute <= 59
-        && second <= 59
+    year > 0 && day > 0 && day <= days_in_month && hour <= 23 && minute <= 59 && second <= 59
 }
 
 fn validate_claim(claim: &TemporalRelationClaimV1) -> Result<(), TemporalRelationshipErrorV1> {
@@ -234,9 +229,7 @@ fn validate_mutation(
     if mutation.source_digest == [0; 32] || mutation.target_claim_digest == [0; 32] {
         return Err(TemporalRelationshipErrorV1::ZeroSourceDigest);
     }
-    if !valid_utc_second(&mutation.effective_at)
-        || !valid_utc_second(&mutation.source_recorded_at)
-    {
+    if !valid_utc_second(&mutation.effective_at) || !valid_utc_second(&mutation.source_recorded_at) {
         return Err(TemporalRelationshipErrorV1::InvalidUtcTimestamp);
     }
     match mutation.kind {
@@ -422,26 +415,41 @@ fn snapshot_digest(
     finish_digest(hasher)
 }
 
-
-
 fn declared_ocel_attribute_type<'a>(
     root: &'a Value,
     collection: &str,
     type_name: &str,
     attribute_name: &str,
-) -> Option<&'a str> {
-    root.get(collection)?
-        .as_array()?
+) -> Result<Option<&'a str>, TemporalRelationshipErrorV1> {
+    let declarations = root
+        .get(collection)
+        .and_then(Value::as_array)
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)?;
+    let mut type_matches = declarations
         .iter()
-        .find(|declaration| declaration.get("name").and_then(Value::as_str) == Some(type_name))?
-        .get("attributes")?
-        .as_array()?
+        .filter(|declaration| declaration.get("name").and_then(Value::as_str) == Some(type_name));
+    let Some(declaration) = type_matches.next() else {
+        return Ok(None);
+    };
+    if type_matches.next().is_some() {
+        return Err(TemporalRelationshipErrorV1::InvalidOcel20);
+    }
+
+    let attributes = declaration
+        .get("attributes")
+        .and_then(Value::as_array)
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)?;
+    let mut attribute_matches = attributes
         .iter()
-        .find(|attribute| {
-            attribute.get("name").and_then(Value::as_str) == Some(attribute_name)
-        })?
-        .get("type")?
-        .as_str()
+        .filter(|attribute| attribute.get("name").and_then(Value::as_str) == Some(attribute_name));
+    let Some(attribute) = attribute_matches.next() else {
+        return Ok(None);
+    };
+    if attribute_matches.next().is_some() {
+        return Err(TemporalRelationshipErrorV1::InvalidOcel20);
+    }
+
+    Ok(attribute.get("type").and_then(Value::as_str))
 }
 
 fn require_ocel_attribute_declaration(
@@ -451,7 +459,7 @@ fn require_ocel_attribute_declaration(
     attribute_name: &str,
     expected_type: &str,
 ) -> Result<(), TemporalRelationshipErrorV1> {
-    if declared_ocel_attribute_type(root, collection, type_name, attribute_name)
+    if declared_ocel_attribute_type(root, collection, type_name, attribute_name)?
         != Some(expected_type)
     {
         return Err(TemporalRelationshipErrorV1::InvalidOcel20);
@@ -526,10 +534,7 @@ fn ocel_attribute<'a>(
         .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)
 }
 
-fn required_ocel_text(
-    record: &Value,
-    name: &str,
-) -> Result<String, TemporalRelationshipErrorV1> {
+fn required_ocel_text(record: &Value, name: &str) -> Result<String, TemporalRelationshipErrorV1> {
     ocel_attribute(record, name)?
         .and_then(Value::as_str)
         .filter(|value| non_empty(value))
@@ -537,10 +542,7 @@ fn required_ocel_text(
         .ok_or(TemporalRelationshipErrorV1::MissingOcelAttribute)
 }
 
-fn required_ocel_u64(
-    record: &Value,
-    name: &str,
-) -> Result<u64, TemporalRelationshipErrorV1> {
+fn required_ocel_u64(record: &Value, name: &str) -> Result<u64, TemporalRelationshipErrorV1> {
     ocel_attribute(record, name)?
         .and_then(Value::as_u64)
         .ok_or(TemporalRelationshipErrorV1::MissingOcelAttribute)
@@ -622,7 +624,10 @@ fn parse_cardinality(
 pub fn parse_temporal_relationships_ocel20(
     input: &str,
 ) -> Result<
-    (Vec<TemporalRelationClaimV1>, Vec<TemporalRelationMutationV1>),
+    (
+        Vec<TemporalRelationClaimV1>,
+        Vec<TemporalRelationMutationV1>,
+    ),
     TemporalRelationshipErrorV1,
 > {
     let root: Value =
@@ -720,7 +725,10 @@ pub fn parse_temporal_relationships_ocel20(
 
     let mut mutations = Vec::new();
     for event in events {
-        let event_type = event.get("type").and_then(Value::as_str).unwrap_or_default();
+        let event_type = event
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         let kind = match event_type {
             "temporal_relation_superseded" => {
                 validate_relation_mutation_declaration(&root, event_type)?;
@@ -802,7 +810,10 @@ pub fn project_temporal_relationships(
         if !accepted_sequences.insert(claim.accepted_sequence) {
             return Err(TemporalRelationshipErrorV1::DuplicateAcceptedSequence);
         }
-        if claim_by_id.insert(claim.relation_id.as_str(), *claim).is_some() {
+        if claim_by_id
+            .insert(claim.relation_id.as_str(), *claim)
+            .is_some()
+        {
             return Err(TemporalRelationshipErrorV1::DuplicateRelationId);
         }
         if predicate_cardinalities
@@ -977,13 +988,10 @@ pub fn project_temporal_relationships(
         let cardinality = group[0].cardinality;
         if matches!(
             cardinality,
-            TemporalRelationCardinalityV1::OneToOne
-                | TemporalRelationCardinalityV1::ManyToOne
+            TemporalRelationCardinalityV1::OneToOne | TemporalRelationCardinalityV1::ManyToOne
         ) {
-            let object_ids: BTreeSet<_> = group
-                .iter()
-                .map(|claim| claim.object_id.clone())
-                .collect();
+            let object_ids: BTreeSet<_> =
+                group.iter().map(|claim| claim.object_id.clone()).collect();
             if object_ids.len() > 1 {
                 let relation_ids = group
                     .iter()
@@ -1006,13 +1014,10 @@ pub fn project_temporal_relationships(
         let cardinality = group[0].cardinality;
         if matches!(
             cardinality,
-            TemporalRelationCardinalityV1::OneToOne
-                | TemporalRelationCardinalityV1::OneToMany
+            TemporalRelationCardinalityV1::OneToOne | TemporalRelationCardinalityV1::OneToMany
         ) {
-            let subject_ids: BTreeSet<_> = group
-                .iter()
-                .map(|claim| claim.subject_id.clone())
-                .collect();
+            let subject_ids: BTreeSet<_> =
+                group.iter().map(|claim| claim.subject_id.clone()).collect();
             if subject_ids.len() > 1 {
                 let relation_ids = group
                     .iter()
@@ -1136,7 +1141,6 @@ mod tests {
             known_through_sequence,
         }
     }
-
 
     fn object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
         serde_json::json!({
@@ -1263,12 +1267,8 @@ mod tests {
 
         let receipt = project_temporal_relationships(&claims, &mutations, &cut(T11, 2)).unwrap();
         assert!(receipt.active_relations.is_empty());
-        assert_eq!(
-            receipt.revoked_relation_ids,
-            vec!["rel-asset-zone"]
-        );
+        assert_eq!(receipt.revoked_relation_ids, vec!["rel-asset-zone"]);
     }
-
 
     #[test]
     fn rejects_ocel_relation_attribute_with_wrong_declared_type() {
@@ -1297,6 +1297,52 @@ mod tests {
             parse_temporal_relationships_ocel20(&input),
             Err(TemporalRelationshipErrorV1::InvalidOcel20)
         );
+    }
+
+    #[test]
+    fn rejects_duplicate_consumed_ocel_type_declaration_in_either_order() {
+        let digest = digest_hex(&[0x11; 32]);
+        let mut fixture = temporal_relationship_ocel_fixture(&digest, &digest);
+        let mut duplicate = fixture["objectTypes"][2].clone();
+        duplicate["attributes"][0]["type"] = serde_json::Value::String("integer".to_owned());
+
+        for duplicate_first in [false, true] {
+            let mut candidate = fixture.clone();
+            let declarations = candidate["objectTypes"].as_array_mut().unwrap();
+            declarations.push(duplicate.clone());
+            if duplicate_first {
+                let last = declarations.len() - 1;
+                declarations.swap(2, last);
+            }
+            let input = serde_json::to_string(&candidate).unwrap();
+            assert_eq!(
+                parse_temporal_relationships_ocel20(&input),
+                Err(TemporalRelationshipErrorV1::InvalidOcel20)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_consumed_ocel_attribute_declaration_in_either_order() {
+        let digest = digest_hex(&[0x11; 32]);
+        let fixture = temporal_relationship_ocel_fixture(&digest, &digest);
+        for duplicate_first in [false, true] {
+            let mut candidate = fixture.clone();
+            let attributes = candidate["objectTypes"][2]["attributes"]
+                .as_array_mut()
+                .unwrap();
+            let duplicate = serde_json::json!({"name": "predicate", "type": "integer"});
+            if duplicate_first {
+                attributes.insert(0, duplicate);
+            } else {
+                attributes.push(duplicate);
+            }
+            let input = serde_json::to_string(&candidate).unwrap();
+            assert_eq!(
+                parse_temporal_relationships_ocel20(&input),
+                Err(TemporalRelationshipErrorV1::InvalidOcel20)
+            );
+        }
     }
 
     #[test]
@@ -1354,7 +1400,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn rejects_ocel_relationship_endpoint_that_does_not_exist() {
         let mut expected_claim = claim(
@@ -1411,7 +1456,14 @@ mod tests {
 
     #[test]
     fn late_recorded_relation_is_invisible_before_accepted_sequence() {
-        let mut late = claim("rel-crew-wo", "crew-7", "assigned_to", "work-order-9", T08, 2);
+        let mut late = claim(
+            "rel-crew-wo",
+            "crew-7",
+            "assigned_to",
+            "work-order-9",
+            T08,
+            2,
+        );
         late.source_recorded_at = T13.to_owned();
 
         let before = project_temporal_relationships(&[late.clone()], &[], &cut(T11, 1)).unwrap();
@@ -1449,13 +1501,12 @@ mod tests {
             Some("rel-asset-zone-new"),
         );
 
-        let known_before_correction =
-            project_temporal_relationships(
-                &[original.clone(), replacement.clone()],
-                &[correction.clone()],
-                &cut(T11, 2),
-            )
-            .unwrap();
+        let known_before_correction = project_temporal_relationships(
+            &[original.clone(), replacement.clone()],
+            &[correction.clone()],
+            &cut(T11, 2),
+        )
+        .unwrap();
         assert_eq!(known_before_correction.active_relations.len(), 2);
         assert_eq!(known_before_correction.conflicts.len(), 1);
 
@@ -1463,7 +1514,10 @@ mod tests {
             project_temporal_relationships(&[original, replacement], &[correction], &cut(T11, 3))
                 .unwrap();
         assert_eq!(known_after_correction.active_relations.len(), 1);
-        assert_eq!(known_after_correction.active_relations[0].object_id, "zone-B");
+        assert_eq!(
+            known_after_correction.active_relations[0].object_id,
+            "zone-B"
+        );
         assert!(known_after_correction.conflicts.is_empty());
         assert_eq!(
             known_after_correction.superseded_relation_ids,
@@ -1604,9 +1658,12 @@ mod tests {
             None,
         );
 
-        let before_effective_time =
-            project_temporal_relationships(&[original.clone()], &[revocation.clone()], &cut(T11, 2))
-                .unwrap();
+        let before_effective_time = project_temporal_relationships(
+            &[original.clone()],
+            &[revocation.clone()],
+            &cut(T11, 2),
+        )
+        .unwrap();
         assert_eq!(before_effective_time.active_relations.len(), 1);
         assert_eq!(
             before_effective_time.known_mutation_ids,
@@ -1618,9 +1675,12 @@ mod tests {
         );
         assert!(before_effective_time.applied_mutation_ids.is_empty());
 
-        let after_effective_before_knowledge =
-            project_temporal_relationships(&[original.clone()], &[revocation.clone()], &cut(T13, 1))
-                .unwrap();
+        let after_effective_before_knowledge = project_temporal_relationships(
+            &[original.clone()],
+            &[revocation.clone()],
+            &cut(T13, 1),
+        )
+        .unwrap();
         assert_eq!(after_effective_before_knowledge.active_relations.len(), 1);
 
         let after_effective_and_knowledge =
@@ -1686,12 +1746,9 @@ mod tests {
         future_mutation.source_recorded_at = "not-a-time".to_owned();
         future_mutation.target_claim_digest = [0; 32];
 
-        let receipt = project_temporal_relationships(
-            &[known, future],
-            &[future_mutation],
-            &cut(T11, 1),
-        )
-        .unwrap();
+        let receipt =
+            project_temporal_relationships(&[known, future], &[future_mutation], &cut(T11, 1))
+                .unwrap();
         assert_eq!(receipt.known_relation_ids, vec!["rel-known"]);
         assert_eq!(receipt.active_relations.len(), 1);
         assert!(receipt.known_mutation_ids.is_empty());
@@ -1699,7 +1756,14 @@ mod tests {
 
     #[test]
     fn known_future_relation_is_reported_separately_from_active_edges() {
-        let mut future = claim("rel-future", "crew-1", "assigned_to", "work-order-1", T12, 1);
+        let mut future = claim(
+            "rel-future",
+            "crew-1",
+            "assigned_to",
+            "work-order-1",
+            T12,
+            1,
+        );
         future.source_recorded_at = T08.to_owned();
         let receipt = project_temporal_relationships(&[future], &[], &cut(T11, 1)).unwrap();
 
@@ -1712,16 +1776,13 @@ mod tests {
 
     #[test]
     fn known_but_not_active_claim_content_is_bound_into_snapshot_digest() {
-        let mut future_a =
-            claim("rel-future", "asset-1", "member_of_zone", "zone-A", T12, 1);
+        let mut future_a = claim("rel-future", "asset-1", "member_of_zone", "zone-A", T12, 1);
         future_a.source_recorded_at = T08.to_owned();
         let mut future_b = future_a.clone();
         future_b.object_id = "zone-B".to_owned();
 
-        let first =
-            project_temporal_relationships(&[future_a], &[], &cut(T11, 1)).unwrap();
-        let second =
-            project_temporal_relationships(&[future_b], &[], &cut(T11, 1)).unwrap();
+        let first = project_temporal_relationships(&[future_a], &[], &cut(T11, 1)).unwrap();
+        let second = project_temporal_relationships(&[future_b], &[], &cut(T11, 1)).unwrap();
 
         assert!(first.active_relations.is_empty());
         assert_eq!(first.pending_relation_ids, vec!["rel-future"]);
@@ -1745,10 +1806,22 @@ mod tests {
 
     #[test]
     fn one_to_many_and_many_to_one_enforce_the_correct_endpoint() {
-        let mut one_to_many_a =
-            claim("rel-otm-a", "crew-1", "has_assignment", "work-order-1", T08, 1);
-        let mut one_to_many_b =
-            claim("rel-otm-b", "crew-2", "has_assignment", "work-order-1", T08, 2);
+        let mut one_to_many_a = claim(
+            "rel-otm-a",
+            "crew-1",
+            "has_assignment",
+            "work-order-1",
+            T08,
+            1,
+        );
+        let mut one_to_many_b = claim(
+            "rel-otm-b",
+            "crew-2",
+            "has_assignment",
+            "work-order-1",
+            T08,
+            2,
+        );
         one_to_many_a.cardinality = TemporalRelationCardinalityV1::OneToMany;
         one_to_many_b.cardinality = TemporalRelationCardinalityV1::OneToMany;
         let one_to_many =
@@ -1760,10 +1833,8 @@ mod tests {
             TemporalRelationshipConflictSideV1::Object
         );
 
-        let mut many_to_one_a =
-            claim("rel-mto-a", "asset-1", "member_of_zone", "zone-1", T08, 1);
-        let mut many_to_one_b =
-            claim("rel-mto-b", "asset-1", "member_of_zone", "zone-2", T08, 2);
+        let mut many_to_one_a = claim("rel-mto-a", "asset-1", "member_of_zone", "zone-1", T08, 1);
+        let mut many_to_one_b = claim("rel-mto-b", "asset-1", "member_of_zone", "zone-2", T08, 2);
         many_to_one_a.cardinality = TemporalRelationCardinalityV1::ManyToOne;
         many_to_one_b.cardinality = TemporalRelationCardinalityV1::ManyToOne;
         let many_to_one =
