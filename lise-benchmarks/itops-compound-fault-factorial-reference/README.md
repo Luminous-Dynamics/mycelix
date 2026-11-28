@@ -2,6 +2,8 @@
 
 Public known-answer fixture for [ITOPS-CONTINUOUS-001 #6864](https://github.com/Luminous-Dynamics/mycelix/issues/6864).
 
+This factorial adapter complements the two-hour timeline contract in [PR #6868](https://github.com/Luminous-Dynamics/mycelix/pull/6868). Source admission and independent scenario curation are tracked in [ITOPS-SCENARIO-CURATE-001 #6873](https://github.com/Luminous-Dynamics/mycelix/issues/6873).
+
 This is an evaluator/contract fixture. It is not a live Kubernetes environment, a fault injector, an agent task feed, or a hidden challenge set.
 
 ## What it tests
