@@ -216,8 +216,7 @@ pub fn analyze_pure_nash_equilibria(
 
                 let deviation_payoff = payoffs_by_profile
                     .get(&deviation_profile)
-                    .map(|payoffs| payoffs[player_index])
-                    .unwrap_or(f64::NEG_INFINITY);
+                    .map_or(f64::NEG_INFINITY, |payoffs| payoffs[player_index]);
 
                 best_payoff = best_payoff.max(deviation_payoff);
                 deviation_payoffs.push((strategy_id.clone(), deviation_payoff));
