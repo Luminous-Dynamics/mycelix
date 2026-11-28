@@ -381,12 +381,12 @@ fn main() {
         }
     };
     let complaints_per_callout = match args.get(3).map(|value| value.parse::<usize>()).transpose() {
-            Ok(value) => value.unwrap_or(100),
-            Err(error) => {
-                eprintln!("invalid complaints-per-callout value: {error}");
-                std::process::exit(2);
-            }
-        };
+        Ok(value) => value.unwrap_or(100),
+        Err(error) => {
+            eprintln!("invalid complaints-per-callout value: {error}");
+            std::process::exit(2);
+        }
+    };
 
     if let Err(error) = run(event_count, output, repeats, complaints_per_callout) {
         eprintln!("OCEL scale benchmark failed: {error}");
