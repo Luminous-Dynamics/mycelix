@@ -546,7 +546,13 @@ export interface RevocationEntry {
 export interface RevocationCheckResult {
   credential_id: string;
   status: RevocationStatus;
-  reason?: string;
+  reason?: string | null;
+  /** Effective time of the latest observed revocation/suspension record. */
+  effective_from: Timestamp | null;
+  /** Time the issuer recorded the latest observed record. */
+  recorded_at: Timestamp | null;
+  /** Suspension end, when the latest observed record is a suspension. */
+  suspension_end: Timestamp | null;
   checked_at: Timestamp;
 }
 
