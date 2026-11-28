@@ -543,9 +543,13 @@ export interface RevocationEntry {
 /**
  * Revocation check result
  */
+export type RevocationLookupStatus = 'RecordObserved' | 'NoRecordObserved';
+
 export interface RevocationCheckResult {
   credential_id: string;
   status: RevocationStatus;
+  /** Whether a DHT record was observed; NoRecordObserved does not prove global completeness. */
+  lookup_status: RevocationLookupStatus;
   reason?: string | null;
   /** Effective time of the latest observed revocation/suspension record. */
   effective_from: Timestamp | null;
