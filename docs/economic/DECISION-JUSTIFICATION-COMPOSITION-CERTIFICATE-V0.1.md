@@ -30,7 +30,7 @@ A valid inclusion proof relative to a supplied root is not authenticated root id
 | DJCC stage | Existing owner / work | Composition responsibility |
 |---|---|---|
 | Verifier frontier | #6679, #6680, #6684, #6795, #6797 | Bind verifier identity, accepted partial-order cut, coverage, ancestry, gaps and forks |
-| Source/log trust | #6727, #6810, #6812, #6818 | Bind receipt/log identity, inclusion, consistency, checkpoint, key epoch, governed witnesses and split-view state |
+| Source/log trust | #6530, #5863, #5942, #6727, #6810, #6812, #6818 | Reuse SCITT signed-statement/COSE receipt interoperability; bind issuer identity, TS identity, explicit VDS profile, inclusion/consistency, checkpoint/key epoch, governed witnesses and split-view state |
 | Semantic projection | #6782, #6786, #6787 | Bind exact assertion payloads, validity-episode identities, correction resolution and interval projection |
 | Query result | #6783, #6784, #6788 | Bind query plan, scope, valid time, historical frontier, result and independent replay |
 | Policy decision | #5792, #6783 | Bind immutable policy epoch, evaluator build, canonical input, reason codes and historical output |
@@ -108,6 +108,46 @@ JSON Schema checks shape, not these graph semantics. A separate composition vali
 An inclusion proof proves membership under a root, not completeness of a declared universe. An absence claim requires an authenticated owner universe and covered owner prefixes with no unaccounted gaps, under the relevant verifier frontier.
 
 Missing, hidden, withheld, gapped, unknown, forked or untrusted source state is Indeterminate, never empty. A witness quorum does not establish the owner roster is exhaustive.
+
+### 5.2.1 SCITT and verifiable-data-structure profile
+
+Do not create a new transparency ledger or signed-statement protocol. Compose the existing SCITT adapter owner (#6530) and the signed-evidence / anti-equivocation owners (#5863, #5942).
+
+Standards snapshot as of 28 November 2026:
+- RFC 9943 (June 2026, Proposed Standard) defines SCITT signed-statement transparency, issuer and subject claims, Transparency Services, registration policies and COSE receipts.
+- RFC 9942 (June 2026, Proposed Standard) defines COSE Receipts for Verifiable Data Structures and proof-type interoperability.
+- draft-ietf-scitt-receipts-mmr-profile-00, published 21 November 2026, is an active SCITT Working Group Internet-Draft for COSE receipts over Merkle Mountain Ranges. It is experimental, not a final RFC or production dependency.
+
+Use the SCITT statement/receipt format as a source-trust adapter. The source-trust stage must distinguish:
+1. issuer signature and protected-header validation;
+2. issuer identity/key epoch and trust anchor;
+3. statement subject/profile/payload digest;
+4. TS identity and registration policy;
+5. COSE receipt signature and VDS proof verification;
+6. selected VDS identifier/version/hash algorithm and proof profile;
+7. inclusion and consistency from the verifier's pinned state;
+8. cross-client non-equivocation/split-view evidence;
+9. issuer participation and completeness of the relevant statement universe;
+10. semantic truth and independent outcome, which are not established by registration.
+
+RFC 9943 explicitly warns that issuer statements may be false or inaccurate and that issuers can refuse to register, or selectively submit, statements. A registered statement proves that an issuer made it and a trusted TS registered it under its policy; it does not prove real-world truth or complete participation. The owner-universe and source-prefix-closure obligations remain independent DJCC stages.
+
+Treat RFC9162_SHA256 and the SCITT MMR profile as distinct VDS algorithms. Bind every receipt to its declared VDS profile, hash algorithm, TS identity, tree size/accumulator and trusted prior state. Do not reinterpret proof bytes across VDS profiles or migrate an accepted checkpoint without an explicit, separately verified transition.
+
+MMR-specific controls for any experimental adapter:
+- Inclusion and consistency receipt payloads are detached; recompute the accumulator/root from proof material and compare it with the signed payload.
+- Consistency must start at the verifier's already trusted VDS, tree size and accumulator; trusted state advances only forward.
+- An MMR inclusion receipt alone does not pin a historic tree size. An empty inclusion path does not bind the index.
+- The MMR draft's node construction does not provide RFC9162-style leaf/internal-node domain separation. The application leaf-commitment profile must prevent an entry preimage from being confused with an internal-node preimage and must bind position where an empty path requires it.
+- A valid TS receipt must not satisfy the owner-universe, semantic projection, current authority or factual-outcome stage by itself.
+
+Primary references:
+- RFC 9943: https://www.rfc-editor.org/rfc/rfc9943
+- RFC 9942: https://www.rfc-editor.org/rfc/rfc9942
+- SCITT MMR profile -00: https://datatracker.ietf.org/doc/html/draft-ietf-scitt-receipts-mmr-profile-00
+- SCITT WG document status: https://datatracker.ietf.org/wg/scitt/documents/
+
+Compare any witness overlay against RFC 9943 non-equivocation/auditor requirements and conventional CT-style client gossip/monitoring. A witness quorum is defense-in-depth, not a substitute for a conformant TS or independent owner-universe closure.
 
 ### 5.3 No hindsight
 
