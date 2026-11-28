@@ -12,7 +12,75 @@ import (
 
 const benchmarkResultSchemaV01 = "mycelix.djcc-benchmark-result.v0.1"
 
+func rejectDuplicateBenchmarkJSONKeys(raw []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var parseValue func() error
+	parseValue = func() error {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		delimiter, isDelimiter := token.(json.Delim)
+		if !isDelimiter {
+			return nil
+		}
+		switch delimiter {
+		case '{':
+			seen := make(map[string]struct{})
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok {
+					return fmt.Errorf("benchmark JSON object key is not a string")
+				}
+				if _, duplicate := seen[key]; duplicate {
+					return fmt.Errorf("benchmark JSON object contains duplicate key %q", key)
+				}
+				seen[key] = struct{}{}
+				if err := parseValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim('}') {
+				return fmt.Errorf("benchmark JSON object is not properly terminated")
+			}
+		case '[':
+			for decoder.More() {
+				if err := parseValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim(']') {
+				return fmt.Errorf("benchmark JSON array is not properly terminated")
+			}
+		default:
+			return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
+		}
+		return nil
+	}
+	if err := parseValue(); err != nil {
+		return fmt.Errorf("validate benchmark JSON structure: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("benchmark result contains trailing JSON")
+		}
+		return fmt.Errorf("decode trailing benchmark data: %w", err)
+	}
+	return nil
+}
+
 func decodeBenchmarkObject(raw []byte) (map[string]any, error) {
+	if err := rejectDuplicateBenchmarkJSONKeys(raw); err != nil {
+		return nil, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	var value map[string]any
