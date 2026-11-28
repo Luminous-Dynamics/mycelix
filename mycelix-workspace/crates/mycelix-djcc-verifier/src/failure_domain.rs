@@ -114,6 +114,9 @@ pub struct FailureScenarioOutcome {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FailureScenarioAssessment {
+    /// Structural completeness/common-cause disposition of the selected profile.
+    /// A passing survivor floor never promotes this disposition.
+    pub profile_independence_disposition: FailureDomainDisposition,
     pub outcomes: Vec<FailureScenarioOutcome>,
     /// This applies only to the declared scenarios; it is not an exhaustive
     /// reliability or probability claim about unmodeled failures.
@@ -307,7 +310,7 @@ pub fn assess_failure_scenarios(
     scenarios: &[FailureScenario],
     minimum_survivor_floor: usize,
 ) -> Result<FailureScenarioAssessment, String> {
-    let _profile_assessment = assess_independence(graph, profile)?;
+    let profile_assessment = assess_independence(graph, profile)?;
     let (nodes, channel_lineage) = build_channel_lineages(graph)?;
     if scenarios.is_empty() {
         return Err("failure scenario suite must not be empty".to_owned());
@@ -389,6 +392,7 @@ pub fn assess_failure_scenarios(
     let all_declared_scenarios_meet_survivor_floor =
         outcomes.iter().all(|outcome| outcome.meets_survivor_floor);
     Ok(FailureScenarioAssessment {
+        profile_independence_disposition: profile_assessment.disposition,
         outcomes,
         all_declared_scenarios_meet_survivor_floor,
     })
@@ -803,6 +807,26 @@ mod tests {
             vec!["evidence:c".to_owned()]
         );
         assert!(!result.outcomes[1].meets_survivor_floor);
+    }
+
+    #[test]
+    fn survivor_floor_does_not_promote_incomplete_lineage() {
+        let graph = disjoint_graph();
+        let mut incomplete_profile = profile();
+        incomplete_profile
+            .required_classes
+            .insert(FailureDomainClass::EconomicControl);
+        let scenarios = vec![FailureScenario {
+            scenario_ref: "scenario:single-local-loss".to_owned(),
+            failed_domain_refs: vec!["a-device".to_owned()],
+        }];
+        let result =
+            assess_failure_scenarios(&graph, &incomplete_profile, &scenarios, 1).unwrap();
+        assert!(result.all_declared_scenarios_meet_survivor_floor);
+        assert_eq!(
+            result.profile_independence_disposition,
+            FailureDomainDisposition::LineageCoverageIncomplete
+        );
     }
 
     #[test]
