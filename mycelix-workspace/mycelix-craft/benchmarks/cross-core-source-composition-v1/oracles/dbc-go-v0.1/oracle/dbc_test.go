@@ -95,10 +95,10 @@ func TestKnownAnswerFixtureHasTwentyFourSeeds(t *testing.T) {
  _=json.Unmarshal(m["schema_id"],&schema); _=json.Unmarshal(m["cases"],&cases)
  if schema!="mycelix.craft.dbc-known-answer.v0.1" || len(cases)!=24 { t.Fatalf("schema/case count mismatch: %s / %d",schema,len(cases)) }
 }
-func TestCanonicalDigestDoesNotAliasDifferentProfiles(t *testing.T) {
+func TestCanonicalDigestBindsQueryAndPolicyInputs(t *testing.T) {
  c:=base(); one,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }
- c.ProfileDigest=d(250); two,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }
- if one==two { t.Fatal("profile digest was not bound") }
+ c.QueryDigest=d(250); two,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }
+ if one==two { t.Fatal("query digest was not bound") }
 }
 var _ = sha256.Sum256
 var _ = hex.EncodeToString
@@ -121,5 +121,7 @@ func TestPinnedDJCCProfileDigestIsRequired(t *testing.T) {
  c:=base(); c.ProfileDigest=d(222); expectCode(t,c,"PROFILE_MISMATCH")
 }
 func TestPolicyAndOutcomeStageReceiptsAreBound(t *testing.T) {
- c:=base(); c.Policy.Digest=d(333); expectCode(t,c,"POLICY_STAGE_BINDING_MISMATCH")
+ c:=base(); c.Policy.Digest=d(333)
+ for i:=range c.External { if c.External[i].Slot=="policy" { c.External[i].Digest=d(333) } }
+ expectCode(t,c,"POLICY_STAGE_BINDING_MISMATCH")
 }
