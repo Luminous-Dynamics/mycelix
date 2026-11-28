@@ -6,6 +6,7 @@ on:
       - "docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md"
       - "schemas/economic/decision-justification-composition-certificate-v0.1.schema.json"
       - "tools/economic/evidence-execution-composition/**"
+      - "mycelix-workspace/crates/mycelix-djcc-verifier/**"
       - ".github/workflows/djcc-seed-oracle.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md"
       - "schemas/economic/decision-justification-composition-certificate-v0.1.schema.json"
       - "tools/economic/evidence-execution-composition/**"
+      - "mycelix-workspace/crates/mycelix-djcc-verifier/**"
       - ".github/workflows/djcc-seed-oracle.yml"
 
 permissions:
@@ -47,6 +49,8 @@ jobs:
           test -f tools/economic/evidence-execution-composition/go.mod
           test -f tools/economic/evidence-execution-composition/oracle/oracle.go
           test -f tools/economic/evidence-execution-composition/oracle/oracle_test.go
+          test -f mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml
+          test -f mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs
 
       - name: Set up pinned Go reference toolchain
         uses: actions/setup-go@v7
@@ -91,6 +95,36 @@ jobs:
         run: |
           set -euo pipefail
           go vet ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Install pinned Rust toolchain
+        id: rust_toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustc +1.96.0 --version | tee "$RUNNER_TEMP/djcc/rust.log"
+          cargo +1.96.0 --version | tee -a "$RUNNER_TEMP/djcc/rust.log"
+
+      - name: Check Rust verifier formatting
+        id: rustfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml -- --check
+
+      - name: Test Rust composition verifier
+        id: rust_tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets
+
+      - name: Clippy Rust composition verifier with warnings denied
+        id: clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets -- -D warnings
 
       - name: Assemble exact-head seed qualification receipt
         if: always()
