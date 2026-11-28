@@ -200,11 +200,11 @@ func validateBenchmarkFixtureRecords(
 	if !ok {
 		return fmt.Errorf("fixture_records must be an array")
 	}
-	if len(records) < 60 || int64(len(records)) != fixtureCount || int64(len(records)) != executableCount {
-		return fmt.Errorf("fixture_records length must equal fixture_count and executable_fixture_count, with at least 60 records")
-	}
 	if symbolicCount != 0 {
 		return fmt.Errorf("qualification records cannot contain symbolic fixtures")
+	}
+	if len(records) < 60 || int64(len(records)) != fixtureCount || int64(len(records)) != executableCount {
+		return fmt.Errorf("fixture_records length must equal fixture_count and executable_fixture_count, with at least 60 records")
 	}
 
 	fixtureIDs := make(map[string]struct{}, len(records))
