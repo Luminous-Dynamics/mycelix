@@ -326,9 +326,22 @@ func TestCorrectionMustAdvanceBeyondSupersededStepReceiptFrontier(t *testing.T) 
 	proof := executionGenesisProofDigest(scopeDigest)
 	original := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
 		state, proof, "step:original", StepApply, testDigestB, testDigestC)
+	original.ReceiptFrontierSequence = 2
+	original.ReceiptFrontierDigest = receipts[1].ReceiptDigest
+	original.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, 2, receipts[1].ReceiptDigest, original.ConsumedReceiptDigests)
+	original.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, original.IVCUpdate.PriorAdviceCommitmentDigest, original.IVCUpdate.AdviceDeltaCommitmentDigest)
+	original.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, original)
 	events := appendExecutionEvent(t, scope, nil, "event:original", ExecutionCommitted, &original, "")
-	correction := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+	correction := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
 		testDigestB, testDigestC, "step:correction", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:original")
+	correction.IVCUpdate.PriorAdviceCommitmentDigest = original.IVCUpdate.NextAdviceCommitmentDigest
+	correction.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, 2, receipts[1].ReceiptDigest, correction.ConsumedReceiptDigests)
+	correction.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, correction.IVCUpdate.PriorAdviceCommitmentDigest, correction.IVCUpdate.AdviceDeltaCommitmentDigest)
+	correction.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, correction)
 	events = appendExecutionEvent(t, scope, events, "event:correction", ExecutionCommitted, &correction, "")
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainIndeterminate ||
@@ -484,16 +497,26 @@ func TestCorrectionAppendsNewStepAndPreservesPriorStep(t *testing.T) {
 
 func TestCorrectionMustSupersedeAnEarlierAppliedStep(t *testing.T) {
 	scope := executionFixtureScope()
-	receipts := executionReceipts(t, scope, 1)
+	receipts := executionReceipts(t, scope, 2)
 	scopeDigest, _, state := executionGenesis(t, scope)
 	proof := executionGenesisProofDigest(scopeDigest)
-	transition := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
-		state, proof, "step:correction", StepRecomputeAfterCorrection, testDigestB, testDigestC, "step:missing")
-	events := appendExecutionEvent(t, scope, nil, "event:correction", ExecutionCommitted, &transition, "")
+	original := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+		state, proof, "step:original", StepApply, testDigestB, testDigestC)
+	events := appendExecutionEvent(t, scope, nil, "event:original", ExecutionCommitted, &original, "")
+
+	transition := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
+		testDigestB, testDigestC, "step:correction", StepRecomputeAfterCorrection, testDigestA, testDigestB, "step:missing")
+	transition.IVCUpdate.PriorAdviceCommitmentDigest = original.IVCUpdate.NextAdviceCommitmentDigest
+	transition.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, transition.ReceiptFrontierSequence, transition.ReceiptFrontierDigest, transition.ConsumedReceiptDigests)
+	transition.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, transition.IVCUpdate.PriorAdviceCommitmentDigest, transition.IVCUpdate.AdviceDeltaCommitmentDigest)
+	transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
+	events = appendExecutionEvent(t, scope, events, "event:correction", ExecutionCommitted, &transition, "")
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainIndeterminate ||
-		!strings.Contains(got.Reason, "unknown or unapplied") {
-		t.Fatalf("unknown supersession target accepted: %+v", got)
+		!strings.Contains(got.Reason, "impact cone mismatch") {
+		t.Fatalf("incorrect correction impact cone accepted: %+v", got)
 	}
 }
 
