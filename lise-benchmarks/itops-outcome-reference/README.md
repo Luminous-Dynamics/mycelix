@@ -53,6 +53,10 @@ Use different public comparisons for different questions:
 
 Sources and exact comparison conditions are tracked in #6846. All percentages are external reported values, not Luminous results.
 
+## Mutation controls
+
+The mutation script changes the public corpus in five ways: drops an expected action, falsifies a functional terminal check, promotes shared-dependency evidence, detaches evidence from its operation, and relabels an out-of-scope effect as success. The validator must reject all five.
+
 ## Claim ceiling
 
 Static synthetic fixture and schema only. No Rust validator, executable environment, agent run, independent reproduction, production qualification, energy measurement or SOTA result is claimed by this corpus.
