@@ -32,9 +32,11 @@ jobs:
           expected_ref="praxis/capability-plan-compiler-v1"
           git switch --force-create "$expected_ref"
           before="$(git rev-parse HEAD)"
-          cargo +1.96.0 fmt --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml -p praxis-core
+          workspace="mycelix-workspace/mycelix-praxis"
+          cargo generate-lockfile --manifest-path "$workspace/Cargo.toml"
+          cargo +1.96.0 fmt --manifest-path "$workspace/Cargo.toml" -p praxis-core
           git diff --check
-          git add mycelix-workspace/mycelix-praxis/crates/praxis-core/src mycelix-workspace/mycelix-praxis/crates/praxis-core/benches
+          git add "$workspace/Cargo.lock" "$workspace/crates/praxis-core/src" "$workspace/crates/praxis-core/benches"
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
