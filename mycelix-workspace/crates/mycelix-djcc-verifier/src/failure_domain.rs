@@ -60,6 +60,9 @@ pub struct IndependenceProfile {
     pub required_classes: BTreeSet<FailureDomainClass>,
     /// A shared node of one of these classes is a material common cause.
     pub material_shared_classes: BTreeSet<FailureDomainClass>,
+    /// Shared nodes in these classes are explicitly accepted as non-material
+    /// under this profile. An unclassified shared class remains indeterminate.
+    pub explicitly_non_material_shared_classes: BTreeSet<FailureDomainClass>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -67,6 +70,8 @@ pub struct IndependenceAssessment {
     pub disposition: FailureDomainDisposition,
     /// Shared domain IDs, not merely shared labels or classes.
     pub common_domain_refs: Vec<String>,
+    /// Shared IDs whose class has not been classified by this profile.
+    pub unclassified_shared_domain_refs: Vec<String>,
     /// Required classes absent from each channel's reachable lineage.
     pub missing_classes_by_channel: BTreeMap<String, Vec<FailureDomainClass>>,
 }
@@ -127,6 +132,15 @@ pub fn assess_independence(
     {
         return Err(
             "material shared-domain classes must be non-empty and a subset of required classes"
+                .to_owned(),
+        );
+    }
+    if !profile
+        .material_shared_classes
+        .is_disjoint(&profile.explicitly_non_material_shared_classes)
+    {
+        return Err(
+            "a shared-domain class cannot be both material and explicitly non-material"
                 .to_owned(),
         );
     }
@@ -233,22 +247,30 @@ pub fn assess_independence(
         ));
     }
 
-    let common_domain_refs: Vec<_> = node_channel_counts
-        .iter()
-        .filter(|(_, count)| **count > 1)
-        .filter_map(|(domain_ref, _)| {
-            nodes.get(domain_ref).and_then(|node| {
-                profile
-                    .material_shared_classes
-                    .contains(&node.class)
-                    .then_some(domain_ref.clone())
-            })
-        })
-        .collect();
+    let mut common_domain_refs = Vec::new();
+    let mut unclassified_shared_domain_refs = Vec::new();
+    for (domain_ref, count) in &node_channel_counts {
+        if *count < 2 {
+            continue;
+        }
+        let node = nodes
+            .get(domain_ref)
+            .expect("reachable failure-domain node is registered");
+        if profile.material_shared_classes.contains(&node.class) {
+            common_domain_refs.push(domain_ref.clone());
+        } else if !profile
+            .explicitly_non_material_shared_classes
+            .contains(&node.class)
+        {
+            unclassified_shared_domain_refs.push(domain_ref.clone());
+        }
+    }
 
     let disposition = if !common_domain_refs.is_empty() {
         FailureDomainDisposition::CommonCauseDetected
-    } else if !missing_classes_by_channel.is_empty() {
+    } else if !unclassified_shared_domain_refs.is_empty()
+        || !missing_classes_by_channel.is_empty()
+    {
         FailureDomainDisposition::LineageCoverageIncomplete
     } else {
         FailureDomainDisposition::StructurallyDisjointWithinDeclaredGraph
@@ -257,6 +279,7 @@ pub fn assess_independence(
     Ok(IndependenceAssessment {
         disposition,
         common_domain_refs,
+        unclassified_shared_domain_refs,
         missing_classes_by_channel,
     })
 }
@@ -278,6 +301,7 @@ mod tests {
                 FailureDomainClass::SigningKeyCustody,
                 FailureDomainClass::UpstreamSource,
             ]),
+            explicitly_non_material_shared_classes: BTreeSet::new(),
         }
     }
 
@@ -398,10 +422,34 @@ mod tests {
             .unwrap()
             .parent_refs
             .sort();
-        let result = assess_independence(&graph, &profile()).unwrap();
+        let mut selected_profile = profile();
+        selected_profile.explicitly_non_material_shared_classes =
+            BTreeSet::from([FailureDomainClass::NetworkTransport]);
+        let result = assess_independence(&graph, &selected_profile).unwrap();
         assert_eq!(
             result.disposition,
             FailureDomainDisposition::StructurallyDisjointWithinDeclaredGraph
+        );
+    }
+
+    #[test]
+    fn unclassified_shared_domain_remains_incomplete() {
+        let mut graph = disjoint_graph();
+        graph.nodes.push(node("shared-network", FailureDomainClass::NetworkTransport, &[]));
+        graph.nodes.sort_by(|a, b| a.domain_ref.cmp(&b.domain_ref));
+        for evidence in ["a-device", "b-device"] {
+            let device = graph.nodes.iter_mut().find(|item| item.domain_ref == evidence).unwrap();
+            device.parent_refs.push("shared-network".to_owned());
+            device.parent_refs.sort();
+        }
+        let result = assess_independence(&graph, &profile()).unwrap();
+        assert_eq!(
+            result.disposition,
+            FailureDomainDisposition::LineageCoverageIncomplete
+        );
+        assert_eq!(
+            result.unclassified_shared_domain_refs,
+            vec!["shared-network".to_owned()]
         );
     }
 
