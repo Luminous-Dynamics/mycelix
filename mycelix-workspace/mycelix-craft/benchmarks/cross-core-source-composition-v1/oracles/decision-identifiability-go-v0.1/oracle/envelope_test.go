@@ -124,6 +124,8 @@ func TestPermutationInvariance(t *testing.T) {
 
 func TestAddingWorldCannotExpandRobustSets(t *testing.T) {
 	problem := readFixture(t, "invariant")
+	problem.CoverageBasis = CoverageDeclaredSet
+	problem.FixtureDigest = ""
 	before, err := Evaluate(problem)
 	if err != nil {
 		t.Fatal(err)
