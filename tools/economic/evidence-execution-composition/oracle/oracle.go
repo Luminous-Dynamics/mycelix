@@ -73,6 +73,7 @@ type ClaimCeiling struct {
 	Truth          ClaimState `json:"truth"`
 	Authority      ClaimState `json:"authority"`
 	Effect         ClaimState `json:"effect"`
+	Independence   ClaimState `json:"independence"`
 }
 
 type Scenario struct {
@@ -123,13 +124,18 @@ func stages(frontier, source, semantic, query, policy, authorization, execution,
 	}
 }
 
-func ceiling(authentication, completeness, truth, authority, effect ClaimState) ClaimCeiling {
+func ceiling(authentication, completeness, truth, authority, effect ClaimState, independence ...ClaimState) ClaimCeiling {
+	independenceState := ClaimNotEvaluated
+	if len(independence) > 0 {
+		independenceState = independence[0]
+	}
 	return ClaimCeiling{
 		Authentication: authentication,
 		Completeness: completeness,
 		Truth: truth,
 		Authority: authority,
 		Effect: effect,
+		Independence: independenceState,
 	}
 }
 
@@ -333,6 +339,7 @@ var canonicalClaimOrder = []string{
 	"authority",
 	"completeness",
 	"effect",
+	"independence",
 	"truth",
 }
 
@@ -483,8 +490,8 @@ func ValidateProfileManifest(manifest ProfileManifest) error {
 	if manifest.Status != "proposed-structural-profiles-not-yet-authoritative" {
 		return errors.New("unexpected DJCC profile manifest status")
 	}
-	if len(manifest.Profiles) != 2 {
-		return fmt.Errorf("expected two DJCC V0.1 profiles, got %d", len(manifest.Profiles))
+	if len(manifest.Profiles) != 3 {
+		return fmt.Errorf("expected three DJCC V0.1 profiles, got %d", len(manifest.Profiles))
 	}
 	seenProfiles := make(map[string]struct{}, len(manifest.Profiles))
 	stageRank := make(map[string]int, len(canonicalStageOrder))
