@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: craft-dsop-\${{ github.event.pull_request.head.sha || github.sha }}
+  group: craft-dsop-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Check out exact PR head
         uses: actions/checkout@v4
         with:
-          ref: \${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up pinned Go toolchain
         uses: actions/setup-go@v5
