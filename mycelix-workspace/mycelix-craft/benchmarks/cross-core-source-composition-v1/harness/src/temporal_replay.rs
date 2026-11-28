@@ -13,6 +13,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg(test)]
 const FIXTURE: &str = include_str!("../../ocel/ocel-water-service-v1.json");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
