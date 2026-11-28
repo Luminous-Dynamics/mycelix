@@ -59,8 +59,10 @@ jobs:
               raise SystemExit(f"PM4Py version mismatch: expected {expected}, got {actual}")
           print(f"PM4Py oracle version: {actual}")
           PY
-          python3 -m pip freeze --all > "$RUNNER_TEMP/pm4py-oracle-environment.txt"
           mkdir -p "$RUNNER_TEMP/pm4py-oracle"
+          python3 --version > "$RUNNER_TEMP/pm4py-oracle/python-version.txt"
+          python3 -m pip --version > "$RUNNER_TEMP/pm4py-oracle/pip-version.txt"
+          python3 -m pip freeze --all > "$RUNNER_TEMP/pm4py-oracle/environment.txt"
 
       - name: Run independent PM4Py OCEL 2.0 round-trip
         run: |
@@ -71,9 +73,6 @@ jobs:
             --source "$FIXTURE" \
             --roundtrip "$RUNNER_TEMP/pm4py-oracle/ocel-water-service-roundtrip.json" \
             | tee "$RUNNER_TEMP/pm4py-oracle/report.json"
-          python3 --version > "$RUNNER_TEMP/pm4py-oracle/python-version.txt"
-          python3 -m pip --version > "$RUNNER_TEMP/pm4py-oracle/pip-version.txt"
-          cp "$RUNNER_TEMP/pm4py-oracle-environment.txt" "$RUNNER_TEMP/pm4py-oracle/"
 
       - name: Install pinned Rust toolchain and components
         run: |
@@ -105,6 +104,7 @@ jobs:
         run: cargo +1.96.0 clippy --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
 
       - name: Upload PM4Py round-trip evidence and resolved oracle environment
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pm4py-ocel-roundtrip-${{ github.sha }}
