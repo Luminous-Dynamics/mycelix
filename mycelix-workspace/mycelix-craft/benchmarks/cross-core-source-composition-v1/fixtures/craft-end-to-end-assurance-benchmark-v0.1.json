@@ -361,6 +361,22 @@
       "ocel21-interchange-parity-v0.1.json"
     ],
     "bundled_csv_files": "bundled-csv/**/*.csv",
-    "bundled_parquet_status": "NotImplemented"
+    "reference_oracle": "oracles/ocel21-interchange-go-v0.1/",
+    "reference_oracle_scope": [
+      "OCEL_JSON",
+      "OCEL21_single_file_CSV",
+      "OCEL21_bundled_CSV"
+    ],
+    "local_validation": {
+      "go": "1.23.2",
+      "tests": "passed",
+      "race": "passed",
+      "vet": "passed",
+      "statement_coverage_percent": 72.6
+    },
+    "hosted_exact_head": "pending",
+    "bundled_parquet": "NotImplemented",
+    "production_craft_integration": "NotEvaluated",
+    "status": "independent_test_only_reference_added; local tests passed; hosted_exact_head_pending; bundled_parquet_not_implemented"
   }
 }
