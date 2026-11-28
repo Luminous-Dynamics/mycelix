@@ -92,6 +92,7 @@ type ExecutionReplayResultV1 struct {
 	StateHeadDigest string
 	ProofHeadDigest string
 	AdviceCommitmentDigest string
+	ReceiptFrontierSequence uint64
 	PendingEventID string
 	PendingStepID string
 	MutationBlocked bool
@@ -684,6 +685,7 @@ func executionReplayCertificateDigest(result ExecutionReplayResultV1) string {
 	writeString(&b, result.StateHeadDigest)
 	writeString(&b, result.ProofHeadDigest)
 	writeString(&b, result.AdviceCommitmentDigest)
+	writeUint64(&b, result.ReceiptFrontierSequence)
 	writeString(&b, result.PendingEventID)
 	writeString(&b, result.PendingStepID)
 	if result.MutationBlocked { b.WriteByte(1) } else { b.WriteByte(0) }
@@ -788,6 +790,7 @@ func ReplayOracleExecutionTranscriptV1(
 	result.StateHeadDigest = state.stateDigest
 	result.ProofHeadDigest = state.proofDigest
 	result.AdviceCommitmentDigest = state.adviceCommitmentDigest
+	result.ReceiptFrontierSequence = state.receiptFrontierSequence
 	running := state.stepHeadDigest
 	seenEventIDs := make(map[string]struct{}, len(events))
 	reservedStepIDs := make(map[string]struct{}, len(events))
@@ -899,6 +902,7 @@ func ReplayOracleExecutionTranscriptV1(
 	result.StateHeadDigest = state.stateDigest
 	result.ProofHeadDigest = state.proofDigest
 	result.AdviceCommitmentDigest = state.adviceCommitmentDigest
+	result.ReceiptFrontierSequence = state.receiptFrontierSequence
 	if pending != nil {
 		result.PendingEventID = pending.event.EventID
 		result.PendingStepID = pending.transition.StepID
