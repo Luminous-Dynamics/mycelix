@@ -484,8 +484,7 @@ func Refine(p Problem, cellID, constraintID string) (Problem, RefinementReceipt,
 		SpuriousWorldsBefore: before.SpuriousWorldCount,
 		SpuriousWorldsAfter: after.SpuriousWorldCount,
 		ConcreteSemanticsPreserved: true,
-		DecisionAmbiguityReduced: len(after.AbstractSummary.OptimalInEveryWorld) > len(before.AbstractSummary.OptimalInEveryWorld) ||
-			after.SpuriousWorldCount < before.SpuriousWorldCount,
+		DecisionAmbiguityReduced: len(after.AbstractSummary.OptimalInEveryWorld) > len(before.AbstractSummary.OptimalInEveryWorld),
 		AbstractOptimaBefore: append([]string(nil), before.AbstractSummary.OptimalInEveryWorld...),
 		AbstractOptimaAfter: append([]string(nil), after.AbstractSummary.OptimalInEveryWorld...),
 	}
