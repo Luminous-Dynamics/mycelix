@@ -339,7 +339,41 @@
             ]
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "healthy_baseline_noop"
+              }
+            },
+            "required": [
+              "family"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expected_operation_ids": {
+                "maxItems": 0
+              },
+              "actions": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "expected_operation_ids": {
+                "minItems": 1
+              },
+              "actions": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
