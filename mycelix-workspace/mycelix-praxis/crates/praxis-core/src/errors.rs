@@ -123,7 +123,7 @@ impl std::fmt::Display for EduNetError {
 // ============================================================================
 
 /// Helper functions for common error patterns
-pub mod errors {
+pub mod common_error_constructors {
     use super::*;
 
     /// Entity not found in DHT
@@ -250,6 +250,8 @@ pub mod errors {
         )
     }
 }
+
+pub use common_error_constructors as errors;
 
 // ============================================================================
 // SRS-Specific Errors
