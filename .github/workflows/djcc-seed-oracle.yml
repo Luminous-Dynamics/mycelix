@@ -126,7 +126,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml -- --check
+          rustfmt +1.96.0 --edition 2024 --check mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
 
       - name: Test Rust composition verifier
         id: rust_tests
@@ -134,7 +134,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets
+          rustc +1.96.0 --edition=2024 --test mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs -o "$RUNNER_TEMP/djcc/djcc-tests"
+          "$RUNNER_TEMP/djcc/djcc-tests"
 
       - name: Clippy Rust composition verifier with warnings denied
         id: clippy
@@ -142,7 +143,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets -- -D warnings
+          rustup run 1.96.0 clippy-driver --edition=2024 --test mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs -o "$RUNNER_TEMP/djcc/djcc-tests-clippy" -D warnings
 
       - name: Assemble exact-head seed qualification receipt
         if: always()
@@ -190,6 +191,29 @@ jobs:
           path: ${{ runner.temp }}/djcc/
           if-no-files-found: error
           retention-days: 90
+
+
+      - name: Format exact source snapshot for patch review
+        if: always() && steps.rust_toolchain.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -w tools/economic/evidence-execution-composition/oracle/*.go
+          rustfmt +1.96.0 --edition 2024 mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
+          out="$RUNNER_TEMP/djcc/formatted-source"
+          mkdir -p "$out/oracle" "$out/rust"
+          cp tools/economic/evidence-execution-composition/oracle/*.go "$out/oracle/"
+          cp mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs "$out/rust/"
+          cp mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs "$out/rust/"
+
+      - name: Upload exact formatted source snapshot
+        if: always() && steps.rust_toolchain.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: djcc-formatted-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/djcc/formatted-source/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Enforce exact-head qualification outcomes
         if: always()
