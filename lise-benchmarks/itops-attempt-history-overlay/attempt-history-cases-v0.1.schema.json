@@ -34,8 +34,8 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 16,
-      "maxItems": 16,
+      "minItems": 17,
+      "maxItems": 17,
       "items": {
         "$ref": "#/$defs/case"
       }
@@ -394,7 +394,8 @@
             "request_digest_drift",
             "idempotency_key_drift",
             "conflicting_effect_observations",
-            "partial_multi_action_unknown_suffix"
+            "partial_multi_action_unknown_suffix",
+            "retry_after_confirmed_effect"
           ]
         },
         "operation": {
