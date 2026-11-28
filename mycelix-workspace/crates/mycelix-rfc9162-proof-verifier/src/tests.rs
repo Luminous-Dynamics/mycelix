@@ -371,9 +371,10 @@ fn consumes_shared_go_rust_interoperability_vectors() {
             "shared inclusion vector {name}"
         );
     }
+}
 
-    #[test]
-    fn xenia_checkpoint_v1_payload_has_the_same_rfc9162_leaf_hash() {
+#[test]
+fn xenia_checkpoint_v1_payload_has_the_same_rfc9162_leaf_hash() {
         const VECTOR: &str = include_str!(
             "../../../../tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt"
         );
