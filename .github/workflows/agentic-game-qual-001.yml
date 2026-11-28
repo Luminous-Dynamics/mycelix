@@ -59,7 +59,7 @@ jobs:
       - name: Check exact production-source formatting
         run: |
           set -euo pipefail
-          rustfmt +1.96.1 --check \
+          rustfmt +1.96.1 --check --edition 2024 --config skip_children=true \
             mycelix-workspace/sdk/src/agentic/game_theory.rs \
             mycelix-workspace/sdk/src/agentic/game_theory_validation.rs \
             mycelix-workspace/sdk/src/agentic/game_theory_verified.rs \
