@@ -117,7 +117,7 @@ func validBenchmarkResultV01() map[string]any {
 		},
 		"correctness": map[string]any{
 			"positive_control_total": 30,
-			"positive_control_accepted": 2,
+			"positive_control_accepted": 30,
 			"hard_negative_total": 30,
 			"hard_negative_false_safe": 0,
 			"safety_mutant_total": 25,
