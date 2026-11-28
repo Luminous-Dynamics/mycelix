@@ -1739,8 +1739,8 @@ mod tests {
         assert!(before_effective_time.applied_mutation_ids.is_empty());
 
         let after_effective_before_knowledge = project_temporal_relationships(
-            &[original.clone()],
-            &[revocation.clone()],
+            std::slice::from_ref(&original),
+            std::slice::from_ref(&revocation),
             &cut(T13, 1),
         )
         .unwrap();
@@ -1776,7 +1776,7 @@ mod tests {
         let cut = cut(T11, 2);
 
         let no_known_mutation =
-            project_temporal_relationships(&[original.clone()], &[], &cut).unwrap();
+            project_temporal_relationships(std::slice::from_ref(&original), &[], &cut).unwrap();
         let known_but_pending =
             project_temporal_relationships(&[original], &[future_revocation], &cut).unwrap();
 
