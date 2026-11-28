@@ -228,7 +228,8 @@
         "result",
         "freshness",
         "event_at",
-        "observed_at"
+        "observed_at",
+        "attempt_id"
       ],
       "properties": {
         "evidence_id": {
@@ -290,6 +291,10 @@
         "observed_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
