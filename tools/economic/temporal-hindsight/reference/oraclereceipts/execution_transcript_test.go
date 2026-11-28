@@ -199,6 +199,10 @@ func TestExecutionStepRejectsReceiptOutsideDeclaredPrefix(t *testing.T) {
 	transition := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
 		state, proof, "step:bad-prefix", StepApply, testDigestB, testDigestC)
 	transition.ConsumedReceiptDigests = []string{receipts[1].ReceiptDigest}
+	transition.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, transition.ReceiptFrontierSequence, transition.ReceiptFrontierDigest, transition.ConsumedReceiptDigests)
+	transition.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, transition.IVCUpdate.PriorAdviceCommitmentDigest, transition.IVCUpdate.AdviceDeltaCommitmentDigest)
 	transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
 	events := appendExecutionEvent(t, scope, nil, "event:bad-prefix", ExecutionCommitted, &transition, "")
 	if got := replayExecution(t, scope, receipts, events); got.Disposition != ExecutionChainIndeterminate ||
@@ -232,6 +236,10 @@ func TestExecutionReceiptFrontierCannotRegressAcrossSteps(t *testing.T) {
 	first := executionTransition(t, scope, scopeDigest, receipts[1].ReceiptDigest, 2,
 		state, proof, "step:frontier-2", StepApply, testDigestB, testDigestC)
 	first.ConsumedReceiptDigests = []string{receipts[0].ReceiptDigest, receipts[1].ReceiptDigest}
+	first.IVCUpdate.AdviceDeltaCommitmentDigest, _ = executionAdviceDeltaCommitmentDigestV1(
+		scopeDigest, first.ReceiptFrontierSequence, first.ReceiptFrontierDigest, first.ConsumedReceiptDigests)
+	first.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, first.IVCUpdate.PriorAdviceCommitmentDigest, first.IVCUpdate.AdviceDeltaCommitmentDigest)
 	first.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, first)
 	events := appendExecutionEvent(t, scope, nil, "event:frontier-2", ExecutionCommitted, &first, "")
 
@@ -431,7 +439,8 @@ func TestUnknownExecutionOutcomeBlocksMutationUntilReconciled(t *testing.T) {
 	events := appendExecutionEvent(t, scope, nil, "event:unknown", ExecutionUnknown, &pending, "")
 	blocked := replayExecution(t, scope, receipts, events)
 	if blocked.Disposition != ExecutionChainIndeterminate || !blocked.MutationBlocked ||
-		blocked.PendingEventID != "event:unknown" || blocked.StateHeadDigest != state || blocked.ProofHeadDigest != proof {
+		blocked.PendingEventID != "event:unknown" || blocked.StateHeadDigest != state || blocked.ProofHeadDigest != proof ||
+		blocked.AdviceCommitmentDigest != executionGenesisAdviceCommitmentDigest(scopeDigest) {
 		t.Fatalf("unknown execution outcome advanced state or proof: %+v", blocked)
 	}
 	illegal := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
@@ -454,6 +463,7 @@ func TestAppliedReconciliationCommitsPendingStateAndProof(t *testing.T) {
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainStructurallyValid || got.MutationBlocked ||
 		got.StateHeadDigest != testDigestB || got.ProofHeadDigest != testDigestC ||
+		got.AdviceCommitmentDigest != pending.IVCUpdate.NextAdviceCommitmentDigest ||
 		len(got.AppliedStepIDs) != 1 || got.AppliedStepIDs[0] != "step:pending" {
 		t.Fatalf("applied reconciliation failed: %+v", got)
 	}
@@ -471,6 +481,7 @@ func TestNotAppliedReconciliationDoesNotAdvanceStateOrProof(t *testing.T) {
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainStructurallyValid || got.MutationBlocked ||
 		got.StateHeadDigest != state || got.ProofHeadDigest != proof ||
+		got.AdviceCommitmentDigest != executionGenesisAdviceCommitmentDigest(scopeDigest) ||
 		len(got.AppliedStepIDs) != 0 {
 		t.Fatalf("not-applied reconciliation mutated execution state: %+v", got)
 	}
