@@ -196,6 +196,13 @@ func TestSchemaIsValidJSONAndAdvisoryOnly(t *testing.T) {
 	if !ok || capability["const"]!=AdvisoryBoundary { t.Fatal("schema does not pin AdvisoryOnly capability") }
 	effects,ok:=properties["authorized_effects"].(map[string]any)
 	if !ok || effects["maxItems"]!=float64(0) { t.Fatal("schema permits operational effects") }
+	candidate:=properties["candidate"].(map[string]any)
+	candidateRequired:=candidate["required"].([]any)
+	for _,name:=range []string{"candidate_set_digest","observation_model_digest"} {
+		found:=false
+		for _,candidate:=range candidateRequired { if candidate==name { found=true;break } }
+		if !found { t.Errorf("candidate schema does not require %s",name) }
+	}
 }
 
 
