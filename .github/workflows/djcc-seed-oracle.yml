@@ -69,6 +69,8 @@ jobs:
           unformatted="$(gofmt -l oracle/*.go)"
           if [ -n "$unformatted" ]; then
             printf '%s\n' "$unformatted"
+            printf '\nExact gofmt diff:\n'
+            gofmt -d $unformatted
             exit 1
           fi
 
