@@ -162,6 +162,38 @@ Qualification order:
 
 Cross-language parity is a byte contract: canonical field ordering, UTF-8 rules, integer encoding, optional/null distinction, array ordering, domain separation and digest preimage must be specified explicitly. Generic JSON serialization is not itself a canonical encoding.
 
+### 7.1 V0.1 structural candidate
+
+The current research branch contains:
+- the Go seed-registry oracle under `tools/economic/evidence-execution-composition/oracle`, with an independently hard-coded expected-disposition table for DJCC-001..008;
+- the Rust candidate crate `mycelix-workspace/crates/mycelix-djcc-verifier`;
+- a Draft 2020-12 certificate schema;
+- exact-head Go and Rust formatting/test/race/vet/Clippy workflows.
+
+The Rust candidate checks this fixed dependency graph:
+
+```
+verifier_frontier
+  └─ source_trust
+       └─ semantic_projection
+            └─ query
+                 └─ policy
+                      └─ authorization
+                           └─ execution
+
+outcome consumes:
+  source_trust + semantic_projection + execution
+authorization also consumes verifier_frontier directly
+```
+
+The graph is encoded as an allowlisted stage-edge table, not supplied by the certificate author. Each edge binds a named consumer input to the exact producer output digest and output-schema reference. Every stage also binds the same canonical scope digest under the selected scope schema. The selected composition profile reference/digest must match the certificate.
+
+The candidate also checks stage output/disposition consistency, canonical dependency/input/reason ordering, profile-limited NotApplicable stages, and claim-ceiling monotonicity. A root claim dimension cannot be EstablishedWithinProfile if any required stage has that dimension as Rejected, Indeterminate, NotEvaluated, UnsupportedByProfile or NotApplicable.
+
+This is a *structural composition verifier only*. It does not compute cryptographic hashes over serialized certificates yet; the digest values are inputs from owner receipts. It does not authenticate their producers or verify signatures, root identity, owner-universe completeness, actual source truth, policy semantics, legal authority, IVC proofs or physical outcome. Go seed validation does not evaluate Rust candidate certificates; candidate/oracle parity remains open work.
+
+The eight JSON seeds remain symbolic fixtures until exact positive/negative fixture bytes and corpus hashes are frozen. The 24-class composition corpus remains the research target; eight initial cases are not 24/24 coverage.
+
 ## 8. Adversarial benchmark
 
 The 24 composition classes are defined in #6821. Keep the following score families separate:
