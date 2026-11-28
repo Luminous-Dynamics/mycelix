@@ -246,9 +246,10 @@ func TestEAPSchemaRequiresNoEffectsAndPriorBindings(t *testing.T) {
 	properties:=schema["properties"].(map[string]any)
 	effects:=properties["authorized_effects"].(map[string]any)
 	if effects["maxItems"]!=float64(0) { t.Fatal("schema permits authorized effects") }
+	if _,exists:=properties["loss_profile"]; !exists { t.Fatal("EAP does not reference a separate decision-loss profile receipt") }
 	prior:=properties["prior_decision_basis"].(map[string]any)
 	priorRequired:=prior["required"].([]any)
-	for _,name:=range []string{"receipt","frontier_digest","decision_loss_profile_digest","scope_digest"} {
+	for _,name:=range []string{"receipt","frontier_digest","scope_digest"} {
 		found:=false
 		for _,candidate:=range priorRequired { if candidate==name { found=true;break } }
 		if !found { t.Errorf("prior DBC schema does not require %s",name) }
