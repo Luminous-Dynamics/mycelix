@@ -280,9 +280,13 @@ func Evaluate(c Case, o Observation) (Report, error) {
 	}
 	r.AfterExpectedLoss = afterLoss
 	r.EVSI = before - afterLoss
-	if r.EVSI < 0 && r.EVSI > -1e-9 { r.EVSI = 0 }
+	if r.EVSI < 0 && r.EVSI > -1e-9 {
+		r.EVSI = 0
+	}
 	r.EIGBits = priorEntropy - posteriorEntropy
-	if r.EIGBits < 0 && r.EIGBits > -1e-9 { r.EIGBits = 0 }
+	if r.EIGBits < 0 && r.EIGBits > -1e-9 {
+		r.EIGBits = 0
+	}
 	r.NetDecisionValue = r.EVSI - r.NormalizedCost
 	if r.NetDecisionValue > 1e-9 {
 		r.Status, r.Reason = StatusRecommend, "positive net decision value under the declared loss and cost profiles"
