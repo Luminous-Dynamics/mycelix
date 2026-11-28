@@ -157,6 +157,9 @@ func benchmarkStringSet(parent map[string]any, key string) (map[string]struct{},
 	if !ok {
 		return nil, true, fmt.Errorf("%s must be an array", key)
 	}
+	if len(items) > 128 {
+		return nil, true, fmt.Errorf("%s exceeds the maximum of 128 identifiers", key)
+	}
 	values := make(map[string]struct{}, len(items))
 	for index, item := range items {
 		value, ok := item.(string)
