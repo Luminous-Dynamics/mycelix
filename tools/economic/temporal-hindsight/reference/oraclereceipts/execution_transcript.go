@@ -122,6 +122,21 @@ type executionPendingState struct {
 	digest string
 }
 
+type correctionImpactConeV1 struct {
+	EarliestAffected int
+	ExpectedStepIDs []string
+	BaseInputStateDigest string
+}
+
+func isCorrectionLikeStepV1(kind ExecutionStepKindV1) bool {
+	switch kind {
+	case StepRecomputeAfterCorrection, StepCompensate, StepRevokeDerivedState:
+		return true
+	default:
+		return false
+	}
+}
+
 func executionGenesisEventDigest(scopeDigest string) string {
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-EXECUTION-GENESIS-V1")
@@ -670,39 +685,38 @@ func validateCorrectionImpactConeV1(
 	receiptsByID map[string]OracleReceiptV1,
 	appliedStepOrder []string,
 	appliedStepReceiptDigests map[string][]string,
-) error {
-	switch transition.Kind {
-	case StepRecomputeAfterCorrection, StepCompensate, StepRevokeDerivedState:
-	default:
-		return nil
+	appliedStepInputState map[string]string,
+) (*correctionImpactConeV1, error) {
+	if !isCorrectionLikeStepV1(transition.Kind) {
+		return nil, nil
 	}
 	consumed, err := canonicalDigestSet(transition.ConsumedReceiptDigests, MaxEvidenceReferences, "correction receipt set")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	supersededReceiptDigests := make(map[string]struct{})
 	for _, digest := range consumed {
 		receipt, exists := receiptsByDigest[digest]
 		if !exists {
-			return errors.New("correction consumes a receipt outside the verified chain")
+			return nil, errors.New("correction consumes a receipt outside the verified chain")
 		}
 		seenReceiptIDs := make(map[string]struct{})
 		for receipt.SupersedesReceiptID != "" {
 			priorID := receipt.SupersedesReceiptID
 			if _, seen := seenReceiptIDs[priorID]; seen {
-				return errors.New("receipt supersession ancestry contains a cycle")
+				return nil, errors.New("receipt supersession ancestry contains a cycle")
 			}
 			seenReceiptIDs[priorID] = struct{}{}
 			prior, exists := receiptsByID[priorID]
 			if !exists {
-				return errors.New("correction receipt supersedes an unknown receipt")
+				return nil, errors.New("correction receipt supersedes an unknown receipt")
 			}
 			supersededReceiptDigests[prior.ReceiptDigest] = struct{}{}
 			receipt = prior
 		}
 	}
 	if len(supersededReceiptDigests) == 0 {
-		return errors.New("RecomputeAfterCorrection must consume a receipt with supersession ancestry")
+		return nil, errors.New("correction/compensation/revocation must consume a receipt with supersession ancestry")
 	}
 	earliestAffected := -1
 	for index, stepID := range appliedStepOrder {
@@ -717,22 +731,58 @@ func validateCorrectionImpactConeV1(
 		}
 	}
 	if earliestAffected < 0 {
-		return errors.New("correction does not affect any previously applied execution step")
+		return nil, errors.New("correction does not affect any previously active execution step")
+	}
+	earliestStepID := appliedStepOrder[earliestAffected]
+	baseInputStateDigest, exists := appliedStepInputState[earliestStepID]
+	if !exists || !validDigest(baseInputStateDigest) {
+		return nil, errors.New("earliest affected step has no valid pre-impact input state")
 	}
 	expected := append([]string(nil), appliedStepOrder[earliestAffected:]...)
-	sort.Strings(expected)
 	actual, err := canonicalStepIDs(transition.SupersedesStepIDs)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if len(actual) != len(expected) {
-		return fmt.Errorf("correction impact cone incomplete: expected %d superseded steps, received %d", len(expected), len(actual))
+	canonicalExpected := append([]string(nil), expected...)
+	sort.Strings(canonicalExpected)
+	if len(actual) != len(canonicalExpected) {
+		return nil, fmt.Errorf("correction impact cone incomplete: expected %d superseded steps, received %d", len(canonicalExpected), len(actual))
 	}
-	for i := range expected {
-		if actual[i] != expected[i] {
-			return fmt.Errorf("correction impact cone mismatch at canonical step %d", i)
+	for i := range canonicalExpected {
+		if actual[i] != canonicalExpected[i] {
+			return nil, fmt.Errorf("correction impact cone mismatch at canonical step %d", i)
 		}
 	}
+	return &correctionImpactConeV1{
+		EarliestAffected: earliestAffected,
+		ExpectedStepIDs: expected,
+		BaseInputStateDigest: baseInputStateDigest,
+	}, nil
+}
+
+func invalidateCorrectionImpactConeV1(
+	cone *correctionImpactConeV1,
+	appliedStepOrder *[]string,
+	appliedStepReceiptDigests map[string][]string,
+	appliedStepInputState map[string]string,
+) error {
+	if cone == nil {
+		return nil
+	}
+	if cone.EarliestAffected < 0 || cone.EarliestAffected > len(*appliedStepOrder) {
+		return errors.New("correction impact-cone index is outside the active step history")
+	}
+	if len((*appliedStepOrder)[cone.EarliestAffected:]) != len(cone.ExpectedStepIDs) {
+		return errors.New("active step suffix changed after correction impact-cone validation")
+	}
+	for i, expected := range cone.ExpectedStepIDs {
+		if (*appliedStepOrder)[cone.EarliestAffected+i] != expected {
+			return errors.New("active step suffix no longer matches validated correction impact cone")
+		}
+		delete(appliedStepReceiptDigests, expected)
+		delete(appliedStepInputState, expected)
+	}
+	*appliedStepOrder = (*appliedStepOrder)[:cone.EarliestAffected]
 	return nil
 }
 
