@@ -1,0 +1,60 @@
+name: Craft decision identifiability Go oracle
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1/**'
+      - '.github/workflows/craft-decision-identifiability-go-oracle.yml'
+
+permissions:
+  contents: read
+
+# Preserve every exact-head qualification receipt. New commits must not cancel
+# the test record for an earlier immutable PR head.
+concurrency:
+  group: craft-cdie-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  decision-identifiability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up pinned Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+
+      - name: Validate schema and frozen fixtures
+        run: |
+          python -m json.tool schema/decision-identifiability-v0.1.schema.json >/dev/null
+          for fixture in testdata/*.json; do
+            python -m json.tool "$fixture" >/dev/null
+          done
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1
+
+      - name: Require gofmt-clean source
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files"
+            exit 1
+          fi
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1
+
+      - name: Run frozen and exhaustive reference tests
+        run: go test -count=1 ./...
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1
+
+      - name: Run race detector
+        run: go test -race -count=1 ./...
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1
+
+      - name: Run go vet
+        run: go vet ./...
+        working-directory: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1
