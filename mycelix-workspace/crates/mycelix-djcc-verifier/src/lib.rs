@@ -595,6 +595,52 @@ fn validate_claim_ceiling(
     }
 }
 
+fn validate_stage_disposition_claims(
+    stage_id: StageId,
+    stage: &StageEvidence,
+    out: &mut Vec<Violation>,
+) {
+    let values = dimension_values(stage.claim_ceiling);
+    match stage.disposition {
+        StageDisposition::NotApplicable => {
+            if values.iter().any(|value| *value != ClaimState::NotApplicable) {
+                out.push(violation(
+                    "DJCC-NOT-APPLICABLE-CLAIM-STATE",
+                    format!("{stage_id}: NotApplicable stage must mark every claim dimension NotApplicable"),
+                ));
+            }
+        }
+        StageDisposition::NotEvaluated => {
+            if values.iter().any(|value| {
+                !matches!(value, ClaimState::NotEvaluated | ClaimState::NotApplicable)
+            }) {
+                out.push(violation(
+                    "DJCC-NOT-EVALUATED-CLAIM-STATE",
+                    format!("{stage_id}: NotEvaluated stage cannot claim an evaluated dimension"),
+                ));
+            }
+        }
+        StageDisposition::UnsupportedByProfile => {
+            if values.iter().any(|value| {
+                !matches!(
+                    value,
+                    ClaimState::UnsupportedByProfile
+                        | ClaimState::NotEvaluated
+                        | ClaimState::NotApplicable
+                )
+            }) {
+                out.push(violation(
+                    "DJCC-UNSUPPORTED-CLAIM-STATE",
+                    format!("{stage_id}: UnsupportedByProfile stage cannot establish or reject a claim"),
+                ));
+            }
+        }
+        StageDisposition::VerifiedForDeclaredClaim
+        | StageDisposition::Rejected
+        | StageDisposition::Indeterminate => {}
+    }
+}
+
 fn validate_scope_binding(
     stage_id: StageId,
     stage: &StageEvidence,
@@ -747,6 +793,7 @@ pub fn verify_composition(
                 format!("{stage_id}: NotApplicable is not permitted by this composition profile"),
             ));
         }
+        validate_stage_disposition_claims(*stage_id, stage, &mut violations);
 
         validate_bindings(*stage_id, &stage.input_bindings, &mut violations);
         validate_stage_dependencies(*stage_id, stage, &input.stages, &mut violations);
@@ -908,6 +955,33 @@ mod tests {
         stage.output_digest = None;
         stage.dependencies.clear();
         stage.input_bindings.retain(|binding| binding.name == "scope");
+        stage.claim_ceiling = ClaimCeiling {
+            authentication: ClaimState::NotEvaluated,
+            completeness: ClaimState::NotEvaluated,
+            truth: ClaimState::NotEvaluated,
+            authority: ClaimState::NotEvaluated,
+            effect: ClaimState::NotEvaluated,
+        };
+    }
+
+    fn mark_not_applicable(input: &mut CompositionInput, stage_id: StageId) {
+        let stage = input.stages.get_mut(&stage_id).expect("required fixture stage");
+        stage.disposition = StageDisposition::NotApplicable;
+        stage.output_digest = None;
+        stage.dependencies.clear();
+        stage.input_bindings.retain(|binding| binding.name == "scope");
+        stage.claim_ceiling = ClaimCeiling {
+            authentication: ClaimState::NotApplicable,
+            completeness: ClaimState::NotApplicable,
+            truth: ClaimState::NotApplicable,
+            authority: ClaimState::NotApplicable,
+            effect: ClaimState::NotApplicable,
+        };
+    }
+
+    fn remove_profile_claim(profile: &mut CompositionProfile, dimension: ClaimDimension) {
+        profile.required_claims.remove(&dimension);
+        profile.claim_stages.remove(&dimension);
     }
 
     fn positive_input() -> CompositionInput {
@@ -1108,20 +1182,16 @@ mod tests {
     #[test]
     fn not_applicable_requires_profile_permission() {
         let mut input = positive_input();
-        let execution = input.stages.get_mut(&StageId::Execution).unwrap();
-        execution.disposition = StageDisposition::NotApplicable;
-        execution.output_digest = None;
-        execution.dependencies.clear();
-        execution.input_bindings.retain(|binding| binding.name == "scope");
-        let outcome = input.stages.get_mut(&StageId::Outcome).unwrap();
-        outcome.disposition = StageDisposition::NotApplicable;
-        outcome.output_digest = None;
-        outcome.dependencies.clear();
-        outcome.input_bindings.retain(|binding| binding.name == "scope");
+        mark_not_applicable(&mut input, StageId::Execution);
+        mark_not_applicable(&mut input, StageId::Outcome);
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
         let mut profile = valid_profile();
-        profile.required_claims.remove(&ClaimDimension::Effect);
-        profile.claim_stages.remove(&ClaimDimension::Effect);
+        remove_profile_claim(&mut profile, ClaimDimension::Effect);
+        profile
+            .claim_stages
+            .get_mut(&ClaimDimension::Truth)
+            .unwrap()
+            .remove(&StageId::Outcome);
         profile.allowed_not_applicable.clear();
         let report = verify_composition(&input, &profile);
         assert!(report
@@ -1133,20 +1203,16 @@ mod tests {
     #[test]
     fn not_applicable_stages_can_be_explicitly_permitted() {
         let mut input = positive_input();
-        let execution = input.stages.get_mut(&StageId::Execution).unwrap();
-        execution.disposition = StageDisposition::NotApplicable;
-        execution.output_digest = None;
-        execution.dependencies.clear();
-        execution.input_bindings.retain(|binding| binding.name == "scope");
-        let outcome = input.stages.get_mut(&StageId::Outcome).unwrap();
-        outcome.disposition = StageDisposition::NotApplicable;
-        outcome.output_digest = None;
-        outcome.dependencies.clear();
-        outcome.input_bindings.retain(|binding| binding.name == "scope");
+        mark_not_applicable(&mut input, StageId::Execution);
+        mark_not_applicable(&mut input, StageId::Outcome);
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
         let mut profile = valid_profile();
-        profile.required_claims.remove(&ClaimDimension::Effect);
-        profile.claim_stages.remove(&ClaimDimension::Effect);
+        remove_profile_claim(&mut profile, ClaimDimension::Effect);
+        profile
+            .claim_stages
+            .get_mut(&ClaimDimension::Truth)
+            .unwrap()
+            .remove(&StageId::Outcome);
         let report = verify_composition(&input, &profile);
         assert!(report.is_valid(), "{:?}", report.violations);
     }
@@ -1392,6 +1458,25 @@ mod tests {
             .violations
             .iter()
             .any(|item| item.code == "DJCC-DEPENDENCY-CLAIMS"));
+    }
+
+
+    #[test]
+    fn not_applicable_stage_cannot_claim_an_established_dimension() {
+        let mut input = positive_input();
+        let stage = input.stages.get_mut(&StageId::Execution).unwrap();
+        stage.disposition = StageDisposition::NotApplicable;
+        stage.output_digest = None;
+        stage.dependencies.clear();
+        stage.input_bindings.retain(|binding| binding.name == "scope");
+        // Leave the effect ceiling established to test the attempted laundering.
+        let mut profile = valid_profile();
+        remove_profile_claim(&mut profile, ClaimDimension::Effect);
+        let report = verify_composition(&input, &profile);
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-NOT-APPLICABLE-CLAIM-STATE"));
     }
 
 
