@@ -115,10 +115,15 @@ jq -e '
           ($c | history_complete) and ($c.attempts | length) == 0
         elif $c.expected_next_step == "DO_NOT_RETRY" then
           ($c | history_complete)
-          and any($c.attempts[]; .effect == "applied")
-          and any($c.operation.actions[];
+          and all($c.operation.actions[];
             .action_id as $action
-            | $c | evidence_for($action; "applied")
+            | any($c.attempts[];
+                .action_id == $action and .effect == "applied"
+              )
+              and ($c | evidence_for($action; "applied"))
+          )
+          and all($c.attempts[];
+            .effect != "unknown" and .effect != "partial"
           )
           and (not ($c | blind_retry))
           and (
@@ -164,6 +169,10 @@ jq -e '
       and (
         if $c.expected_next_step == "REJECT_BLIND_RETRY" then ($c.hard_gate_violations | length) > 0
         else ($c.hard_gate_violations | length) == 0 end
+      )
+      and (
+        if $c.expected_next_step == "INVALID_HISTORY" then ($c | chain_invalid)
+        else (not ($c | chain_invalid)) end
       )
       and (
         if $c.prior_frontier == null then true
