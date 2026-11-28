@@ -409,6 +409,17 @@ fn validate_stage_dependencies(
         }
         match stages.get(&dependency.stage_id) {
             Some(parent) => {
+                if stage.disposition == StageDisposition::VerifiedForDeclaredClaim
+                    && parent.disposition != StageDisposition::VerifiedForDeclaredClaim
+                {
+                    out.push(violation(
+                        "DJCC-DOWNSTREAM-DISPOSITION-WIDENED",
+                        format!(
+                            "{stage_id}: verified stage depends on {} with disposition {:?}",
+                            dependency.stage_id, parent.disposition
+                        ),
+                    ));
+                }
                 if parent.output_schema_ref != dependency.schema_ref {
                     out.push(violation(
                         "DJCC-EDGE-SCHEMA-MISMATCH",
@@ -748,6 +759,14 @@ mod tests {
         }
     }
 
+    fn mark_not_evaluated(input: &mut CompositionInput, stage_id: StageId) {
+        let stage = input.stages.get_mut(&stage_id).expect("required fixture stage");
+        stage.disposition = StageDisposition::NotEvaluated;
+        stage.output_digest = None;
+        stage.dependencies.clear();
+        stage.input_bindings.retain(|binding| binding.name == "scope");
+    }
+
     fn positive_input() -> CompositionInput {
         let d = [
             digest(10),
@@ -866,6 +885,16 @@ mod tests {
             StageDisposition::Indeterminate;
         input.stages.get_mut(&StageId::SourceTrust).unwrap().claim_ceiling.authentication =
             ClaimState::Indeterminate;
+        for stage_id in [
+            StageId::SemanticProjection,
+            StageId::Query,
+            StageId::Policy,
+            StageId::Authorization,
+            StageId::Execution,
+            StageId::Outcome,
+        ] {
+            mark_not_evaluated(&mut input, stage_id);
+        }
         input.declared_disposition = CompositionDisposition::Indeterminate;
         input.declared_claim_ceiling.authentication = ClaimState::Indeterminate;
         let report = verify_composition(&input, &valid_profile());
@@ -879,6 +908,17 @@ mod tests {
             StageDisposition::Indeterminate;
         input.stages.get_mut(&StageId::VerifierFrontier).unwrap().claim_ceiling.completeness =
             ClaimState::Indeterminate;
+        for stage_id in [
+            StageId::SourceTrust,
+            StageId::SemanticProjection,
+            StageId::Query,
+            StageId::Policy,
+            StageId::Authorization,
+            StageId::Execution,
+            StageId::Outcome,
+        ] {
+            mark_not_evaluated(&mut input, stage_id);
+        }
         input.declared_disposition = CompositionDisposition::Indeterminate;
         input.declared_claim_ceiling.completeness = ClaimState::Indeterminate;
         let report = verify_composition(&input, &valid_profile());
@@ -959,6 +999,13 @@ mod tests {
         let mut input = positive_input();
         input.stages.get_mut(&StageId::Policy).unwrap().disposition =
             StageDisposition::Rejected;
+        for stage_id in [
+            StageId::Authorization,
+            StageId::Execution,
+            StageId::Outcome,
+        ] {
+            mark_not_evaluated(&mut input, stage_id);
+        }
         input.declared_disposition = CompositionDisposition::HistoricalReplayMismatch;
         let report = verify_composition(&input, &valid_profile());
         assert!(report.is_valid(), "{:?}", report.violations);
@@ -969,6 +1016,8 @@ mod tests {
         let mut input = positive_input();
         input.stages.get_mut(&StageId::Authorization).unwrap().disposition =
             StageDisposition::Rejected;
+        mark_not_evaluated(&mut input, StageId::Execution);
+        mark_not_evaluated(&mut input, StageId::Outcome);
         input.declared_disposition = CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
         let report = verify_composition(&input, &valid_profile());
         assert!(report.is_valid(), "{:?}", report.violations);
@@ -1116,5 +1165,19 @@ mod tests {
         edge.input_name = "  ".to_owned();
         assert!(canonical_stage_edge_bytes_v1(&edge).is_err());
     }
+
+    #[test]
+    fn verified_child_cannot_consume_an_indeterminate_parent() {
+        let mut input = positive_input();
+        let source = input.stages.get_mut(&StageId::SourceTrust).unwrap();
+        source.disposition = StageDisposition::Indeterminate;
+        source.claim_ceiling.authentication = ClaimState::Indeterminate;
+        let report = verify_composition(&input, &valid_profile());
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-DOWNSTREAM-DISPOSITION-WIDENED"));
+    }
+
 
 }
