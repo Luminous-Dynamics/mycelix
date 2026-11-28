@@ -362,7 +362,7 @@
         "unit_tests": "passed",
         "race": "passed",
         "vet": "passed",
-        "statement_coverage_percent": 78.8,
+        "statement_coverage_percent": 78.5,
         "fixture_scope": "inline_minimal_unit_test_fixture"
       },
       "hosted_validation": "pending",
@@ -375,7 +375,20 @@
       "digest_domains": [
         "MYCELIX-CRAFT-SYNTHETIC-EPISODE-V0.1",
         "MYCELIX-CRAFT-SYNTHETIC-REGISTRY-V0.1"
-      ]
+      ],
+      "mutations": [
+        "SYN-001",
+        "SYN-002",
+        "SYN-003",
+        "SYN-004",
+        "SYN-005",
+        "SYN-006",
+        "SYN-007",
+        "SYN-008",
+        "SYN-009",
+        "SYN-010"
+      ],
+      "selective_omission": "SYN-010 removes EV-008 while retaining fixture_valid signature attestation; coverage remains Indeterminate"
     }
   },
   "ocel21_fixture_registry": {
