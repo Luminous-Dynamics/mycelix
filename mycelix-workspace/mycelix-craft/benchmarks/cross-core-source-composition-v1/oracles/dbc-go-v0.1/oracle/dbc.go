@@ -138,10 +138,10 @@ func Validate(c Capsule) error {
  for st,s:=range byStage {
   required:=edges()[st]; if len(s.Inputs)!=len(required) { return fail("DEPENDENCY_EDGE_SET_MISMATCH",string(st)) }
   slots:=map[string]bool{}
+  for _,in:=range s.Inputs { if slots[in.Slot] { return fail("DEPENDENCY_SLOT_DUPLICATE",in.Slot) }; slots[in.Slot]=true }
   for _,e:=range required {
    found:=false
    for _,in:=range s.Inputs {
-    if slots[in.Slot] { return fail("DEPENDENCY_SLOT_DUPLICATE",in.Slot) }; slots[in.Slot]=true
     if in.Slot==string(e.Producer) && in.Producer==e.Producer {
      p:=byStage[e.Producer]
      if in.ReceiptID!=p.ID || in.Schema!=p.OutputSchema || in.Digest!=p.OutputDigest || !same(in.Required,e.Required) { return fail("PRODUCER_BINDING_MISMATCH",string(st)+"/"+in.Slot) }
