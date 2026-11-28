@@ -334,9 +334,6 @@ func validateReceiptFields(scopeDigest string, scope OracleScopeV1, receipt Orac
 	if receipt.AnswerDigest != AnswerDigestV1(receipt.AnswerPayload) {
 		return errors.New("answer payload digest mismatch")
 	}
-	if _, err := canonicalEvidenceReferences(receipt.EvidenceReferences); err != nil {
-		return err
-	}
 	if receipt.SupersedesReceiptID != "" {
 		if err := requireIdentifier("superseded receipt ID", receipt.SupersedesReceiptID); err != nil {
 			return err
@@ -367,8 +364,14 @@ func ReceiptDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, erro
 	if err != nil {
 		return "", err
 	}
-	if err := validateReceiptFields("", scope, receipt, true); err != nil {
+	if err := requireIdentifier("signature scheme", receipt.SignatureScheme); err != nil {
 		return "", err
+	}
+	if len(receipt.SignatureBytes) == 0 || len(receipt.SignatureBytes) > MaxSignatureBytes {
+		return "", errors.New("signature bytes are empty or exceed configured limit")
+	}
+	if !validDigest(receipt.SignedMessageDigest) {
+		return "", errors.New("signed-message digest is malformed")
 	}
 	if receipt.SignedMessageDigest != signableDigest {
 		return "", errors.New("signature envelope is bound to different receipt content")
