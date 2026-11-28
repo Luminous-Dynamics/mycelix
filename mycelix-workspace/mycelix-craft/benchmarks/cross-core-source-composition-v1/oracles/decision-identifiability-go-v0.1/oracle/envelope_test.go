@@ -27,8 +27,8 @@ func TestInvariantAction(t *testing.T) {
 	if got.Disposition != RobustWithinExhaustiveFixture {
 		t.Fatalf("disposition: %s", got.Disposition)
 	}
-	if !reflect.DeepEqual(got.OptimalInEveryWorld, []string{"repair"}) {
-		t.Fatalf("identified: %v", got.OptimalInEveryWorld)
+	if !reflect.DeepEqual(got.OptimalInEveryListedWorld, []string{"repair"}) {
+		t.Fatalf("identified: %v", got.OptimalInEveryListedWorld)
 	}
 	if !reflect.DeepEqual(got.MinimaxRegretActions, []string{"repair"}) {
 		t.Fatalf("minimax regret: %v", got.MinimaxRegretActions)
@@ -43,8 +43,8 @@ func TestNoInvariantOptimumUsesMinimaxRegretWithoutClaimingIdentification(t *tes
 	if got.Disposition != NotIdentifiedExhaustive {
 		t.Fatalf("disposition: %s", got.Disposition)
 	}
-	if len(got.OptimalInEveryWorld) != 0 {
-		t.Fatalf("unexpected invariant action: %v", got.OptimalInEveryWorld)
+	if len(got.OptimalInEveryListedWorld) != 0 {
+		t.Fatalf("unexpected invariant action: %v", got.OptimalInEveryListedWorld)
 	}
 	if !reflect.DeepEqual(got.MinimaxRegretActions, []string{"sample"}) {
 		t.Fatalf("minimax regret: %v", got.MinimaxRegretActions)
@@ -87,14 +87,15 @@ func TestUnqualifiedWorldSetCannotProduceGlobalClaim(t *testing.T) {
 	if got.Disposition != WorldSetCoverageNotEvaluated {
 		t.Fatalf("disposition: %s", got.Disposition)
 	}
-	if !reflect.DeepEqual(got.OptimalInEveryWorld, []string{"repair"}) {
-		t.Fatalf("within-set result: %v", got.OptimalInEveryWorld)
+	if !reflect.DeepEqual(got.OptimalInEveryListedWorld, []string{"repair"}) {
+		t.Fatalf("within-set result: %v", got.OptimalInEveryListedWorld)
 	}
 }
 
 func TestDeclaredSetIsConditional(t *testing.T) {
 	problem := readFixture(t, "invariant")
 	problem.CoverageBasis = CoverageDeclaredSet
+	problem.FixtureDigest = ""
 	got, err := Evaluate(problem)
 	if err != nil {
 		t.Fatal(err)
@@ -139,9 +140,9 @@ func TestAddingWorldCannotExpandRobustSets(t *testing.T) {
 		t.Fatalf("robust-safe set expanded: before=%v after=%v",
 			before.RobustSafeActions, after.RobustSafeActions)
 	}
-	if !isSubset(after.OptimalInEveryWorld, before.OptimalInEveryWorld) {
+	if !isSubset(after.OptimalInEveryListedWorld, before.OptimalInEveryListedWorld) {
 		t.Fatalf("identified set expanded: before=%v after=%v",
-			before.OptimalInEveryWorld, after.OptimalInEveryWorld)
+			before.OptimalInEveryListedWorld, after.OptimalInEveryListedWorld)
 	}
 }
 
@@ -262,6 +263,48 @@ func independentSmallReference(problem Problem) (robust, identified, minimaxRegr
 	return robust, identified, minimaxRegret
 }
 
+
+func TestDecisionFlipWitnessNamesSmallestDifferingDimension(t *testing.T) {
+	got, err := Evaluate(readFixture(t, "ambiguous"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DecisionFlipWitness == nil {
+		t.Fatal("expected a decision-flip witness")
+	}
+	witness := got.DecisionFlipWitness
+	if witness.WorldA != "high-risk" || witness.WorldB != "low-risk" {
+		t.Fatalf("unexpected canonical witness pair: %+v", witness)
+	}
+	if !reflect.DeepEqual(witness.OptimalActionsA, []string{"sample"}) ||
+		!reflect.DeepEqual(witness.OptimalActionsB, []string{"repair"}) {
+		t.Fatalf("unexpected competing optima: %+v", witness)
+	}
+	if !reflect.DeepEqual(witness.DifferingDimensions, []string{"risk_state"}) {
+		t.Fatalf("unexpected distinguishing dimensions: %v", witness.DifferingDimensions)
+	}
+}
+
+func TestPinnedExhaustiveFixtureCannotBeRelabelledOrMutated(t *testing.T) {
+	problem := readFixture(t, "invariant")
+	problem.Worlds[0].Losses["repair"] = 99
+	if err := Validate(problem); err == nil {
+		t.Fatal("mutated fixture retained exhaustive status")
+	}
+
+	problem = readFixture(t, "invariant")
+	problem.CaseID = "invented-exhaustive-case"
+	if err := Validate(problem); err == nil {
+		t.Fatal("unregistered case claimed exhaustive status")
+	}
+
+	problem = readFixture(t, "invariant")
+	problem.FixtureDigest = "0000000000000000000000000000000000000000000000000000000000000000"
+	if err := Validate(problem); err == nil {
+		t.Fatal("wrong fixture digest accepted")
+	}
+}
+
 func TestEvaluatorMatchesIndependentExhaustiveReference(t *testing.T) {
 	for actionLoss0 := int64(0); actionLoss0 < 3; actionLoss0++ {
 		for actionLoss1 := int64(0); actionLoss1 < 3; actionLoss1++ {
@@ -272,7 +315,7 @@ func TestEvaluatorMatchesIndependentExhaustiveReference(t *testing.T) {
 							problem := Problem{
 								SchemaID:       SchemaID,
 								CaseID:         "exhaustive",
-								CoverageBasis:  CoverageFixtureExhaustive,
+								CoverageBasis:  CoverageDeclaredSet,
 								Actions:        []string{"act", "hold"},
 								FallbackAction: "hold",
 								Worlds: []World{
@@ -294,10 +337,10 @@ func TestEvaluatorMatchesIndependentExhaustiveReference(t *testing.T) {
 							}
 							wantSafe, wantIdentified, wantRegret := independentSmallReference(problem)
 							if !reflect.DeepEqual(got.RobustSafeActions, wantSafe) ||
-								!reflect.DeepEqual(got.OptimalInEveryWorld, wantIdentified) ||
+								!reflect.DeepEqual(got.OptimalInEveryListedWorld, wantIdentified) ||
 								!reflect.DeepEqual(got.MinimaxRegretActions, wantRegret) {
 								t.Fatalf("mismatch: got safe=%v identified=%v regret=%v; want safe=%v identified=%v regret=%v",
-									got.RobustSafeActions, got.OptimalInEveryWorld, got.MinimaxRegretActions,
+									got.RobustSafeActions, got.OptimalInEveryListedWorld, got.MinimaxRegretActions,
 									wantSafe, wantIdentified, wantRegret)
 							}
 						}
