@@ -1,0 +1,213 @@
+{
+  "suite_id": "itops-compound-fault-factorial-reference",
+  "schema_version": "0.1.0",
+  "contract": "ITOPS-CONTINUOUS-001",
+  "visibility": "PUBLIC_REFERENCE_ORACLE_FIXTURE",
+  "groups": [
+    {
+      "group_id": "ITOPS-CAUSAL-METASTABLE-001",
+      "classification": "synergistic_interaction",
+      "factor_a": {
+        "factor_id": "retry_amplification",
+        "mechanism": "Aggressive retry policy: 50ms timeout and 30 retries under transient load",
+        "target_service_id": "payments"
+      },
+      "factor_b": {
+        "factor_id": "cpu_capacity_constraint",
+        "mechanism": "CPU quota caps the service below the retry-amplified demand",
+        "target_service_id": "payments"
+      },
+      "arms": [
+        {
+          "arm_id": "A0B0",
+          "factor_a_present": false,
+          "factor_b_present": false,
+          "matched_profile": {
+            "seed": 20261128,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.999,
+            "unrecovered_degradation_minutes": 0,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        },
+        {
+          "arm_id": "A1B0",
+          "factor_a_present": true,
+          "factor_b_present": false,
+          "matched_profile": {
+            "seed": 20261128,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.996,
+            "unrecovered_degradation_minutes": 0,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        },
+        {
+          "arm_id": "A0B1",
+          "factor_a_present": false,
+          "factor_b_present": true,
+          "matched_profile": {
+            "seed": 20261128,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.997,
+            "unrecovered_degradation_minutes": 0,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        },
+        {
+          "arm_id": "A1B1",
+          "factor_a_present": true,
+          "factor_b_present": true,
+          "matched_profile": {
+            "seed": 20261128,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.7,
+            "unrecovered_degradation_minutes": 35,
+            "fault_persists_after_trigger_removed": true,
+            "functional_contract_pass": false
+          }
+        }
+      ],
+      "interaction_metric": "unrecovered_degradation_minutes",
+      "expected_interaction_contrast": 35,
+      "expected_causal_factor_ids": [
+        "retry_amplification",
+        "cpu_capacity_constraint"
+      ],
+      "required_remediation_action_ids": [
+        "restore_retry_policy",
+        "raise_cpu_quota",
+        "controlled_restart"
+      ],
+      "agent_payload_policy": {
+        "exposes_factor_assignments": false,
+        "exposes_terminal_oracle": false
+      }
+    },
+    {
+      "group_id": "ITOPS-CAUSAL-ADDITIVE-CONTROL-001",
+      "classification": "additive_control",
+      "factor_a": {
+        "factor_id": "dns_latency",
+        "mechanism": "Independent DNS resolution delay adds five minutes of degraded time",
+        "target_service_id": "catalog"
+      },
+      "factor_b": {
+        "factor_id": "cache_capacity",
+        "mechanism": "Independent cache capacity pressure adds seven minutes of degraded time",
+        "target_service_id": "catalog"
+      },
+      "arms": [
+        {
+          "arm_id": "A0B0",
+          "factor_a_present": false,
+          "factor_b_present": false,
+          "matched_profile": {
+            "seed": 20261129,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.999,
+            "unrecovered_degradation_minutes": 0,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        },
+        {
+          "arm_id": "A1B0",
+          "factor_a_present": true,
+          "factor_b_present": false,
+          "matched_profile": {
+            "seed": 20261129,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.995,
+            "unrecovered_degradation_minutes": 5,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        },
+        {
+          "arm_id": "A0B1",
+          "factor_a_present": false,
+          "factor_b_present": true,
+          "matched_profile": {
+            "seed": 20261129,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.993,
+            "unrecovered_degradation_minutes": 7,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        },
+        {
+          "arm_id": "A1B1",
+          "factor_a_present": true,
+          "factor_b_present": true,
+          "matched_profile": {
+            "seed": 20261129,
+            "workload_id": "checkout-steady-load-v1",
+            "request_rate_per_second": 100,
+            "trigger_removal_seconds": 600,
+            "observation_window_seconds": 2100
+          },
+          "terminal": {
+            "availability_fraction": 0.987,
+            "unrecovered_degradation_minutes": 12,
+            "fault_persists_after_trigger_removed": false,
+            "functional_contract_pass": true
+          }
+        }
+      ],
+      "interaction_metric": "unrecovered_degradation_minutes",
+      "expected_interaction_contrast": 0,
+      "expected_causal_factor_ids": [
+        "dns_latency",
+        "cache_capacity"
+      ],
+      "required_remediation_action_ids": [
+        "restore_dns_latency",
+        "restore_cache_capacity"
+      ],
+      "agent_payload_policy": {
+        "exposes_factor_assignments": false,
+        "exposes_terminal_oracle": false
+      }
+    }
+  ]
+}
