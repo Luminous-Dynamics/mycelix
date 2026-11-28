@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod failure_domain;
+
 //! DJCC V0.1 structural composition verifier.
 //!
 //! This crate verifies stage identity, exact dependency edges, digest equality,
