@@ -347,7 +347,8 @@
         "correction_impact_precision",
         "canonicalization_vector_total",
         "canonicalization_vector_matches",
-        "full_incremental_outputs_identical"
+        "full_incremental_outputs_identical",
+        "false_authentication_count"
       ],
       "properties": {
         "positive_control_total": {
