@@ -2697,9 +2697,18 @@ mod tests {
         assert_eq!(restored.credential_id, "urn:uuid:12345");
         assert_eq!(restored.status, RevocationStatusMirror::Revoked);
         assert_eq!(restored.reason.unwrap(), "Key compromise");
-        assert_eq!(restored.lookup_status, RevocationLookupStatusMirror::RecordObserved);
-        assert_eq!(restored.effective_from, Some(Timestamp::from_micros(1_699_999_000_000_000)));
-        assert_eq!(restored.recorded_at, Some(Timestamp::from_micros(1_699_999_100_000_000)));
+        assert_eq!(
+            restored.lookup_status,
+            RevocationLookupStatusMirror::RecordObserved
+        );
+        assert_eq!(
+            restored.effective_from,
+            Some(Timestamp::from_micros(1_699_999_000_000_000))
+        );
+        assert_eq!(
+            restored.recorded_at,
+            Some(Timestamp::from_micros(1_699_999_100_000_000))
+        );
         assert!(restored.suspension_end.is_none());
     }
 
@@ -3077,11 +3086,15 @@ fn map_revocation_check(check: RevocationCheckResult) -> CredentialRevocationSta
     match check.status {
         RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
         RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-            check.reason.unwrap_or_else(|| "No reason provided".to_string()),
+            check
+                .reason
+                .unwrap_or_else(|| "No reason provided".to_string()),
         ),
         RevocationStatusMirror::Suspended => match check.suspension_end {
             Some(until) => CredentialRevocationStatus::Suspended(
-                check.reason.unwrap_or_else(|| "No reason provided".to_string()),
+                check
+                    .reason
+                    .unwrap_or_else(|| "No reason provided".to_string()),
                 until.to_string(),
             ),
             None => CredentialRevocationStatus::Unknown,
