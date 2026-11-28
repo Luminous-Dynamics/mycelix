@@ -1,0 +1,15 @@
+[package]
+name = "craft-water-cross-core-harness"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Executable synthetic cross-core qualification slice for Water Service Repair V1"
+
+[dependencies]
+craft-need-intake-v1 = { path = "../crates/need-intake-v1" }
+craft-project-formation-v1 = { path = "../crates/project-formation-v1" }
+craft-claim-support-v1 = { path = "../crates/claim-support-v1" }
+craft-decision-closure-v1 = { path = "../crates/decision-closure-v1" }
+craft-evidence-lineage-v1 = { path = "../crates/evidence-lineage-v1" }
+craft-impact-qualification-v1 = { path = "../crates/impact-qualification-v1" }
+craft-action-denominator-v1 = { path = "../crates/craft-action-denominator-v1" }
