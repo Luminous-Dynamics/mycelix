@@ -17,7 +17,7 @@ Do not collapse these into one global valid/invalid bit.
 
 Eight deterministic cases cover tool-contract change, compatible tool addition, permission revocation, observer-adapter drift, specialist identity change, evaluator-protocol change, incomplete change coverage and a no-op control.
 
-The reference tests direct dependencies only; each dependency list is an exact, bounded projection from the owner-native lineage layer, not a second graph engine. Under-investigation is preserved when relevant change coverage is incomplete.
+The reference tests direct dependencies only; each dependency list is an exact, bounded projection from the owner-native lineage layer, not a second graph engine. A known direct dependency change still requires requalification even if another part of the feed is incomplete; claims exposed only to unknown changes remain Under Investigation. Observer change events must point to the exact observer whose evidence they affect.
 
 ## Validation
 
