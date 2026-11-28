@@ -33,3 +33,5 @@ jobs:
         run: command -v jq
       - name: Validate reference corpus
         run: bash lise-benchmarks/itops-outcome-reference/validate.sh
+      - name: Run adversarial fixture mutations
+        run: bash lise-benchmarks/itops-outcome-reference/mutation-tests.sh
