@@ -39,6 +39,28 @@ pub struct RevocationEntry {
     pub suspension_end: Option<Timestamp>,
 }
 
+/// Resolve a revocation entry's status as of a specific time.
+///
+/// A future-effective revocation is not active before its effective time.
+/// A suspension is active only within [effective_from, suspension_end).
+pub fn revocation_status_at(entry: &RevocationEntry, at: Timestamp) -> RevocationStatus {
+    if at < entry.effective_from {
+        return RevocationStatus::Active;
+    }
+
+    match &entry.status {
+        RevocationStatus::Active => RevocationStatus::Active,
+        RevocationStatus::Revoked => RevocationStatus::Revoked,
+        RevocationStatus::Suspended => {
+            if entry.suspension_end.is_some_and(|end| at >= end) {
+                RevocationStatus::Active
+            } else {
+                RevocationStatus::Suspended
+            }
+        }
+    }
+}
+
 /// Revocation list for batch operations
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -447,6 +469,37 @@ mod tests {
         assert!(!"Key compromise".is_empty());
     }
 
+    // --- As-of revocation semantics ---
+
+    fn entry_with(status: RevocationStatus, effective_from: i64, suspension_end: Option<i64>) -> RevocationEntry {
+        RevocationEntry {
+            credential_id: "cred-as-of".into(),
+            issuer: "did:mycelix:issuer-as-of".into(),
+            status,
+            reason: "test".into(),
+            effective_from: ts(effective_from),
+            recorded_at: ts(50),
+            suspension_end: suspension_end.map(ts),
+        }
+    }
+
+    #[test]
+    fn future_revocation_is_active_before_effective_time_and_revoked_at_boundary() {
+        let entry = entry_with(RevocationStatus::Revoked, 100, None);
+        assert_eq!(revocation_status_at(&entry, ts(99)), RevocationStatus::Active);
+        assert_eq!(revocation_status_at(&entry, ts(100)), RevocationStatus::Revoked);
+        assert_eq!(revocation_status_at(&entry, ts(101)), RevocationStatus::Revoked);
+    }
+
+    #[test]
+    fn suspension_applies_only_inside_half_open_effective_interval() {
+        let entry = entry_with(RevocationStatus::Suspended, 100, Some(200));
+        assert_eq!(revocation_status_at(&entry, ts(99)), RevocationStatus::Active);
+        assert_eq!(revocation_status_at(&entry, ts(100)), RevocationStatus::Suspended);
+        assert_eq!(revocation_status_at(&entry, ts(199)), RevocationStatus::Suspended);
+        assert_eq!(revocation_status_at(&entry, ts(200)), RevocationStatus::Active);
+    }
+
     // --- RevocationList ---
 
     #[test]
@@ -493,14 +546,22 @@ mod tests {
         let result = RevocationCheckResult {
             credential_id: "cred-001".into(),
             status: RevocationStatus::Revoked,
+            lookup_status: RevocationLookupStatus::RecordObserved,
             reason: Some("Expired".into()),
+            effective_from: Some(ts(1_699_999_000_000_000)),
+            recorded_at: Some(ts(1_699_999_100_000_000)),
+            suspension_end: None,
             checked_at: ts(1_700_000_000_000_000),
         };
         let json = serde_json::to_string(&result).unwrap();
         let back: RevocationCheckResult = serde_json::from_str(&json).unwrap();
         assert_eq!(back.credential_id, "cred-001");
         assert_eq!(back.status, RevocationStatus::Revoked);
+        assert_eq!(back.lookup_status, RevocationLookupStatus::RecordObserved);
         assert_eq!(back.reason, Some("Expired".into()));
+        assert_eq!(back.effective_from, Some(ts(1_699_999_000_000_000)));
+        assert_eq!(back.recorded_at, Some(ts(1_699_999_100_000_000)));
+        assert!(back.suspension_end.is_none());
     }
 }
 
