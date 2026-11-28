@@ -45,7 +45,8 @@
         "completeness": "EstablishedWithinProfile",
         "truth": "EstablishedWithinProfile",
         "authority": "EstablishedWithinProfile",
-        "effect": "EstablishedWithinProfile"
+        "effect": "EstablishedWithinProfile",
+        "independence": "NotEvaluated"
       },
       "rationale": "The control is positive only for the explicitly declared synthetic profile and exact scoped outcome. It is not global source truth, legal authority or production readiness.",
       "risk_tier": "control",
@@ -80,7 +81,8 @@
         "completeness": "NotEvaluated",
         "truth": "NotEvaluated",
         "authority": "NotEvaluated",
-        "effect": "NotEvaluated"
+        "effect": "NotEvaluated",
+        "independence": "NotEvaluated"
       },
       "rationale": "A correct inclusion path under a caller-supplied root does not authenticate the root or its log identity.",
       "risk_tier": "critical",
@@ -115,7 +117,8 @@
         "completeness": "Indeterminate",
         "truth": "NotEvaluated",
         "authority": "NotEvaluated",
-        "effect": "NotEvaluated"
+        "effect": "NotEvaluated",
+        "independence": "NotEvaluated"
       },
       "rationale": "Valid proofs for the owners that were supplied do not prove the declared owner universe is complete. Missing coverage cannot become empty or success.",
       "risk_tier": "critical",
@@ -150,7 +153,8 @@
         "completeness": "EstablishedWithinProfile",
         "truth": "EstablishedWithinProfile",
         "authority": "EstablishedWithinProfile",
-        "effect": "NotApplicable"
+        "effect": "NotApplicable",
+        "independence": "NotEvaluated"
       },
       "rationale": "The correction is not in the historical accepted frontier. The historical result remains byte-identical; a separate Current assessment is required to evaluate the later accepted correction.",
       "risk_tier": "control",
@@ -185,7 +189,8 @@
         "completeness": "EstablishedWithinProfile",
         "truth": "NotEvaluated",
         "authority": "NotEvaluated",
-        "effect": "NotEvaluated"
+        "effect": "NotEvaluated",
+        "independence": "NotEvaluated"
       },
       "rationale": "Historical decision replay must bind both immutable policy epoch and evaluator build. Replacing either is not replay of the original decision.",
       "risk_tier": "critical",
@@ -220,7 +225,8 @@
         "completeness": "EstablishedWithinProfile",
         "truth": "NotEvaluated",
         "authority": "Rejected",
-        "effect": "NotEvaluated"
+        "effect": "NotEvaluated",
+        "independence": "NotEvaluated"
       },
       "rationale": "Equal action counts do not imply equal authorization sets. The canonical plan digest and authority decision bind the actual action identities.",
       "risk_tier": "critical",
@@ -255,7 +261,8 @@
         "completeness": "EstablishedWithinProfile",
         "truth": "NotEvaluated",
         "authority": "EstablishedWithinProfile",
-        "effect": "Indeterminate"
+        "effect": "Indeterminate",
+        "independence": "NotEvaluated"
       },
       "rationale": "A possible effect with unknown outcome freezes the same idempotency/effect scope until exact reconciliation. A retry cannot assume the prior effect did not occur.",
       "risk_tier": "critical",
@@ -290,7 +297,8 @@
         "completeness": "Indeterminate",
         "truth": "Indeterminate",
         "authority": "EstablishedWithinProfile",
-        "effect": "Indeterminate"
+        "effect": "Indeterminate",
+        "independence": "NotEvaluated"
       },
       "rationale": "Provider status, work-order completion and execution acknowledgement are not independent measurements of physical restoration or an accepted service outcome.",
       "risk_tier": "critical",
