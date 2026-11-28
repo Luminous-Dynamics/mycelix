@@ -105,8 +105,11 @@ func TestHardSafetyExcludesUnsafeActionWithinOutcomeBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, branch := range result.Observations[0].Branches {
-		if contains(branch.Decision.RobustSafeActions, "release") {
+		if branch.Outcome == "unsafe" && contains(branch.Decision.RobustSafeActions, "release") {
 			t.Fatalf("unsafe release entered robust-safe set in branch %q", branch.Outcome)
+		}
+		if branch.Outcome == "clear" && !contains(branch.Decision.RobustSafeActions, "release") {
+			t.Fatalf("release should remain safe in the clear branch: %+v", branch.Decision)
 		}
 	}
 }
