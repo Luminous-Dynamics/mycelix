@@ -29,7 +29,7 @@
     {
       "id": "TEMP-001",
       "family": "causal_frontier",
-      "description": "Two independently admitted streams produce concurrent assertions with equal observed timestamps and no causal parent between them.",
+      "description": "Two independently admitted streams produce concurrent, contradictory assertions with equal observed timestamps and no causal parent between them.",
       "expected": {
         "frontier": "Valid",
         "cross_stream_order": "Incomparable",
@@ -84,7 +84,7 @@
       "expected": {
         "frontier": "Valid",
         "progress": "Provisional",
-        "completeness": "Indeterminate",
+        "completeness": "NotEvaluated",
         "composition": "Indeterminate"
       },
       "positive_control": "TEMP-004-POS: advance or reconcile all declared progress points so none precedes the query cut.",
@@ -116,7 +116,7 @@
       "family": "independence",
       "description": "Two individually authenticated pressure observations share a material calibration-chain or upstream-source ancestor.",
       "expected": {
-        "independence": "Indeterminate",
+        "independence": "Rejected",
         "composition": "Indeterminate"
       },
       "positive_control": "EVID-001-POS: two channels have complete, authenticated lineage and no shared material ancestor under the named failure profile.",
@@ -132,7 +132,7 @@
       "description": "Different vendors and signing keys consume the same upstream sample or feed.",
       "expected": {
         "authentication": "EstablishedWithinProfile",
-        "independence": "Indeterminate",
+        "independence": "Rejected",
         "composition": "Indeterminate"
       },
       "positive_control": "EVID-002-POS: source lineage proves independent collection, custody, method and material failure domains under the declared profile.",
@@ -180,7 +180,8 @@
       "description": "The policy changes after a historical decision; replay is requested both at the original frontier and at a later frontier.",
       "expected": {
         "historical_composition": "DecisionJustifiedAtAcceptedFrontier",
-        "later_composition": "HistoricalReplayMismatch_or_new_decision",
+        "attempted_replay_with_new_policy": "HistoricalReplayMismatch",
+        "correct_later_evaluation": "NewDecisionRequired",
         "historical_receipt": "ByteIdentical"
       },
       "positive_control": "POL-001-POS: both policy versions and their authority/effective intervals are explicitly pinned and evaluated at their respective frontiers.",
@@ -196,7 +197,7 @@
       "description": "An authority-approved plan amendment changes the action denominator; old observations reference the previous plan digest.",
       "expected": {
         "old_plan_replay": "Preserved",
-        "new_plan_coverage": "Indeterminate_or_incomplete",
+        "new_plan_coverage": "Incomplete",
         "effect": "Indeterminate",
         "composition": "DecisionNotJustifiedAtAcceptedFrontier"
       },
@@ -229,7 +230,7 @@
       "family": "interoperability",
       "description": "The independent PM4Py round-trip retains an integer JSON value but rewrites its declared OCEL attribute type from integer to string.",
       "expected": {
-        "interoperability": "Rejected_or_explicit_exception",
+        "interoperability": "Rejected",
         "semantic_projection": "Indeterminate",
         "composition": "Indeterminate",
         "silent_coercion": "Forbidden"
