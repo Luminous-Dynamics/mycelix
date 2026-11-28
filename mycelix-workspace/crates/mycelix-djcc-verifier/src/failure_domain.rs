@@ -65,13 +65,20 @@ pub struct IndependenceProfile {
     pub explicitly_non_material_shared_classes: BTreeSet<FailureDomainClass>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SharedDomainClassification {
+    Material,
+    ExplicitlyNonMaterial,
+    Unclassified,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PairwiseLineageOverlap {
-    pub left_channel: String,
-    pub right_channel: String,
-    pub shared_material_domain_refs: Vec<String>,
-    pub shared_non_material_domain_refs: Vec<String>,
-    pub shared_unclassified_domain_refs: Vec<String>,
+pub struct SharedLineageGroup {
+    pub domain_ref: String,
+    pub domain_class: FailureDomainClass,
+    /// All evidence channels whose declared ancestry includes this domain.
+    pub channel_refs: Vec<String>,
+    pub classification: SharedDomainClassification,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -83,8 +90,8 @@ pub struct IndependenceAssessment {
     pub unclassified_shared_domain_refs: Vec<String>,
     /// Required classes absent from each channel's reachable lineage.
     pub missing_classes_by_channel: BTreeMap<String, Vec<FailureDomainClass>>,
-    /// Exact overlap for every pair of channels, including disjoint pairs.
-    pub pairwise_overlaps: Vec<PairwiseLineageOverlap>,
+    /// Compact groups identify every shared ancestor and all channels it affects.
+    pub shared_lineage_groups: Vec<SharedLineageGroup>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -100,7 +107,7 @@ pub struct FailureScenarioOutcome {
     pub affected_channels: Vec<String>,
     pub surviving_channels: Vec<String>,
     /// Survivors may still share common causes; this field preserves that fact.
-    pub surviving_pairwise_overlaps: Vec<PairwiseLineageOverlap>,
+    pub surviving_shared_lineage_groups: Vec<SharedLineageGroup>,
     pub minimum_survivor_floor: usize,
     pub meets_survivor_floor: bool,
 }
@@ -240,55 +247,53 @@ fn build_channel_lineages<'a>(
     Ok((nodes, channel_lineage))
 }
 
-fn pairwise_lineage_overlaps(
+fn shared_lineage_groups(
     channels: &[EvidenceChannel],
     nodes: &BTreeMap<String, &FailureDomainNode>,
     channel_lineage: &BTreeMap<String, BTreeSet<String>>,
     profile: &IndependenceProfile,
-) -> Result<Vec<PairwiseLineageOverlap>, String> {
-    let mut overlaps = Vec::new();
-    for left_index in 0..channels.len() {
-        for right_index in (left_index + 1)..channels.len() {
-            let left = &channels[left_index];
-            let right = &channels[right_index];
-            let left_lineage = channel_lineage
-                .get(&left.evidence_ref)
-                .ok_or_else(|| format!("lineage for {} is missing", left.evidence_ref))?;
-            let right_lineage = channel_lineage
-                .get(&right.evidence_ref)
-                .ok_or_else(|| format!("lineage for {} is missing", right.evidence_ref))?;
-            let shared = left_lineage
-                .intersection(right_lineage)
-                .cloned()
-                .collect::<Vec<_>>();
-            let mut material = Vec::new();
-            let mut non_material = Vec::new();
-            let mut unclassified = Vec::new();
-            for domain_ref in shared {
-                let node = nodes
-                    .get(&domain_ref)
-                    .ok_or_else(|| format!("shared domain {domain_ref} is missing"))?;
-                if profile.material_shared_classes.contains(&node.class) {
-                    material.push(domain_ref);
-                } else if profile
-                    .explicitly_non_material_shared_classes
-                    .contains(&node.class)
-                {
-                    non_material.push(domain_ref);
-                } else {
-                    unclassified.push(domain_ref);
-                }
-            }
-            overlaps.push(PairwiseLineageOverlap {
-                left_channel: left.evidence_ref.clone(),
-                right_channel: right.evidence_ref.clone(),
-                shared_material_domain_refs: material,
-                shared_non_material_domain_refs: non_material,
-                shared_unclassified_domain_refs: unclassified,
-            });
+) -> Result<Vec<SharedLineageGroup>, String> {
+    // Invert the lineage relation once. This is O(total lineage references) for
+    // disjoint graphs and avoids materializing an O(channel_count squared) matrix.
+    let mut channels_by_domain: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for channel in channels {
+        let lineage = channel_lineage
+            .get(&channel.evidence_ref)
+            .ok_or_else(|| format!("lineage for {} is missing", channel.evidence_ref))?;
+        for domain_ref in lineage {
+            channels_by_domain
+                .entry(domain_ref.clone())
+                .or_default()
+                .push(channel.evidence_ref.clone());
         }
     }
-    Ok(overlaps)
+
+    let mut groups = Vec::new();
+    for (domain_ref, channel_refs) in channels_by_domain {
+        if channel_refs.len() < 2 {
+            continue;
+        }
+        let node = nodes
+            .get(&domain_ref)
+            .ok_or_else(|| format!("shared domain {domain_ref} is missing"))?;
+        let classification = if profile.material_shared_classes.contains(&node.class) {
+            SharedDomainClassification::Material
+        } else if profile
+            .explicitly_non_material_shared_classes
+            .contains(&node.class)
+        {
+            SharedDomainClassification::ExplicitlyNonMaterial
+        } else {
+            SharedDomainClassification::Unclassified
+        };
+        groups.push(SharedLineageGroup {
+            domain_ref,
+            domain_class: node.class,
+            channel_refs,
+            classification,
+        });
+    }
+    Ok(groups)
 }
 
 /// Evaluates an explicit deterministic fault-injection suite against the declared lineage DAG.
@@ -365,22 +370,18 @@ pub fn assess_failure_scenarios(
                     .map(|lineage| (channel.evidence_ref.clone(), lineage.clone()))
             })
             .collect();
-        let surviving_pairwise_overlaps = if survivor_channels.len() >= 2 {
-            pairwise_lineage_overlaps(
-                &survivor_channels,
-                &nodes,
-                &survivor_lineage,
-                profile,
-            )?
-        } else {
-            Vec::new()
-        };
+        let surviving_shared_lineage_groups = shared_lineage_groups(
+            &survivor_channels,
+            &nodes,
+            &survivor_lineage,
+            profile,
+        )?;
         let meets_survivor_floor = surviving_channels.len() >= minimum_survivor_floor;
         outcomes.push(FailureScenarioOutcome {
             scenario_ref: scenario.scenario_ref.clone(),
             affected_channels,
             surviving_channels,
-            surviving_pairwise_overlaps,
+            surviving_shared_lineage_groups,
             minimum_survivor_floor,
             meets_survivor_floor,
         });
@@ -444,15 +445,18 @@ pub fn assess_independence(
         }
     }
 
-    let pairwise_overlaps =
-        pairwise_lineage_overlaps(&graph.channels, &nodes, &channel_lineage, profile)?;
-    let mut common_domain_refs = BTreeSet::new();
-    let mut unclassified_shared_domain_refs = BTreeSet::new();
-    for overlap in &pairwise_overlaps {
-        common_domain_refs.extend(overlap.shared_material_domain_refs.iter().cloned());
-        unclassified_shared_domain_refs
-            .extend(overlap.shared_unclassified_domain_refs.iter().cloned());
-    }
+    let shared_lineage_groups =
+        shared_lineage_groups(&graph.channels, &nodes, &channel_lineage, profile)?;
+    let common_domain_refs: Vec<_> = shared_lineage_groups
+        .iter()
+        .filter(|group| group.classification == SharedDomainClassification::Material)
+        .map(|group| group.domain_ref.clone())
+        .collect();
+    let unclassified_shared_domain_refs: Vec<_> = shared_lineage_groups
+        .iter()
+        .filter(|group| group.classification == SharedDomainClassification::Unclassified)
+        .map(|group| group.domain_ref.clone())
+        .collect();
 
     let disposition = if !common_domain_refs.is_empty() {
         FailureDomainDisposition::CommonCauseDetected
@@ -466,10 +470,10 @@ pub fn assess_independence(
 
     Ok(IndependenceAssessment {
         disposition,
-        common_domain_refs: common_domain_refs.into_iter().collect(),
-        unclassified_shared_domain_refs: unclassified_shared_domain_refs.into_iter().collect(),
+        common_domain_refs,
+        unclassified_shared_domain_refs,
         missing_classes_by_channel,
-        pairwise_overlaps,
+        shared_lineage_groups,
     })
 }
 
@@ -565,10 +569,18 @@ mod tests {
         let result = assess_independence(&graph, &profile()).unwrap();
         assert_eq!(result.disposition, FailureDomainDisposition::CommonCauseDetected);
         assert_eq!(result.common_domain_refs, vec!["a-feed".to_owned()]);
-        assert_eq!(result.pairwise_overlaps.len(), 1);
+        assert_eq!(result.shared_lineage_groups.len(), 1);
         assert_eq!(
-            result.pairwise_overlaps[0].shared_material_domain_refs,
-            vec!["a-feed".to_owned()]
+            result.shared_lineage_groups[0].domain_ref,
+            "a-feed".to_owned()
+        );
+        assert_eq!(
+            result.shared_lineage_groups[0].channel_refs,
+            vec!["evidence:a".to_owned(), "evidence:b".to_owned()]
+        );
+        assert_eq!(
+            result.shared_lineage_groups[0].classification,
+            SharedDomainClassification::Material
         );
     }
 
@@ -800,11 +812,12 @@ mod tests {
             failed_domain_refs: vec!["c-device".to_owned()],
         }];
         let result = assess_failure_scenarios(&graph, &profile(), &scenarios, 2).unwrap();
-        let survivors = &result.outcomes[0].surviving_pairwise_overlaps;
+        let survivors = &result.outcomes[0].surviving_shared_lineage_groups;
         assert_eq!(survivors.len(), 1);
+        assert_eq!(survivors[0].domain_ref, "a-feed".to_owned());
         assert_eq!(
-            survivors[0].shared_material_domain_refs,
-            vec!["a-feed".to_owned()]
+            survivors[0].channel_refs,
+            vec!["evidence:a".to_owned(), "evidence:b".to_owned()]
         );
     }
 
