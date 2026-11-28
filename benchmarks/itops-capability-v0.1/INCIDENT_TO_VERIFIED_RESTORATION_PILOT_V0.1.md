@@ -98,18 +98,32 @@ The three anchor cases should be expanded into independently authored positive, 
 
 
 
-## 4. Matched treatment arms
+## 4. Matched treatment arms and component attribution
 
-Evaluate the same case revisions, event order, source evidence, permission profile and resource budget with:
+Use human and incumbent operational baselines, then isolate the contribution of Symthaea components while holding the foundation model and operational budget constant.
 
-1. Qualified human SRE workflow.
-2. Incumbent deterministic runbook / alert-rule workflow.
-3. Base model plus the same mock read/write tools, without Symthaea-specific state or causal coordination.
-4. Symthaea-assisted workflow with the same base model and tools, adding durable task state, time/source reconciliation and evidence-linked hypotheses.
-5. Symthaea causal investigation and prospective experiment selection, composed with the existing #10366/#10387 contracts.
-6. Human + Symthaea assistance, with human authority/approval retained.
+**External baselines**
+1. Qualified human SRE workflow with the declared runbook and the same incident evidence.
+2. Incumbent deterministic alert/runbook workflow, with its normal permitted tools and action policy.
 
-Where the underlying model is shared, pin its exact version and decoding settings. Hold context, tool access, task information, action/time budget, retry policy and acceptance oracle constant. Record each treatment's actual resource use. A system-only result must not be conflated with human-assisted performance.
+**Matched model/architecture arms**
+3. **A0 — base model:** exact pinned foundation model plus the same mock read/write tools, no Symthaea-specific durable state or orchestration.
+4. **A1 — durable state:** A0 plus the durable task/event ledger and interruption/replay handling.
+5. **A2 — evidence/time reconciliation:** A0 plus source identity, freshness, revision and conflict reconciliation at each decision frontier.
+6. **A3 — causal planning / EVSI:** A0 plus causal hypothesis management and decision-sensitive observation/intervention selection, composing Symthaea #10366/#10387.
+7. **A4 — independent verifier:** A0 plus typed service-state postconditions, scope/authority verification and evidence-linked acceptance.
+8. **A5 — full composition:** A1–A4 composed, with the same underlying model and permitted tools.
+9. **A6 — leave-one-component-out:** A5 with each of A1–A4 removed one at a time to estimate component necessity and interactions.
+10. **Human + Symthaea:** assisted workflow with human approval retained; never combine this result with system-only A5.
+
+For every model-based arm, pin exact model/provider release, system prompt, decoding settings, adapters, permissions, source snapshot, starting environment image, retry policy and task/evaluator versions. Keep wall-clock, action, retry, context, token, and cost ceilings fixed. The extra retrieval, state-storage, planning and verification work used by Symthaea counts toward its actual costs.
+
+Randomize arm execution order within task/seed blocks. Use the same frozen inputs and paired seeds where determinism allows. Hold scenario-family, source-family and environment holdouts outside all tuning. Use repeated model seeds to estimate stochastic run variance, but never count repetitions as new independent incident families.
+
+The three OPS-01/02/03 cases are anchor patterns only. For a confirmatory claim, use the parent #6846 target population (40–60 frozen scenarios across at least eight incident families), with family-level holdouts. Determine sample size from a blinded pilot's baseline rate, outcome variance and within-family correlation; do not claim sufficient power from three scenario templates multiplied by many seeds.
+
+Pre-register one primary endpoint (verified restoration time, accepted recovery rate, or fully burdened cost per accepted incident) and its analysis. Use paired estimates and cluster uncertainty by incident family, plus site/team if applicable. Keep safe escalation (OPS-03), restoration, unresolved, not-comparable and timeout dispositions separate. Report intention-to-treat denominators, confidence intervals, family-level outcomes and all resource use.
+
 
 ## 5. Scoring vector — no single automation score
 
