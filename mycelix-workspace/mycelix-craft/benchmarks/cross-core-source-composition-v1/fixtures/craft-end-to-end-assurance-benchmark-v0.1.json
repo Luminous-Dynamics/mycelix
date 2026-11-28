@@ -362,11 +362,20 @@
         "unit_tests": "passed",
         "race": "passed",
         "vet": "passed",
-        "statement_coverage_percent": 77.4,
+        "statement_coverage_percent": 78.8,
         "fixture_scope": "inline_minimal_unit_test_fixture"
       },
       "hosted_validation": "pending",
-      "note": "The local module tests validate deterministic operators on an inline minimal fixture. Exact-host workflow is configured to generate the committed ten-scenario fixture twice and byte-compare outputs."
+      "note": "The local module tests validate deterministic operators on an inline minimal fixture. Exact-host workflow is configured to generate the committed ten-scenario fixture twice and byte-compare outputs.",
+      "strict_json_tests": [
+        "duplicate_object_keys_rejected",
+        "trailing_registry_data_rejected",
+        "unknown_registry_fields_rejected"
+      ],
+      "digest_domains": [
+        "MYCELIX-CRAFT-SYNTHETIC-EPISODE-V0.1",
+        "MYCELIX-CRAFT-SYNTHETIC-REGISTRY-V0.1"
+      ]
     }
   },
   "ocel21_fixture_registry": {
