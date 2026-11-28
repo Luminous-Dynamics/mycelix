@@ -214,6 +214,14 @@ func TestValidateBenchmarkResultV01RejectsMalformedTrailingData(t *testing.T) {
 	}
 }
 
+func TestValidateBenchmarkResultV01RejectsDuplicateJSONKeys(t *testing.T) {
+	raw := string(encodeBenchmarkResult(t, validBenchmarkResultV01()))
+	raw = strings.Replace(raw, `"run_id":"local-qualification-001"`, `"run_id":"shadow","run_id":"local-qualification-001"`, 1)
+	if err := ValidateBenchmarkResultV01([]byte(raw)); err == nil {
+		t.Fatal("duplicate run_id field accepted")
+	}
+}
+
 func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
 	value := validBenchmarkResultV01()
 	value["workload"].(map[string]any)["owner_count"] = 0
