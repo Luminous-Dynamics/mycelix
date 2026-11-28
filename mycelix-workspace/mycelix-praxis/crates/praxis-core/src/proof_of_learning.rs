@@ -329,16 +329,17 @@ impl PoLAnalyzer {
         let mut comparisons = 0;
 
         for window in sorted.windows(2) {
-            if let (Some(a1), Some(a2)) = (window.get(0), window.get(1)) {
-                if let (
-                    ActivityOutcome::Completed { score: Some(s1) },
-                    ActivityOutcome::Completed { score: Some(s2) },
-                ) = (&a1.outcome, &a2.outcome)
-                {
-                    comparisons += 1;
-                    if s2 >= s1 {
-                        improvements += 1;
-                    }
+            let [a1, a2] = window else {
+                continue;
+            };
+            if let (
+                ActivityOutcome::Completed { score: Some(s1) },
+                ActivityOutcome::Completed { score: Some(s2) },
+            ) = (&a1.outcome, &a2.outcome)
+            {
+                comparisons += 1;
+                if s2 >= s1 {
+                    improvements += 1;
                 }
             }
         }
@@ -371,7 +372,11 @@ impl PoLAnalyzer {
         let optimal_failure_rate = 0.20;
         let rate_score = 1.0 - (failure_rate - optimal_failure_rate).abs() * 2.0;
 
-        rate_score.max(0.0).min(1.0)
+        if rate_score.is_nan() {
+            0.0
+        } else {
+            rate_score.clamp(0.0, 1.0)
+        }
     }
 
     /// Analyze retention - follows natural forgetting/relearning curves
@@ -462,9 +467,7 @@ impl PoLAnalyzer {
 
         // More contributions = better, up to a point
         let contribution_count = contributions.len() as f64;
-        let count_score = (contribution_count / 10.0).min(1.0);
-
-        count_score
+        (contribution_count / 10.0).min(1.0)
     }
 
     /// Analyze consistency - learning over time vs cramming
@@ -530,24 +533,21 @@ impl PoLAnalyzer {
 
         for activity in activities.iter().take(20) {
             // Limit evidence
-            match &activity.outcome {
-                ActivityOutcome::Completed { score } => {
-                    if matches!(activity.activity_type, ActivityType::Assessment) {
-                        evidence.push(LearningEvidence::Assessment {
-                            assessment_id: format!("{}_{}", activity.topic, activity.timestamp),
-                            score: score.unwrap_or(0.0),
-                            timestamp: activity.timestamp,
-                            time_taken_seconds: activity.duration_minutes * 60,
-                        });
-                    } else {
-                        evidence.push(LearningEvidence::Activity {
-                            activity_type: format!("{:?}", activity.activity_type),
-                            duration_minutes: activity.duration_minutes,
-                            timestamp: activity.timestamp,
-                        });
-                    }
+            if let ActivityOutcome::Completed { score } = &activity.outcome {
+                if matches!(activity.activity_type, ActivityType::Assessment) {
+                    evidence.push(LearningEvidence::Assessment {
+                        assessment_id: format!("{}_{}", activity.topic, activity.timestamp),
+                        score: score.unwrap_or(0.0),
+                        timestamp: activity.timestamp,
+                        time_taken_seconds: activity.duration_minutes * 60,
+                    });
+                } else {
+                    evidence.push(LearningEvidence::Activity {
+                        activity_type: format!("{:?}", activity.activity_type),
+                        duration_minutes: activity.duration_minutes,
+                        timestamp: activity.timestamp,
+                    });
                 }
-                _ => {}
             }
         }
 

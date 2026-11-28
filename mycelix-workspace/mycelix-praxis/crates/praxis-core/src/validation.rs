@@ -74,7 +74,7 @@ pub fn validate_bkt_integrity(
         };
     }
 
-    if claimed_p_mastery < 0.0 || claimed_p_mastery > 1.0 {
+    if !(0.0..=1.0).contains(&claimed_p_mastery) {
         return BktValidationResult {
             valid: false,
             expected_p_mastery: 0.0,
@@ -361,6 +361,18 @@ mod tests {
     fn test_bkt_out_of_range() {
         let result = validate_bkt_integrity(1.5, 5, 3, 0.1);
         assert!(!result.valid, "p_mastery > 1.0 is invalid");
+    }
+
+    #[test]
+    fn test_bkt_rejects_non_finite_mastery() {
+        for claimed in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            let result = validate_bkt_integrity(claimed, 5, 3, 0.1);
+            assert!(!result.valid, "non-finite mastery must fail closed");
+            assert_eq!(
+                result.rejection_reason.as_deref(),
+                Some("p_mastery out of [0,1] range")
+            );
+        }
     }
 
     // ---- TEND Property Tests ----

@@ -18,3 +18,7 @@ holo_hash.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+
+[[bench]]
+name = "capability_plan"
+harness = false

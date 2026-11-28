@@ -103,10 +103,10 @@ impl ProvenanceChain {
     /// Verify chain integrity (each model's parent matches previous model's hash)
     pub fn verify_integrity(&self) -> bool {
         for i in 1..self.records.len() {
-            if let Some(parent_hash) = &self.records[i].parent_hash {
-                if parent_hash != &self.records[i - 1].model_hash {
-                    return false;
-                }
+            if let Some(parent_hash) = &self.records[i].parent_hash
+                && parent_hash != &self.records[i - 1].model_hash
+            {
+                return false;
             }
         }
         true
@@ -123,13 +123,14 @@ impl Default for ProvenanceChain {
 mod tests {
     use super::*;
 
+    fn model_hash(byte: u8) -> ModelHash {
+        ModelHash([byte; 32])
+    }
+
     #[test]
     fn test_provenance_creation() {
-        let prov = ModelProvenance::new(
-            ModelId("model-1".to_string()),
-            ModelHash("hash-1".to_string()),
-            1234567890i64,
-        );
+        let prov =
+            ModelProvenance::new(ModelId("model-1".to_string()), model_hash(1), 1234567890i64);
         assert_eq!(prov.model_id.0, "model-1");
         assert!(prov.parent_hash.is_none());
     }
@@ -138,18 +139,12 @@ mod tests {
     fn test_provenance_chain() {
         let mut chain = ProvenanceChain::new();
 
-        let prov1 = ModelProvenance::new(
-            ModelId("model-1".to_string()),
-            ModelHash("hash-1".to_string()),
-            1234567890i64,
-        );
+        let prov1 =
+            ModelProvenance::new(ModelId("model-1".to_string()), model_hash(1), 1234567890i64);
 
-        let prov2 = ModelProvenance::new(
-            ModelId("model-2".to_string()),
-            ModelHash("hash-2".to_string()),
-            1234567891i64,
-        )
-        .with_parent(ModelHash("hash-1".to_string()));
+        let prov2 =
+            ModelProvenance::new(ModelId("model-2".to_string()), model_hash(2), 1234567891i64)
+                .with_parent(model_hash(1));
 
         chain.add(prov1);
         chain.add(prov2);

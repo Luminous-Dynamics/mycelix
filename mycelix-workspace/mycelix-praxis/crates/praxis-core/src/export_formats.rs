@@ -122,17 +122,31 @@ pub mod xapi_verbs {
     pub const EARNED: &str = "https://w3id.org/xapi/tla/verbs/earned";
 }
 
+/// Inputs used to convert one learner event into an xAPI statement.
+#[derive(Clone, Copy, Debug)]
+pub struct LearningEventXapiInput<'a> {
+    pub learner_id: &'a str,
+    pub learner_name: Option<&'a str>,
+    pub event_type: &'a str,
+    pub topic_id: &'a str,
+    pub topic_name: &'a str,
+    pub quality_permille: u16,
+    pub duration_seconds: u32,
+    pub timestamp: &'a str,
+}
+
 /// Convert a learning event into an xAPI statement.
-pub fn learning_event_to_xapi(
-    learner_id: &str,
-    learner_name: Option<&str>,
-    event_type: &str,
-    topic_id: &str,
-    topic_name: &str,
-    quality_permille: u16,
-    duration_seconds: u32,
-    timestamp: &str,
-) -> XapiStatement {
+pub fn learning_event_to_xapi(input: LearningEventXapiInput<'_>) -> XapiStatement {
+    let LearningEventXapiInput {
+        learner_id,
+        learner_name,
+        event_type,
+        topic_id,
+        topic_name,
+        quality_permille,
+        duration_seconds,
+        timestamp,
+    } = input;
     let verb_id = match event_type {
         "SkillMastered" => xapi_verbs::MASTERED,
         "QuizPassed" => xapi_verbs::PASSED,
@@ -373,16 +387,16 @@ mod tests {
 
     #[test]
     fn test_xapi_mastery_statement() {
-        let stmt = learning_event_to_xapi(
-            "agent123",
-            Some("Maria"),
-            "SkillMastered",
-            "CAPS.Mathematics.Gr12.P1.CALC",
-            "Calculus",
-            850,
-            3600,
-            "2026-04-03T10:00:00Z",
-        );
+        let stmt = learning_event_to_xapi(LearningEventXapiInput {
+            learner_id: "agent123",
+            learner_name: Some("Maria"),
+            event_type: "SkillMastered",
+            topic_id: "CAPS.Mathematics.Gr12.P1.CALC",
+            topic_name: "Calculus",
+            quality_permille: 850,
+            duration_seconds: 3600,
+            timestamp: "2026-04-03T10:00:00Z",
+        });
 
         assert_eq!(stmt.verb.id, xapi_verbs::MASTERED);
         assert_eq!(stmt.actor.name, Some("Maria".to_string()));
@@ -394,16 +408,16 @@ mod tests {
 
     #[test]
     fn test_xapi_failed_quiz() {
-        let stmt = learning_event_to_xapi(
-            "agent456",
-            None,
-            "QuizFailed",
-            "CAPS.Mathematics.Gr12.P2.TRIG",
-            "Trigonometry",
-            350,
-            1800,
-            "2026-04-03T14:00:00Z",
-        );
+        let stmt = learning_event_to_xapi(LearningEventXapiInput {
+            learner_id: "agent456",
+            learner_name: None,
+            event_type: "QuizFailed",
+            topic_id: "CAPS.Mathematics.Gr12.P2.TRIG",
+            topic_name: "Trigonometry",
+            quality_permille: 350,
+            duration_seconds: 1800,
+            timestamp: "2026-04-03T14:00:00Z",
+        });
 
         assert_eq!(stmt.verb.id, xapi_verbs::FAILED);
         assert!(!stmt.result.as_ref().unwrap().success.unwrap());
@@ -447,16 +461,16 @@ mod tests {
 
     #[test]
     fn test_xapi_duration_format() {
-        let stmt = learning_event_to_xapi(
-            "a",
-            None,
-            "LessonComplete",
-            "t",
-            "Test",
-            800,
-            5432,
-            "2026-01-01T00:00:00Z",
-        );
+        let stmt = learning_event_to_xapi(LearningEventXapiInput {
+            learner_id: "a",
+            learner_name: None,
+            event_type: "LessonComplete",
+            topic_id: "t",
+            topic_name: "Test",
+            quality_permille: 800,
+            duration_seconds: 5432,
+            timestamp: "2026-01-01T00:00:00Z",
+        });
         let duration = stmt.result.unwrap().duration.unwrap();
         assert_eq!(duration, "PT1H30M32S");
     }
