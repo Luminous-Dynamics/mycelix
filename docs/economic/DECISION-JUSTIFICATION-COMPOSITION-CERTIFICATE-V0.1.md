@@ -318,6 +318,16 @@ An equivalent mutant is not a killed mutant. Invalid fixture shape is not an eva
 
 Record product/version/configuration and adapters. A capability that is not exposed by the tested interface is NotTested, not a failure. Publish per-obligation comparison matrices and the cost of stronger guarantees.
 
+Primary reference set for baseline reproduction:
+
+- VeriTS, *Verifiable Model-Enhanced Time-Series Queries on Blockchain Systems*, arXiv:2608.28318 (28 August 2026): https://arxiv.org/abs/2608.28318
+- Cedar policy language and validator documentation: https://docs.cedarpolicy.com/
+- OpenTelemetry Logs Data Model (Timestamp / ObservedTimestamp): https://opentelemetry.io/docs/specs/otel/logs/data-model/
+- RFC 9162, Certificate Transparency Version 2.0: https://www.rfc-editor.org/rfc/rfc9162
+- RFC 9942, COSE Receipts: https://www.rfc-editor.org/rfc/rfc9942
+- RFC 9943, An Architecture for Trustworthy and Transparent Digital Supply Chains: https://www.rfc-editor.org/rfc/rfc9943
+- SCITT MMR COSE Receipt Profile -00 (Internet-Draft, not a final RFC): https://datatracker.ietf.org/doc/html/draft-ietf-scitt-receipts-mmr-profile-00
+
 ### 9.1 Matched comparison protocol: compete at the composition boundary
 
 DJCC should not claim to outperform a specialist on a capability the specialist is designed to optimize. In particular, VeriTS (arXiv:2608.28318, 28 August 2026) reports authenticated time-series query improvements—over two orders of magnitude in one windowed-aggregation verification comparison and up to 14.5× smaller range-query proofs than per-record proofs. Those results are a baseline to reproduce, not an invitation to make an unsupported blanket “faster than SOTA” claim.
