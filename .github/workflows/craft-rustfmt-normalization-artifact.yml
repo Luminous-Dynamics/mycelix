@@ -1,0 +1,51 @@
+name: Craft rustfmt normalization artifact (non-qualification)
+
+on:
+  push:
+    branches:
+      - research/craft-rustfmt-artifact-20261128
+
+permissions:
+  contents: read
+
+jobs:
+  normalize:
+    name: Normalize Rust sources and capture artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPECTED_HEAD: ${{ github.sha }}
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Install Rust 1.96.0
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: clippy, rustfmt
+
+      - name: Materialize and format exact workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$EXPECTED_HEAD"
+          benchmark_dir="mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1"
+          out_dir="$RUNNER_TEMP/craft-rustfmt-workspace"
+          MYCELIX_GIT_REMOTE=origin bash "$benchmark_dir/materialize.sh" "$out_dir"
+          cargo +1.96.0 fmt --manifest-path "$out_dir/Cargo.toml" --all
+          mkdir -p "$RUNNER_TEMP/craft-rustfmt/harness"
+          cp -a "$out_dir/harness/src" "$RUNNER_TEMP/craft-rustfmt/harness/"
+          tar -czf "$RUNNER_TEMP/craft-rustfmt-sources.tar.gz" -C "$RUNNER_TEMP/craft-rustfmt" harness
+          sha256sum "$RUNNER_TEMP/craft-rustfmt-sources.tar.gz"
+
+      - name: Upload normalized Rust source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: craft-rustfmt-normalized-${{ github.sha }}
+          path: ${{ runner.temp }}/craft-rustfmt-sources.tar.gz
+          if-no-files-found: error
+          retention-days: 3
