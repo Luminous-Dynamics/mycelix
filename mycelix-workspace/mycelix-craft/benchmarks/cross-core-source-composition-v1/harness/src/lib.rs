@@ -2,7 +2,6 @@
 
 use std::fmt::Write as _;
 
-use craft_action_denominator_v1 as action_denominator;
 use craft_claim_support_v1 as claim_support;
 use craft_decision_closure_v1 as decision_closure;
 use craft_evidence_lineage_v1 as evidence_lineage;
@@ -1049,6 +1048,7 @@ pub mod impact_helpers {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use craft_action_denominator_v1 as action_denominator;
 
     fn wsr_action_denominator_action(
         action_id: &str,
