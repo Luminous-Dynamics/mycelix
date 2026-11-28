@@ -121,5 +121,5 @@ func TestPinnedDJCCProfileDigestIsRequired(t *testing.T) {
  c:=base(); c.ProfileDigest=d(222); expectCode(t,c,"PROFILE_MISMATCH")
 }
 func TestPolicyAndOutcomeStageReceiptsAreBound(t *testing.T) {
- c:=base(); c.Policy.Digest=d(333); expectCode(t,c,"RECEIPT_INVALID")
+ c:=base(); c.Policy.Digest=d(333); expectCode(t,c,"POLICY_STAGE_BINDING_MISMATCH")
 }
