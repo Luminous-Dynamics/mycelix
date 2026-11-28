@@ -6,20 +6,18 @@ on:
       - praxis/capability-plan-rustfmt-artifact-20261128
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   normalize:
-    name: Format package and capture source artifact
+    name: Apply Rust 1.96 formatter to capability-plan source
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      EXPECTED_HEAD: ${{ github.sha }}
     steps:
-      - name: Checkout exact source head
+      - name: Checkout exact capability-plan branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: praxis/capability-plan-compiler-v1
           fetch-depth: 0
 
       - name: Install Rust 1.96.0
@@ -27,23 +25,32 @@ jobs:
         with:
           components: rustfmt
 
-      - name: Format exact praxis-core package
+      - name: Format package and commit only rustfmt changes
         shell: bash
         run: |
           set -euo pipefail
-          actual_head="$(git rev-parse HEAD)"
-          test "$actual_head" = "$EXPECTED_HEAD"
+          expected_ref="praxis/capability-plan-compiler-v1"
+          git switch --force-create "$expected_ref"
+          before="$(git rev-parse HEAD)"
           cargo +1.96.0 fmt --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml -p praxis-core
-          mkdir -p "$RUNNER_TEMP/praxis-rustfmt"
-          cp -a mycelix-workspace/mycelix-praxis/crates/praxis-core/src "$RUNNER_TEMP/praxis-rustfmt/"
-          cp -a mycelix-workspace/mycelix-praxis/crates/praxis-core/benches "$RUNNER_TEMP/praxis-rustfmt/"
-          tar -czf "$RUNNER_TEMP/praxis-rustfmt-sources.tar.gz" -C "$RUNNER_TEMP" praxis-rustfmt
-          sha256sum "$RUNNER_TEMP/praxis-rustfmt-sources.tar.gz"
+          git diff --check
+          git add mycelix-workspace/mycelix-praxis/crates/praxis-core/src mycelix-workspace/mycelix-praxis/crates/praxis-core/benches
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "style(praxis): apply Rust 1.96 package formatting"
+            git push origin "HEAD:$expected_ref"
+          fi
+          printf 'pre_format_head=%s\n' "$before"
+          printf 'post_format_head=%s\n' "$(git rev-parse HEAD)"
+          printf 'formatter=rustfmt 1.96.0\n'
 
-      - name: Upload normalized source artifact
+      - name: Upload normalized package sources
         uses: actions/upload-artifact@v4
         with:
-          name: praxis-rustfmt-normalized-${{ github.sha }}
-          path: ${{ runner.temp }}/praxis-rustfmt-sources.tar.gz
+          name: praxis-rustfmt-normalized-${{ github.run_id }}
+          path: |
+            mycelix-workspace/mycelix-praxis/crates/praxis-core/src
+            mycelix-workspace/mycelix-praxis/crates/praxis-core/benches
           if-no-files-found: error
           retention-days: 3
