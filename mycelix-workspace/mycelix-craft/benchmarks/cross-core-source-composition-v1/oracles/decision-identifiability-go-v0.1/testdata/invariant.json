@@ -1,0 +1,11 @@
+{
+  "schema_id": "mycelix.craft.decision-identifiability.v0.1",
+  "case_id": "CDIE-001-invariant-action",
+  "coverage_basis": "fixture_exhaustive",
+  "actions": ["repair", "hold"],
+  "fallback_action": "hold",
+  "worlds": [
+    {"id": "contamination-absent", "losses": {"repair": 0, "hold": 5}},
+    {"id": "contamination-present", "losses": {"repair": 0, "hold": 4}}
+  ]
+}
