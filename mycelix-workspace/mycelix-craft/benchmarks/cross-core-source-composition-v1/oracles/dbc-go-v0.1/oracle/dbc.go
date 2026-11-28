@@ -177,6 +177,7 @@ func Validate(c Capsule) error {
  if c.Outcome.Status=="Unknown" && c.Outcome.SameScopeMutationAttempt {
   return fail("OUTCOME_UNKNOWN_MUTATION_BARRIER","same-scope mutation attempted before exact outcome reconciliation")
  }
+ if c.Outcome.MutationScope=="" { return fail("OUTCOME_SCOPE_MISSING","outcome mutation scope is required") }
  if c.Claims["independence"]==Established || c.Claims["independence"]==Rejected { return fail("INDEPENDENCE_PROFILE_UNSUPPORTED","full evidence profile does not qualify independence") }
  if c.Evidence.IndependenceStatus!=NotEvaluated { return fail("INDEPENDENCE_PROFILE_UNSUPPORTED","full evidence profile keeps independence NotEvaluated") }
  if c.Evidence.FailureDomainGraph!=nil && !refOK(*c.Evidence.FailureDomainGraph) { return fail("EVIDENCE_BINDING_INVALID","failure-domain graph reference is malformed") }
