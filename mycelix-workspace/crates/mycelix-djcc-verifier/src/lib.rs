@@ -1287,6 +1287,9 @@ mod tests {
         ] {
             mark_not_evaluated(&mut input, stage_id);
         }
+        input.declared_claim_ceiling.truth = ClaimState::Rejected;
+        input.declared_claim_ceiling.authority = ClaimState::NotEvaluated;
+        input.declared_claim_ceiling.effect = ClaimState::NotEvaluated;
         input.declared_disposition = CompositionDisposition::HistoricalReplayMismatch;
         let report = verify_composition(&input, &valid_profile());
         assert!(report.is_valid(), "{:?}", report.violations);
@@ -1301,6 +1304,8 @@ mod tests {
         input.declared_claim_ceiling.authority = ClaimState::Rejected;
         mark_not_evaluated(&mut input, StageId::Execution);
         mark_not_evaluated(&mut input, StageId::Outcome);
+        input.declared_claim_ceiling.truth = ClaimState::NotEvaluated;
+        input.declared_claim_ceiling.effect = ClaimState::NotEvaluated;
         input.declared_disposition = CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
         let report = verify_composition(&input, &valid_profile());
         assert!(report.is_valid(), "{:?}", report.violations);
