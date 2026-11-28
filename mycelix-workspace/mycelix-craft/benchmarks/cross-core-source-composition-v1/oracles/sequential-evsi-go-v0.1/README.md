@@ -19,7 +19,7 @@ This demonstrates an algorithmic failure mode for greedy one-step acquisition, n
 - Unavailable, out-of-domain, inadmissible or unconditioned observation models are excluded; if no admissible observation remains while observations were declared, the oracle abstains.
 - For multiple observations, the case must declare `conditional_independence_given_complete_latent_state_v0.1`. The observations are then assumed conditionally independent given the complete latent state. Unknown dependencies or shared causes that are not represented in that latent state require abstention or a richer joint/history-conditioned model.
 
-The DP is cross-checked on the frozen tiny case against a separate, deliberately unmemoized policy-tree enumerator.
+A second adaptive-follow-up fixture makes the first result determine which of two different second observations should be selected. The DP is cross-checked on the frozen tiny cases against a separate, deliberately unmemoized policy-tree enumerator.
 
 ## Baselines and benchmark metrics
 
