@@ -16,7 +16,7 @@ The primary interaction contrast is the difference-in-differences:
 
 `Y11 - Y10 - Y01 + Y00`
 
-where `Y` is the independently measured service degradation duration after the transient trigger has been removed. A synergistic interaction has a positive contrast; the additive control has contrast zero. The categorical terminal state (persistent metastable degradation) is reported separately and is never inferred from the scalar contrast alone.
+where `Y` is the independently measured total service-degraded minutes over the fixed observation horizon. A synergistic interaction has a positive contrast; the additive control has contrast zero. Whether degradation persists after the transient trigger is removed is a separate categorical terminal proposition, not inferred from the scalar contrast alone.
 
 Two groups are included:
 1. **Metastable retry/capacity interaction:** retry amplification plus a binding CPU constraint creates persistent degradation that neither factor creates alone. The declared complete remedy requires correcting the retry policy, restoring adequate CPU quota and performing a controlled restart.
