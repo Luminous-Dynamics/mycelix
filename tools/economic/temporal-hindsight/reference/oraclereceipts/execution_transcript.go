@@ -665,7 +665,9 @@ func validateCorrectionImpactConeV1(
 	appliedStepOrder []string,
 	appliedStepReceiptDigests map[string][]string,
 ) error {
-	if transition.Kind != StepRecomputeAfterCorrection {
+	switch transition.Kind {
+	case StepRecomputeAfterCorrection, StepCompensate, StepRevokeDerivedState:
+	default:
 		return nil
 	}
 	consumed, err := canonicalDigestSet(transition.ConsumedReceiptDigests, MaxEvidenceReferences, "correction receipt set")
@@ -810,12 +812,18 @@ func ReplayOracleExecutionTranscriptV1(
 	result.ExpectedReceiptCount = expectedReceiptCount
 	result.ObservedReceiptCount = uint64(len(receipts))
 	result.ExpectedReceiptTailDigest = expectedReceiptTail
-	if reason, submissionDigest := preflightExecutionEvents(events); reason != "" {
-		result.Reason = reason
-		result.SubmittedEventsDigest = submissionDigest
+	receiptPreflightReason, receiptSubmissionDigest := preflightOracleReceiptSubmissions(receipts)
+	result.SubmittedReceiptsDigest = receiptSubmissionDigest
+	eventPreflightReason, eventSubmissionDigest := preflightExecutionEvents(events)
+	result.SubmittedEventsDigest = eventSubmissionDigest
+	if receiptPreflightReason != "" {
+		result.Reason = "oracle receipt preflight failed: " + receiptPreflightReason
 		return finalizeExecutionReplay(result)
 	}
-	result.SubmittedEventsDigest = rawExecutionSubmissionDigest(events)
+	if eventPreflightReason != "" {
+		result.Reason = "execution event preflight failed: " + eventPreflightReason
+		return finalizeExecutionReplay(result)
+	}
 	receiptResult := VerifyOracleReceiptChainV1(scope, receipts, expectedReceiptCount, expectedReceiptTail)
 	result.SubmittedReceiptsDigest = receiptResult.SubmittedReceiptsDigest
 	if receiptResult.Disposition != ChainStructurallyValid {
