@@ -153,6 +153,65 @@
             "maxLength": 128
           },
           "description": "Unique adversarial class IDs with an executable hard-negative fixture."
+        },
+        "fixture_records": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "description": "Individually content-addressed executable fixture cases included in this exact run.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fixture_id",
+              "class_id",
+              "control_kind",
+              "digest",
+              "byte_length",
+              "media_type",
+              "generator_version",
+              "generator_seed"
+            ],
+            "properties": {
+              "fixture_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "class_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "control_kind": {
+                "enum": [
+                  "positive_control",
+                  "hard_negative"
+                ]
+              },
+              "digest": {
+                "$ref": "#/$defs/sha256"
+              },
+              "byte_length": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "media_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "generator_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "generator_seed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
         }
       }
     },
@@ -687,7 +746,11 @@
     "qualification requires at least 30 distinct adversarial_class_ids and adversarial_class_count must equal their count",
     "qualification requires executable_fixture_count >= 30 and symbolic_fixture_count = 0",
     "qualification requires 30 distinct adversarial classes, each represented in both positive_control_class_ids and hard_negative_class_ids",
-    "qualification requires at least 60 executable fixtures, zero symbolic fixtures, a fixture-set digest, and an independently versioned/digested oracle"
+    "qualification requires at least 60 executable fixtures, zero symbolic fixtures, a fixture-set digest, and an independently versioned/digested oracle",
+    "qualification fixture_records must contain a unique fixture ID and unique content digest for every executable case",
+    "each adversarial class must map to exactly one positive_control and one hard_negative fixture record",
+    "fixture record class IDs and control kinds must exactly agree with the declared positive_control_class_ids and hard_negative_class_ids",
+    "fixture_count and executable_fixture_count must equal the fixture_records array length"
   ],
   "allOf": [
     {
@@ -735,6 +798,10 @@
               "hard_negative_class_ids": {
                 "minItems": 30,
                 "uniqueItems": true
+              },
+              "fixture_records": {
+                "minItems": 60,
+                "uniqueItems": true
               }
             },
             "required": [
@@ -769,7 +836,10 @@
               }
             }
           }
-        }
+        },
+        "required": [
+          "fixture_records"
+        ]
       }
     },
     {
