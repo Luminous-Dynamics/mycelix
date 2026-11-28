@@ -2573,16 +2573,7 @@ mod tests {
             suspension_end: None,
             checked_at: Timestamp::from_micros(0),
         };
-        let mapped = match check.status {
-            RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-            RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                check.reason.unwrap_or_else(|| "No reason provided".into()),
-            ),
-            RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                check.reason.unwrap_or_else(|| "No reason provided".into()),
-                check.checked_at.to_string(),
-            ),
-        };
+        let mapped = map_revocation_check(check);
         assert!(matches!(mapped, CredentialRevocationStatus::Active));
 
         // Revoked with reason
@@ -2596,20 +2587,7 @@ mod tests {
             suspension_end: None,
             checked_at: Timestamp::from_micros(1_000_000),
         };
-        let mapped_revoked = match check_revoked.status {
-            RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-            RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                check_revoked
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-            ),
-            RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                check_revoked
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-                check_revoked.checked_at.to_string(),
-            ),
-        };
+        let mapped_revoked = map_revocation_check(check_revoked);
         assert!(
             matches!(mapped_revoked, CredentialRevocationStatus::Revoked(ref r) if r == "Key compromised")
         );
@@ -2625,20 +2603,7 @@ mod tests {
             suspension_end: None,
             checked_at: Timestamp::from_micros(0),
         };
-        let mapped_no_reason = match check_no_reason.status {
-            RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-            RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                check_no_reason
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-            ),
-            RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                check_no_reason
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-                check_no_reason.checked_at.to_string(),
-            ),
-        };
+        let mapped_no_reason = map_revocation_check(check_no_reason);
         assert!(
             matches!(mapped_no_reason, CredentialRevocationStatus::Revoked(ref r) if r == "No reason provided")
         );
@@ -2756,6 +2721,39 @@ mod tests {
             CredentialRevocationStatus::Active
         };
         assert!(matches!(mapped, CredentialRevocationStatus::Unknown));
+    }
+
+    #[test]
+    fn no_record_observed_and_incomplete_suspension_fail_closed() {
+        let no_record = RevocationCheckResult {
+            credential_id: "cred:not-observed".into(),
+            status: RevocationStatusMirror::Active,
+            lookup_status: RevocationLookupStatusMirror::NoRecordObserved,
+            reason: None,
+            effective_from: None,
+            recorded_at: None,
+            suspension_end: None,
+            checked_at: Timestamp::from_micros(10),
+        };
+        assert!(matches!(
+            map_revocation_check(no_record),
+            CredentialRevocationStatus::Unknown
+        ));
+
+        let malformed_suspension = RevocationCheckResult {
+            credential_id: "cred:bad-suspension".into(),
+            status: RevocationStatusMirror::Suspended,
+            lookup_status: RevocationLookupStatusMirror::RecordObserved,
+            reason: Some("Under review".into()),
+            effective_from: Some(Timestamp::from_micros(1)),
+            recorded_at: Some(Timestamp::from_micros(1)),
+            suspension_end: None,
+            checked_at: Timestamp::from_micros(10),
+        };
+        assert!(matches!(
+            map_revocation_check(malformed_suspension),
+            CredentialRevocationStatus::Unknown
+        ));
     }
 
     #[test]
@@ -3070,6 +3068,27 @@ enum RevocationStatusMirror {
     Revoked,
 }
 
+fn map_revocation_check(check: RevocationCheckResult) -> CredentialRevocationStatus {
+    if check.lookup_status == RevocationLookupStatusMirror::NoRecordObserved {
+        // Missing DHT links are not proof of global revocation-feed completeness.
+        return CredentialRevocationStatus::Unknown;
+    }
+
+    match check.status {
+        RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
+        RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
+            check.reason.unwrap_or_else(|| "No reason provided".to_string()),
+        ),
+        RevocationStatusMirror::Suspended => match check.suspension_end {
+            Some(until) => CredentialRevocationStatus::Suspended(
+                check.reason.unwrap_or_else(|| "No reason provided".to_string()),
+                until.to_string(),
+            ),
+            None => CredentialRevocationStatus::Unknown,
+        },
+    }
+}
+
 /// Check credential revocation status via cross-zome call to the revocation coordinator
 fn check_credential_revocation_status(
     credential_id: &str,
@@ -3091,25 +3110,7 @@ fn check_credential_revocation_status(
                 )))
             })?;
 
-            if check.lookup_status == RevocationLookupStatusMirror::NoRecordObserved {
-                // A missing DHT link is not proof of global revocation-feed completeness.
-                return Ok(CredentialRevocationStatus::Unknown);
-            }
-
-            match check.status {
-                RevocationStatusMirror::Active => Ok(CredentialRevocationStatus::Active),
-                RevocationStatusMirror::Revoked => Ok(CredentialRevocationStatus::Revoked(
-                    check
-                        .reason
-                        .unwrap_or_else(|| "No reason provided".to_string()),
-                )),
-                RevocationStatusMirror::Suspended => Ok(CredentialRevocationStatus::Suspended(
-                    check
-                        .reason
-                        .unwrap_or_else(|| "No reason provided".to_string()),
-                    check.checked_at.to_string(),
-                )),
-            }
+            Ok(map_revocation_check(check))
         }
         ZomeCallResponse::Unauthorized(_, _, _, _)
         | ZomeCallResponse::AuthenticationFailed(_, _) => {
@@ -3157,23 +3158,7 @@ fn batch_check_credential_revocation_status(
                     e
                 )))
             })?;
-            Ok(checks
-                .into_iter()
-                .map(|check| match check.status {
-                    RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-                    RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                        check
-                            .reason
-                            .unwrap_or_else(|| "No reason provided".to_string()),
-                    ),
-                    RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                        check
-                            .reason
-                            .unwrap_or_else(|| "No reason provided".to_string()),
-                        check.checked_at.to_string(),
-                    ),
-                })
-                .collect())
+            Ok(checks.into_iter().map(map_revocation_check).collect())
         }
         ZomeCallResponse::Unauthorized(_, _, _, _)
         | ZomeCallResponse::AuthenticationFailed(_, _) => {
