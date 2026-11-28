@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/decision-identifiability-go-v0.1/**'
-      - '.github/workflows/craft-decision-identifiability-go-oracle.yml'
 
 permissions:
   contents: read
