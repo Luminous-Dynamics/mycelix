@@ -98,7 +98,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -212,7 +213,8 @@
           "result": "acknowledged",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -276,7 +278,8 @@
           "result": "not_applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -340,7 +343,8 @@
           "result": "not_applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -404,7 +408,8 @@
           "result": "not_applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -481,7 +486,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -551,7 +557,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -714,7 +721,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:02:00Z",
-          "observed_at": "2026-11-28T21:05:00Z"
+          "observed_at": "2026-11-28T21:05:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -910,7 +918,8 @@
           "result": "not_applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         },
         {
           "evidence_id": "ev-15b",
@@ -923,7 +932,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         }
       ],
       "retry_basis": {
@@ -1004,7 +1014,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         },
         {
           "evidence_id": "ev-16b",
@@ -1017,7 +1028,8 @@
           "result": "unknown",
           "freshness": "current",
           "event_at": "2026-11-28T20:02:00Z",
-          "observed_at": "2026-11-28T20:02:00Z"
+          "observed_at": "2026-11-28T20:02:00Z",
+          "attempt_id": "attempt-2"
         }
       ],
       "retry_basis": {
@@ -1094,7 +1106,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:01:00Z",
-          "observed_at": "2026-11-28T20:01:00Z"
+          "observed_at": "2026-11-28T20:01:00Z",
+          "attempt_id": "attempt-1"
         },
         {
           "evidence_id": "ev-17-second",
@@ -1107,7 +1120,8 @@
           "result": "applied",
           "freshness": "current",
           "event_at": "2026-11-28T20:02:00Z",
-          "observed_at": "2026-11-28T20:02:00Z"
+          "observed_at": "2026-11-28T20:02:00Z",
+          "attempt_id": "attempt-2"
         }
       ],
       "retry_basis": {
