@@ -77,6 +77,10 @@ type ExecutionReplayResultV1 struct {
 	Reason string
 	ScopeDigest string
 	ReceiptChainDigest string
+	ExpectedReceiptCount uint64
+	ObservedReceiptCount uint64
+	ExpectedReceiptTailDigest string
+	SubmittedReceiptsDigest string
 	ExpectedEventCount uint64
 	ObservedEventCount uint64
 	GenesisEventDigest string
@@ -514,6 +518,10 @@ func executionReplayCertificateDigest(result ExecutionReplayResultV1) string {
 	writeString(&b, result.Reason)
 	writeString(&b, result.ScopeDigest)
 	writeString(&b, result.ReceiptChainDigest)
+	writeUint64(&b, result.ExpectedReceiptCount)
+	writeUint64(&b, result.ObservedReceiptCount)
+	writeString(&b, result.ExpectedReceiptTailDigest)
+	writeString(&b, result.SubmittedReceiptsDigest)
 	writeUint64(&b, result.ExpectedEventCount)
 	writeUint64(&b, result.ObservedEventCount)
 	writeString(&b, result.GenesisEventDigest)
@@ -572,20 +580,23 @@ func ReplayOracleExecutionTranscriptV1(
 		SourceUniverseCompleteness: NotEvaluated,
 		AnswerTruth: NotEvaluated,
 	}
-	receiptResult := VerifyOracleReceiptChainV1(scope, receipts, expectedReceiptCount, expectedReceiptTail)
-	if receiptResult.Disposition != ChainStructurallyValid {
-		result.Reason = "oracle receipt chain is not structurally valid: " + receiptResult.Reason
-		return finalizeExecutionReplay(result)
-	}
-	result.ScopeDigest = receiptResult.ScopeDigest
-	result.ReceiptChainDigest = receiptResult.ReceiptChainDigest
-
+	result.ExpectedReceiptCount = expectedReceiptCount
+	result.ObservedReceiptCount = uint64(len(receipts))
+	result.ExpectedReceiptTailDigest = expectedReceiptTail
 	if reason, submissionDigest := preflightExecutionEvents(events); reason != "" {
 		result.Reason = reason
 		result.SubmittedEventsDigest = submissionDigest
 		return finalizeExecutionReplay(result)
 	}
 	result.SubmittedEventsDigest = rawExecutionSubmissionDigest(events)
+	receiptResult := VerifyOracleReceiptChainV1(scope, receipts, expectedReceiptCount, expectedReceiptTail)
+	result.SubmittedReceiptsDigest = receiptResult.SubmittedReceiptsDigest
+	if receiptResult.Disposition != ChainStructurallyValid {
+		result.Reason = "oracle receipt chain is not structurally valid: " + receiptResult.Reason
+		return finalizeExecutionReplay(result)
+	}
+	result.ScopeDigest = receiptResult.ScopeDigest
+	result.ReceiptChainDigest = receiptResult.ReceiptChainDigest
 	if expectedEventCount > MaxExecutionEvents || uint64(len(events)) > MaxExecutionEvents {
 		result.Reason = "execution event count exceeds configured limit"
 		return finalizeExecutionReplay(result)
