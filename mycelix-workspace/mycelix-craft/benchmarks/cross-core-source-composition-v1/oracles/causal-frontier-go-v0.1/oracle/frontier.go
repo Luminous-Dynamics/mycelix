@@ -66,6 +66,7 @@ type Receipt struct {
 	SchemaID                   string       `json:"schema_id"`
 	Status                     Status       `json:"status"`
 	SourceUniverseCompleteness string       `json:"source_universe_completeness"`
+	RequestedCuts              []StreamCut  `json:"requested_cuts"`
 	IncludedEventIDs           []string     `json:"included_event_ids"`
 	IncludedEntriesSHA256      string       `json:"included_entries_sha256"`
 	Heads                      []StreamHead `json:"heads"`
@@ -118,6 +119,19 @@ func Validate(entries []Entry, frontier Frontier) Projection {
 	const maxOffsetV1 = uint64(1_000_000)
 	included := make([]Entry, 0)
 	cutByStream := make(map[string]StreamCut, len(frontier.Cuts))
+	requestedCuts := append([]StreamCut(nil), frontier.Cuts...)
+	sort.Slice(requestedCuts, func(i, j int) bool {
+		if requestedCuts[i].StreamID != requestedCuts[j].StreamID {
+			return requestedCuts[i].StreamID < requestedCuts[j].StreamID
+		}
+		if requestedCuts[i].Epoch != requestedCuts[j].Epoch {
+			return requestedCuts[i].Epoch < requestedCuts[j].Epoch
+		}
+		if requestedCuts[i].Offset != requestedCuts[j].Offset {
+			return requestedCuts[i].Offset < requestedCuts[j].Offset
+		}
+		return requestedCuts[i].HeadDigest < requestedCuts[j].HeadDigest
+	})
 	failures := make([]Failure, 0)
 
 	if len(frontier.Cuts) == 0 {
@@ -276,7 +290,8 @@ func Validate(entries []Entry, frontier Frontier) Projection {
 		SchemaID                   string       `json:"schema_id"`
 		Status                     Status       `json:"status"`
 		SourceUniverseCompleteness string       `json:"source_universe_completeness"`
-		Cuts                       []StreamHead `json:"cuts"`
+		RequestedCuts              []StreamCut  `json:"requested_cuts"`
+		Heads                      []StreamHead `json:"heads"`
 		IDs                        []string     `json:"included_event_ids"`
 		EntrySetSHA256             string       `json:"included_entries_sha256"`
 		Failures                   []Failure    `json:"failures"`
@@ -284,7 +299,8 @@ func Validate(entries []Entry, frontier Frontier) Projection {
 		SchemaID:                   "mycelix.craft-causal-frontier-receipt.v0.1",
 		Status:                     status,
 		SourceUniverseCompleteness: "NotEvaluated",
-		Cuts:                       heads,
+		RequestedCuts:              requestedCuts,
+		Heads:                      heads,
 		IDs:                        ids,
 		EntrySetSHA256:             entrySetSHA256,
 		Failures:                   failures,
@@ -297,6 +313,7 @@ func Validate(entries []Entry, frontier Frontier) Projection {
 			SchemaID:                   canonical.SchemaID,
 			Status:                     status,
 			SourceUniverseCompleteness: "NotEvaluated",
+			RequestedCuts:              requestedCuts,
 			IncludedEventIDs:           ids,
 			IncludedEntriesSHA256:      entrySetSHA256,
 			Heads:                      heads,
@@ -351,6 +368,9 @@ func hasCycle(parents map[string][]string) bool {
 // the two selected events. Timestamp equality or lexical order does not create
 // a causal edge.
 func (p Projection) Compare(a, b string) Ordering {
+	if p.Receipt.Status != StatusValid {
+		return OrderUnknown
+	}
 	if _, ok := p.entries[a]; !ok {
 		return OrderUnknown
 	}
