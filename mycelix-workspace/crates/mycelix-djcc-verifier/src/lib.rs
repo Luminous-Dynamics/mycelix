@@ -100,6 +100,7 @@ pub enum ClaimDimension {
     Authority,
     Completeness,
     Effect,
+    Independence,
     Truth,
 }
 
@@ -111,6 +112,7 @@ impl ClaimDimension {
             ClaimDimension::Truth => "truth",
             ClaimDimension::Authority => "authority",
             ClaimDimension::Effect => "effect",
+            ClaimDimension::Independence => "independence",
         }
     }
 }
@@ -241,6 +243,7 @@ pub struct ClaimCeiling {
     pub truth: ClaimState,
     pub authority: ClaimState,
     pub effect: ClaimState,
+    pub independence: ClaimState,
 }
 
 impl ClaimCeiling {
@@ -251,6 +254,7 @@ impl ClaimCeiling {
             truth: ClaimState::EstablishedWithinProfile,
             authority: ClaimState::EstablishedWithinProfile,
             effect: ClaimState::EstablishedWithinProfile,
+            independence: ClaimState::NotEvaluated,
         }
     }
 }
@@ -530,16 +534,18 @@ fn claim_state(ceiling: ClaimCeiling, dimension: ClaimDimension) -> ClaimState {
         ClaimDimension::Truth => ceiling.truth,
         ClaimDimension::Authority => ceiling.authority,
         ClaimDimension::Effect => ceiling.effect,
+        ClaimDimension::Independence => ceiling.independence,
     }
 }
 
-fn dimension_values(ceiling: ClaimCeiling) -> [ClaimState; 5] {
+fn dimension_values(ceiling: ClaimCeiling) -> [ClaimState; 6] {
     [
         ceiling.authentication,
         ceiling.completeness,
         ceiling.truth,
         ceiling.authority,
         ceiling.effect,
+        ceiling.independence,
     ]
 }
 
@@ -636,6 +642,7 @@ fn validate_claim_ceiling(
         ClaimDimension::Authority,
         ClaimDimension::Completeness,
         ClaimDimension::Effect,
+        ClaimDimension::Independence,
         ClaimDimension::Truth,
     ] {
         if claim_state(declared, dimension) == ClaimState::EstablishedWithinProfile
@@ -1139,6 +1146,7 @@ mod tests {
             truth: ClaimState::NotEvaluated,
             authority: ClaimState::NotEvaluated,
             effect: ClaimState::NotEvaluated,
+            independence: ClaimState::NotEvaluated,
         };
     }
 
@@ -1154,6 +1162,7 @@ mod tests {
             truth: ClaimState::NotApplicable,
             authority: ClaimState::NotApplicable,
             effect: ClaimState::NotApplicable,
+            independence: ClaimState::NotApplicable,
         };
     }
 
