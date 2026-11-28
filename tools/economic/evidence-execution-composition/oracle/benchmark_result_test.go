@@ -229,3 +229,22 @@ func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
 		t.Fatal("zero-owner workload accepted")
 	}
 }
+
+
+func TestValidateBenchmarkResultV01RejectsQualificationBelowThirtyClasses(t *testing.T) {
+	value := validBenchmarkResultV01()
+	value["corpus"].(map[string]any)["adversarial_class_count"] = 29
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification with fewer than 30 adversarial classes accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsSymbolicFixturesOnQualification(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	corpus["symbolic_fixture_count"] = 1
+	corpus["fixture_count"] = corpus["executable_fixture_count"].(int) + 1
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification counted symbolic fixtures as executable")
+	}
+}
