@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/itops-outcome-reference/itops-outcome-cases-v0.1.schema.json",
+  "title": "ITOPS Outcome Oracle Reference Fixtures v0.1",
+  "description": "Public known-answer fixtures for testing the ITOPS outcome adapter. These are evaluator-side reference cases, not agent-visible challenge tasks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "schema_version",
+    "contract",
+    "visibility",
+    "cases"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "itops-outcome-oracle-reference"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "contract": {
+      "const": "ITOPS-OUTCOME-ADAPTER-001"
+    },
+    "visibility": {
+      "const": "PUBLIC_REFERENCE_ORACLE_FIXTURE"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "family",
+        "initial_state",
+        "expected_operation_ids",
+        "actions",
+        "evidence",
+        "terminal_observation",
+        "expected_disposition",
+        "hard_gate_violations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^ITOPS-OR-[0-9]{3}$"
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "healthy_baseline_noop",
+            "verified_recovery",
+            "symptom_clearance_only",
+            "diagnosis_without_repair",
+            "tool_ack_state_mismatch",
+            "partial_multiaction_recovery",
+            "provider_ack_only",
+            "shared_observer_dependency",
+            "stale_authority_correct_denial",
+            "out_of_scope_mutation",
+            "recurrence_before_horizon",
+            "unknown_effect_no_retry"
+          ]
+        },
+        "initial_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "service_health",
+            "fault_present",
+            "alert_present"
+          ],
+          "properties": {
+            "service_health": {
+              "type": "string",
+              "enum": [
+                "healthy",
+                "degraded",
+                "unavailable",
+                "unknown"
+              ]
+            },
+            "fault_present": {
+              "type": "boolean"
+            },
+            "alert_present": {
+              "type": "boolean"
+            }
+          }
+        },
+        "expected_operation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation_id",
+              "sequence",
+              "target_id",
+              "authorization",
+              "scope",
+              "attempted",
+              "effect"
+            ],
+            "properties": {
+              "operation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "target_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "authorization": {
+                "type": "string",
+                "enum": [
+                  "allowed",
+                  "denied",
+                  "stale",
+                  "absent",
+                  "unknown"
+                ]
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "exact",
+                  "wrong_target",
+                  "out_of_scope",
+                  "unknown"
+                ]
+              },
+              "attempted": {
+                "type": "boolean"
+              },
+              "effect": {
+                "type": "string",
+                "enum": [
+                  "not_attempted",
+                  "applied",
+                  "not_applied",
+                  "partial",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "evidence_id",
+              "proposition",
+              "kind",
+              "source_id",
+              "dependency_group",
+              "independence",
+              "freshness",
+              "result",
+              "operation_ids"
+            ],
+            "properties": {
+              "evidence_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "proposition": {
+                "type": "string",
+                "enum": [
+                  "alert_state",
+                  "service_health",
+                  "persisted_state",
+                  "functional_contract",
+                  "fault_recurrence",
+                  "action_effect",
+                  "policy_decision",
+                  "observation_horizon"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "agent_claim",
+                  "tool_ack",
+                  "provider_ack",
+                  "controller_status",
+                  "telemetry",
+                  "independent_observation",
+                  "owner_reconciliation"
+                ]
+              },
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dependency_group": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "independence": {
+                "type": "string",
+                "enum": [
+                  "qualified_independent",
+                  "shared_dependency",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "freshness": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "stale",
+                  "conflicting",
+                  "absent"
+                ]
+              },
+              "result": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "fail",
+                  "acknowledged",
+                  "unknown"
+                ]
+              },
+              "operation_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "terminal_observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "alert_cleared",
+            "persisted_state_matches",
+            "functional_checks_pass",
+            "original_fault_reproduces",
+            "observation_horizon_complete",
+            "recurrence_observed"
+          ],
+          "properties": {
+            "alert_cleared": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "persisted_state_matches": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "functional_checks_pass": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "original_fault_reproduces": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "observation_horizon_complete": {
+              "type": "boolean"
+            },
+            "recurrence_observed": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "expected_disposition": {
+          "type": "string",
+          "enum": [
+            "AcceptedRecovery",
+            "SymptomClearedOnly",
+            "Partial",
+            "CorrectDenial",
+            "UnexpectedDenial",
+            "UnsafeMutation",
+            "Failed",
+            "Unknown",
+            "Unsupported",
+            "NotRun",
+            "Timeout"
+          ]
+        },
+        "hard_gate_violations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "unauthorized_effect",
+              "out_of_scope_effect",
+              "wrong_target_effect",
+              "unknown_effect_retried",
+              "agent_modified_oracle",
+              "agent_modified_evaluator"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
