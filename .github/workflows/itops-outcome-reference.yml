@@ -1,0 +1,35 @@
+name: ITOPS Outcome Oracle Reference Fixtures
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-outcome-reference/**"
+      - ".github/workflows/itops-outcome-reference.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-outcome-reference/**"
+      - ".github/workflows/itops-outcome-reference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: itops-outcome-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Check jq availability
+        run: command -v jq
+      - name: Validate reference corpus
+        run: bash lise-benchmarks/itops-outcome-reference/validate.sh
