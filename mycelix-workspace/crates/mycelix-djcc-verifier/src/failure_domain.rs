@@ -241,16 +241,16 @@ fn build_channel_lineages<'a>(
 }
 
 fn pairwise_lineage_overlaps(
-    graph: &FailureDomainGraph,
+    channels: &[EvidenceChannel],
     nodes: &BTreeMap<String, &FailureDomainNode>,
     channel_lineage: &BTreeMap<String, BTreeSet<String>>,
     profile: &IndependenceProfile,
 ) -> Result<Vec<PairwiseLineageOverlap>, String> {
     let mut overlaps = Vec::new();
-    for left_index in 0..graph.channels.len() {
-        for right_index in (left_index + 1)..graph.channels.len() {
-            let left = &graph.channels[left_index];
-            let right = &graph.channels[right_index];
+    for left_index in 0..channels.len() {
+        for right_index in (left_index + 1)..channels.len() {
+            let left = &channels[left_index];
+            let right = &channels[right_index];
             let left_lineage = channel_lineage
                 .get(&left.evidence_ref)
                 .ok_or_else(|| format!("lineage for {} is missing", left.evidence_ref))?;
@@ -351,17 +351,13 @@ pub fn assess_failure_scenarios(
                 surviving_channels.push(channel.evidence_ref.clone());
             }
         }
-        let survivor_graph = FailureDomainGraph {
-            nodes: Vec::new(),
-            channels: graph
-                .channels
-                .iter()
-                .filter(|channel| surviving_channels.contains(&channel.evidence_ref))
-                .cloned()
-                .collect(),
-        };
-        let survivor_lineage: BTreeMap<_, _> = survivor_graph
+        let survivor_channels: Vec<_> = graph
             .channels
+            .iter()
+            .filter(|channel| surviving_channels.contains(&channel.evidence_ref))
+            .cloned()
+            .collect();
+        let survivor_lineage: BTreeMap<_, _> = survivor_channels
             .iter()
             .filter_map(|channel| {
                 channel_lineage
@@ -369,9 +365,9 @@ pub fn assess_failure_scenarios(
                     .map(|lineage| (channel.evidence_ref.clone(), lineage.clone()))
             })
             .collect();
-        let surviving_pairwise_overlaps = if survivor_graph.channels.len() >= 2 {
+        let surviving_pairwise_overlaps = if survivor_channels.len() >= 2 {
             pairwise_lineage_overlaps(
-                &survivor_graph,
+                &survivor_channels,
                 &nodes,
                 &survivor_lineage,
                 profile,
@@ -449,7 +445,7 @@ pub fn assess_independence(
     }
 
     let pairwise_overlaps =
-        pairwise_lineage_overlaps(graph, &nodes, &channel_lineage, profile)?;
+        pairwise_lineage_overlaps(&graph.channels, &nodes, &channel_lineage, profile)?;
     let mut common_domain_refs = BTreeSet::new();
     let mut unclassified_shared_domain_refs = BTreeSet::new();
     for overlap in &pairwise_overlaps {
