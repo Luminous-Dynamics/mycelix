@@ -177,7 +177,9 @@
         "independence_required",
         "failure_domain_profile_digest",
         "existing_dependency_graph_digest",
-        "result_impacts"
+        "result_impacts",
+        "candidate_set_digest",
+        "observation_model_digest"
       ],
       "properties": {
         "candidate_id": {
@@ -241,6 +243,12 @@
           "items": {
             "$ref": "#/$defs/resultImpact"
           }
+        },
+        "candidate_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "observation_model_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     },
