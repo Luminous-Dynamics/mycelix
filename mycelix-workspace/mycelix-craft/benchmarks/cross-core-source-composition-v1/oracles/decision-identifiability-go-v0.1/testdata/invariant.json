@@ -2,7 +2,7 @@
   "schema_id": "mycelix.craft.decision-identifiability.v0.1",
   "case_id": "CDIE-001-invariant-action",
   "coverage_basis": "fixture_exhaustive",
-  "fixture_digest": "aa85d2b017e1985cce707dcb97517b277fe196c550b8442ce0a84fde6e54967b",
+  "fixture_digest": "6fc9da3fb2c237033531454fda2d90471c9cb59a940b8b523cc746cbc8e9e7ef",
   "actions": ["repair", "hold"],
   "fallback_action": "hold",
   "worlds": [
