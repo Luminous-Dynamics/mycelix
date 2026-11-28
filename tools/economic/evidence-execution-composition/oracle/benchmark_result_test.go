@@ -206,3 +206,18 @@ func TestValidateBenchmarkResultV01RejectsUnorderedTimestamps(t *testing.T) {
 		t.Fatal("unordered benchmark timestamps accepted")
 	}
 }
+
+func TestValidateBenchmarkResultV01RejectsMalformedTrailingData(t *testing.T) {
+	raw := append(encodeBenchmarkResult(t, validBenchmarkResultV01()), []byte("not-json")...)
+	if err := ValidateBenchmarkResultV01(raw); err == nil {
+		t.Fatal("malformed trailing data accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
+	value := validBenchmarkResultV01()
+	value["workload"].(map[string]any)["owner_count"] = 0
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("zero-owner workload accepted")
+	}
+}
