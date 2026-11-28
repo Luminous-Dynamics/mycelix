@@ -50,6 +50,7 @@ type ExternalBinding struct { Consumer Stage; Slot, ReceiptID, Schema, Digest st
 type FrontierBinding struct { Kind string; Receipt Ref; Status string; Prefix State }
 type ProgressBinding struct { Kind string; Receipt Ref; Status string; Universe State; OwnerInventoryDigest string }
 type OwnerBinding struct { Receipt Ref; Authentication, Completeness State; FrontierDigest string }
+type EvidenceBinding struct { FailureDomainGraph *Ref; LineageAttestation *Ref; IndependenceStatus State }
 type AuthorityBinding struct { Receipt Ref; Principal, Scope string; Validity State }
 type ActionBinding struct { Receipt Ref; Digest, Revision, CoverageRevision string; Count, Covered uint64; CoverageDigest string; Coverage Ref }
 type OutcomeBinding struct { Receipt Ref; Status, Reconciliation, ExecutionDigest, ActionPlanDigest, MutationScope string; SameScopeMutationAttempt bool }
@@ -60,6 +61,7 @@ type Capsule struct {
  Frontier FrontierBinding
  Progress ProgressBinding
  Owner OwnerBinding
+ Evidence EvidenceBinding
  Authority AuthorityBinding
  Action ActionBinding
  Outcome OutcomeBinding
@@ -176,6 +178,9 @@ func Validate(c Capsule) error {
   return fail("OUTCOME_UNKNOWN_MUTATION_BARRIER","same-scope mutation attempted before exact outcome reconciliation")
  }
  if c.Claims["independence"]==Established || c.Claims["independence"]==Rejected { return fail("INDEPENDENCE_PROFILE_UNSUPPORTED","full evidence profile does not qualify independence") }
+ if c.Evidence.IndependenceStatus!=NotEvaluated { return fail("INDEPENDENCE_PROFILE_UNSUPPORTED","full evidence profile keeps independence NotEvaluated") }
+ if c.Evidence.FailureDomainGraph!=nil && !refOK(*c.Evidence.FailureDomainGraph) { return fail("EVIDENCE_BINDING_INVALID","failure-domain graph reference is malformed") }
+ if c.Evidence.LineageAttestation!=nil && !refOK(*c.Evidence.LineageAttestation) { return fail("EVIDENCE_BINDING_INVALID","lineage attestation reference is malformed") }
  byStage:=map[Stage]StageReceipt{}; ids:=map[string]bool{}
  for _,s:=range c.Stages {
   if s.ID=="" || ids[s.ID] { return fail("DUPLICATE_RECEIPT_ID",s.ID) }; ids[s.ID]=true
