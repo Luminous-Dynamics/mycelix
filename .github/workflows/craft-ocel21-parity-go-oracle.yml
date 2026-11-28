@@ -101,6 +101,16 @@ jobs:
           set -euo pipefail
           go vet ./...
 
+      - name: Measure statement coverage
+        id: coverage
+        shell: bash
+        working-directory: ${{ env.ORACLE_DIR }}
+        env:
+          CRAFT_OCEL_FIXTURE_ROOT: ../../../fixtures/ocel21-interchange
+        run: |
+          set -euo pipefail
+          go test -cover ./... | tee "$RUNNER_TEMP/craft-ocel21-coverage.txt"
+
       - name: Assemble exact-head qualification receipt
         if: always()
         shell: bash
@@ -115,6 +125,7 @@ jobs:
             printf 'semantic_kats\t%s\n' "${{ steps.tests.outcome }}"
             printf 'race\t%s\n' "${{ steps.race.outcome }}"
             printf 'vet\t%s\n' "${{ steps.vet.outcome }}"
+            printf 'coverage\t%s\n' "${{ steps.coverage.outcome }}"
             printf 'json_single_csv_bundled_csv_parity\tDeclaredByKATs\n'
             printf 'bundled_parquet\tNotImplemented\n'
             printf 'production_parser_integration\tNotEvaluated\n'
