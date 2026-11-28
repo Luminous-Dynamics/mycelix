@@ -80,3 +80,12 @@ The Go manifest oracle and the Rust candidate still do not compare full candidat
 ## Claim boundary
 
 This is **seed-registry validation plus a structural candidate verifier and one shared stage-edge byte vector**, not an end-to-end trust verifier or production assurance result. The eight seed references are symbolic until exact synthetic fixture bytes are frozen and hashed. Go/Rust edge parity does not establish complete certificate parity, external source truth, legal effect or physical outcome.
+
+
+### Independence profile
+
+The independent-corroboration profile makes source independence a first-class required claim, separate from receipt authentication and owner-universe completeness. Receipts sharing an operator, key custodian, sensor lineage, upstream feed, or control plane do not establish independent corroboration. Unknown common-cause lineage remains Indeterminate. This is still a structural candidate: no real provenance graph, field-source independence, or physical truth has been verified by this Go/Rust slice.
+
+### MMR boundary
+
+The planned MMR adversarial classes DJCC-009..017 are specified in the certificate document; they are not part of the eight executable symbolic seed cases and must not be reported as passed. RFC 9942 receipts prove VDS properties under a selected profile, while the MMR profile -00 remains an active Internet-Draft as of 28 November 2026.
