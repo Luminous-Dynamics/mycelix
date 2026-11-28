@@ -24,6 +24,9 @@ expect_rejected "incomplete change coverage treated as unaffected" '(.cases[] | 
 expect_rejected "new capability inherits qualification automatically" '(.cases[] | select(.case_id == "ITOPS-QI-COMPATIBLE-ADD-001") | .claims[] | select(.claim_id == "query_orders") | .expected_qualification_disposition) = "NOT_AFFECTED"'
 expect_rejected "score protocol digest silently rewritten" '(.cases[] | select(.case_id == "ITOPS-QI-EVALUATOR-CHANGE-001") | .benchmark_score.current_protocol_digest) = "sha256:itops-eval-v0.1"'
 expect_rejected "duplicate claim identity" '(.cases[] | select(.case_id == "ITOPS-QI-TOOL-SCHEMA-001") | .claims[1].claim_id) = "repair_payments"'
-expect_rejected "observer evidence scope points to unrelated observer" '(.cases[] | select(.case_id == "ITOPS-QI-OBSERVER-DRIFT-001") | .outcome_evidence.observer_changed) = false'
+expect_rejected "required observer identity removed" '(.cases[] | select(.case_id == "ITOPS-QI-OBSERVER-DRIFT-001") | .outcome_evidence.observer_ref) = null'
+expect_rejected "applicable authority operation missing" '(.cases[] | select(.case_id == "ITOPS-QI-PERMISSION-REVOKE-001") | .effect_authority.operation_ref) = null'
+expect_rejected "scored result missing protocol identity" '(.cases[] | select(.case_id == "ITOPS-QI-EVALUATOR-CHANGE-001") | .benchmark_score.current_protocol_digest) = null'
+expect_rejected "known dependency change hidden by incomplete feed" '(.cases[] | select(.case_id == "ITOPS-QI-TOOL-SCHEMA-001") | .claims[] | select(.claim_id == "repair_payments") | .expected_qualification_disposition) = "UNDER_INVESTIGATION"
 expect_rejected "unknown change coverage accepted as complete" '(.cases[] | select(.case_id == "ITOPS-QI-INCOMPLETE-COVERAGE-001") | .change_feed_complete) = true'
-echo "PASS: all 12 orthogonal-impact mutation controls rejected."
+echo "PASS: all 15 orthogonal-impact mutation controls rejected."
