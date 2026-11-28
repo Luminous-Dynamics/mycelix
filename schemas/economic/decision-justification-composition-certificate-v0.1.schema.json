@@ -269,7 +269,8 @@
         "completeness",
         "truth",
         "authority",
-        "effect"
+        "effect",
+        "independence"
       ],
       "properties": {
         "authentication": {
@@ -285,6 +286,9 @@
           "$ref": "#/$defs/claimState"
         },
         "effect": {
+          "$ref": "#/$defs/claimState"
+        },
+        "independence": {
           "$ref": "#/$defs/claimState"
         }
       }
