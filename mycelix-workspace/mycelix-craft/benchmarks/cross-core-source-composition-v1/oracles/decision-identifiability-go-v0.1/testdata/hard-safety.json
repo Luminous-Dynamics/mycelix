@@ -2,6 +2,7 @@
   "schema_id": "mycelix.craft.decision-identifiability.v0.1",
   "case_id": "CDIE-003-hard-safety-veto",
   "coverage_basis": "fixture_exhaustive",
+  "fixture_digest": "d18e647c1d14e95edade175f38595274b2ff73b33e0e1860c826e137922bb07d",
   "actions": ["release", "hold"],
   "fallback_action": "hold",
   "worlds": [
