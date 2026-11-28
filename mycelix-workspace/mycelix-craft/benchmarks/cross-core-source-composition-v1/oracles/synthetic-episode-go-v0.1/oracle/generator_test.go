@@ -13,3 +13,18 @@ func TestDeterministicGenerationAndOrdering(t *testing.T){base,reg:=fixtures();a
 func TestMutationOperators(t *testing.T){base,reg:=fixtures();out,e:=Generate(base,reg);if e!=nil{t.Fatal(e)};byID:=map[string]Bundle{};for _,b:=range out{byID[b.ScenarioID]=b};if len(byID["SYN-002"].Episode["source_universe"].([]any))!=1{t.Fatal("source omission failed")};if len(byID["SYN-003"].Episode["events"].([]any))!=3{t.Fatal("late event append failed")};if len(byID["SYN-005"].Episode["events"].([]any))!=3{t.Fatal("fork event append failed")};if len(byID["SYN-009"].Episode["object_relationships"].([]any))!=0{t.Fatal("O2O removal failed")};if byID["SYN-010"].Episode["source_feed_attestation"].(map[string]any)["signature_status"]!="fixture_valid"{t.Fatal("signed selective omission control absent")}}
 func TestDigestBindsRawInputs(t *testing.T){base,reg:=fixtures();a,e:=Generate(base,reg);if e!=nil{t.Fatal(e)};base=append(append([]byte(nil),base...),byte(' '));b,e:=Generate(base,reg);if e!=nil{t.Fatal(e)};if a[0].BaseFixtureDigest==b[0].BaseFixtureDigest{t.Fatal("raw base digest did not change")}}
 func TestUnknownAndDuplicateMutationFailClosed(t *testing.T){base,_:=fixtures();unknown:=[]byte(\`{"schema_id":"mycelix.craft.synthetic-scenario-mutations.v0.1","fixture_id":"mini","seed":1,"mutations":[{"id":"SYN-999","mutation":"unrecognized","expected":{}}]}\`);if _,e:=Generate(base,unknown);e==nil{t.Fatal("unknown mutation accepted")};dup:=[]byte(\`{"schema_id":"mycelix.craft.synthetic-scenario-mutations.v0.1","fixture_id":"mini","seed":1,"mutations":[{"id":"SYN-001","mutation":"identity","expected":{}},{"id":"SYN-001","mutation":"identity","expected":{}}]}\`);if _,e:=Generate(base,dup);e==nil{t.Fatal("duplicate scenario ID accepted")}}
+
+func TestStrictJSONAndRegistryParsing(t *testing.T) {
+	base, reg := fixtures()
+	duplicateKey := []byte(`{"fixture_id":"one","fixture_id":"two"}`)
+	if _, err := Generate(duplicateKey, reg); err == nil {
+		t.Fatal("duplicate JSON object key accepted")
+	}
+	if _, err := Generate(base, append(reg, []byte(" }")...)); err == nil {
+		t.Fatal("trailing registry JSON accepted")
+	}
+	unknown := []byte(`{"schema_id":"mycelix.craft.synthetic-scenario-mutations.v0.1","fixture_id":"mini","seed":1,"extra":"not-in-schema","mutations":[{"id":"SYN-001","mutation":"identity","expected":{}}]}`)
+	if _, err := Generate(base, unknown); err == nil {
+		t.Fatal("unknown registry field accepted")
+	}
+}
