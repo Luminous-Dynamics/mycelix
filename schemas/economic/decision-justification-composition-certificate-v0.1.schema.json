@@ -266,29 +266,29 @@
       "additionalProperties": false,
       "required": [
         "authentication",
-        "completeness",
-        "truth",
         "authority",
+        "completeness",
         "effect",
-        "independence"
+        "independence",
+        "truth"
       ],
       "properties": {
         "authentication": {
           "$ref": "#/$defs/claimState"
         },
-        "completeness": {
-          "$ref": "#/$defs/claimState"
-        },
-        "truth": {
-          "$ref": "#/$defs/claimState"
-        },
         "authority": {
+          "$ref": "#/$defs/claimState"
+        },
+        "completeness": {
           "$ref": "#/$defs/claimState"
         },
         "effect": {
           "$ref": "#/$defs/claimState"
         },
         "independence": {
+          "$ref": "#/$defs/claimState"
+        },
+        "truth": {
           "$ref": "#/$defs/claimState"
         }
       }
@@ -377,13 +377,14 @@
           "items": {
             "enum": [
               "authentication",
-              "completeness",
-              "truth",
               "authority",
-              "effect"
+              "completeness",
+              "effect",
+              "independence",
+              "truth"
             ]
           },
-          "description": "Exact upstream claim dimensions this consumer stage requires to be EstablishedWithinProfile. Semantic verifier also requires canonical sorted order."
+          "description": "Exact upstream claim dimensions this consumer stage requires to be EstablishedWithinProfile. The semantic verifier also requires canonical sorted order."
         }
       }
     },
