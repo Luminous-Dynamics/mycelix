@@ -332,3 +332,32 @@ Do not compare these objectives through one blended score. Match the model assum
 ### 14.3 Metrics
 
 Report universal branch-separation rate, identified-world count share, residual worst-branch minimax regret, branch count, incomplete-outcome-model rate, hard-safety exclusions, shared failure-domain overlaps, and acquisition cost/delay/burden independently. Keep zero-tolerance safety and authority metrics outside all aggregate performance scores.
+
+
+## 15. Evidence-backed world exclusion and negative-claim assurance
+
+Track [issue #6874 — Constraint Exclusion Certificate (CEC)](https://github.com/Luminous-Dynamics/mycelix/issues/6874) as the next proof-obligation layer above world-envelope CEGAR.
+
+The benchmark must distinguish:
+- a constraint that is syntactically well-formed;
+- a constraint whose source artifact has integrity/authentication;
+- a constraint whose source claim semantically supports the forbidden predicate;
+- a constraint applicable to the exact object, population, time interval and accepted causal frontier;
+- a constraint entitled to remove compatible worlds unconditionally;
+- a constraint used only as a declared assumption;
+- a constraint whose admission is Indeterminate, Rejected, NotEvaluated or UnsupportedByProfile.
+
+A source receipt, digest, signature or inclusion proof does not on its own establish that the statement semantically excludes a world or that the source universe is complete. In particular, absence-based constraints require explicit authenticated source-universe and coverage evidence. Unadmitted constraints must not prune the world set.
+
+CEC proposes the dispositions Established, Assumed, Indeterminate, Rejected and NotEvaluated/UnsupportedByProfile. Only Established constraints may support unconditional pruning within their qualified scope. Assumed constraints yield conditional world sets and conditional decision results. Indeterminate, Rejected, NotEvaluated and UnsupportedByProfile constraints retain matching worlds.
+
+Adversarial measurements:
+- false exclusion rate (zero on frozen hard negatives);
+- retained-world recall against known truth;
+- constraint-to-source-claim semantic support precision/recall;
+- stale/revoked/out-of-scope constraint rejection;
+- source-universe/absence-proof failures;
+- historical envelope immutability under later corrections and revocations;
+- additional corroboration cost to move from Assumed/Indeterminate to Established.
+
+This is a non-compensatory assurance track. A single unsupported world exclusion can produce a false-safe decision and fails the qualification gate regardless of performance. CEC must compose existing source-trust, semantic claim-support, causal-frontier, identity, offline-verification and SCITT/VDS owners; it must not create a new signature or transparency format.
