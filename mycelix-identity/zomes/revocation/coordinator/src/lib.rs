@@ -285,6 +285,7 @@ pub fn check_revocation_status(credential_id: String) -> ExternResult<Revocation
             // This means no record was observed in this DHT query. It is not
             // proof of global revocation-feed completeness or issuer authority.
             status: RevocationStatus::Active,
+            lookup_status: RevocationLookupStatus::NoRecordObserved,
             reason: None,
             effective_from: None,
             recorded_at: None,
@@ -319,6 +320,7 @@ pub fn check_revocation_status(credential_id: String) -> ExternResult<Revocation
     Ok(RevocationCheckResult {
         credential_id,
         status,
+        lookup_status: RevocationLookupStatus::RecordObserved,
         reason: Some(entry.reason.clone()),
         effective_from: Some(entry.effective_from),
         recorded_at: Some(entry.recorded_at),
