@@ -1,0 +1,263 @@
+{
+  "schema": "mycelix.djcc-benchmark-seeds.v0.1",
+  "status": "synthetic-protocol-seeds-not-yet-executable",
+  "claim_boundary": "Expected outcomes are benchmark specifications, not measured candidate results. Fixture references are synthetic symbolic IDs, not cryptographic digests.",
+  "oracle_rule": "Expected stage dispositions are authored independently of the candidate Rust composition verifier. The Go oracle must implement these cases independently; it must not import the Rust verifier or reuse its decision code.",
+  "stage_ids": [
+    "verifier_frontier",
+    "source_trust",
+    "semantic_projection",
+    "query",
+    "policy",
+    "authorization",
+    "execution",
+    "outcome"
+  ],
+  "dispositions": [
+    "VerifiedForDeclaredClaim",
+    "Rejected",
+    "Indeterminate",
+    "NotEvaluated",
+    "UnsupportedByProfile",
+    "NotApplicable"
+  ],
+  "cases": [
+    {
+      "id": "DJCC-001",
+      "title": "Complete structural positive control",
+      "class": "positive-control",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:complete-chain",
+      "mutation": null,
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "VerifiedForDeclaredClaim",
+        "semantic_projection": "VerifiedForDeclaredClaim",
+        "query": "VerifiedForDeclaredClaim",
+        "policy": "VerifiedForDeclaredClaim",
+        "authorization": "VerifiedForDeclaredClaim",
+        "execution": "VerifiedForDeclaredClaim",
+        "outcome": "VerifiedForDeclaredClaim"
+      },
+      "expected_composition": "DecisionJustifiedAtAcceptedFrontier",
+      "expected_claim_ceiling": {
+        "authentication": "EstablishedWithinProfile",
+        "completeness": "EstablishedWithinProfile",
+        "truth": "EstablishedWithinProfile",
+        "authority": "EstablishedWithinProfile",
+        "effect": "EstablishedWithinProfile"
+      },
+      "rationale": "The control is positive only for the explicitly declared synthetic profile and exact scoped outcome. It is not global source truth, legal authority or production readiness."
+    },
+    {
+      "id": "DJCC-002",
+      "title": "Inclusion relative to unauthenticated root",
+      "class": "hard-safety",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:untrusted-root",
+      "mutation": {
+        "operator": "remove-root-authentication",
+        "target": "source_trust.root_identity"
+      },
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "Indeterminate",
+        "semantic_projection": "NotEvaluated",
+        "query": "NotEvaluated",
+        "policy": "NotEvaluated",
+        "authorization": "NotEvaluated",
+        "execution": "NotEvaluated",
+        "outcome": "NotEvaluated"
+      },
+      "expected_composition": "Indeterminate",
+      "expected_claim_ceiling": {
+        "authentication": "Indeterminate",
+        "completeness": "NotEvaluated",
+        "truth": "NotEvaluated",
+        "authority": "NotEvaluated",
+        "effect": "NotEvaluated"
+      },
+      "rationale": "A correct inclusion path under a caller-supplied root does not authenticate the root or its log identity."
+    },
+    {
+      "id": "DJCC-003",
+      "title": "Hidden owner or uncovered owner prefix",
+      "class": "hard-safety",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:hidden-owner",
+      "mutation": {
+        "operator": "omit-required-owner-prefix",
+        "target": "verifier_frontier.owner_coverage"
+      },
+      "expected_stages": {
+        "verifier_frontier": "Indeterminate",
+        "source_trust": "NotEvaluated",
+        "semantic_projection": "NotEvaluated",
+        "query": "NotEvaluated",
+        "policy": "NotEvaluated",
+        "authorization": "NotEvaluated",
+        "execution": "NotEvaluated",
+        "outcome": "NotEvaluated"
+      },
+      "expected_composition": "Indeterminate",
+      "expected_claim_ceiling": {
+        "authentication": "NotEvaluated",
+        "completeness": "Indeterminate",
+        "truth": "NotEvaluated",
+        "authority": "NotEvaluated",
+        "effect": "NotEvaluated"
+      },
+      "rationale": "Valid proofs for the owners that were supplied do not prove the declared owner universe is complete. Missing coverage cannot become empty or success."
+    },
+    {
+      "id": "DJCC-004",
+      "title": "Backdated correction beyond historical accepted frontier",
+      "class": "historical-noninterference",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:historical-frontier-correction",
+      "mutation": {
+        "operator": "append-backdated-correction-after-frontier",
+        "target": "semantic_projection.correction_receipts"
+      },
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "VerifiedForDeclaredClaim",
+        "semantic_projection": "VerifiedForDeclaredClaim",
+        "query": "VerifiedForDeclaredClaim",
+        "policy": "VerifiedForDeclaredClaim",
+        "authorization": "VerifiedForDeclaredClaim",
+        "execution": "NotApplicable",
+        "outcome": "NotApplicable"
+      },
+      "expected_composition": "DecisionJustifiedAtAcceptedFrontier",
+      "expected_claim_ceiling": {
+        "authentication": "EstablishedWithinProfile",
+        "completeness": "EstablishedWithinProfile",
+        "truth": "EstablishedWithinProfile",
+        "authority": "EstablishedWithinProfile",
+        "effect": "NotApplicable"
+      },
+      "rationale": "The correction is not in the historical accepted frontier. The historical result remains byte-identical; a separate Current assessment is required to evaluate the later accepted correction."
+    },
+    {
+      "id": "DJCC-005",
+      "title": "Policy epoch or evaluator build substitution",
+      "class": "hard-safety",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:policy-version-substitution",
+      "mutation": {
+        "operator": "substitute-policy-or-evaluator-digest",
+        "target": "policy.producer"
+      },
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "VerifiedForDeclaredClaim",
+        "semantic_projection": "VerifiedForDeclaredClaim",
+        "query": "VerifiedForDeclaredClaim",
+        "policy": "Rejected",
+        "authorization": "NotEvaluated",
+        "execution": "NotEvaluated",
+        "outcome": "NotEvaluated"
+      },
+      "expected_composition": "HistoricalReplayMismatch",
+      "expected_claim_ceiling": {
+        "authentication": "EstablishedWithinProfile",
+        "completeness": "EstablishedWithinProfile",
+        "truth": "NotEvaluated",
+        "authority": "NotEvaluated",
+        "effect": "NotEvaluated"
+      },
+      "rationale": "Historical decision replay must bind both immutable policy epoch and evaluator build. Replacing either is not replay of the original decision."
+    },
+    {
+      "id": "DJCC-006",
+      "title": "Same denominator count with altered canonical action set",
+      "class": "hard-safety",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:denominator-substitution",
+      "mutation": {
+        "operator": "replace-action-id-with-same-cardinality",
+        "target": "authorization.action_plan"
+      },
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "VerifiedForDeclaredClaim",
+        "semantic_projection": "VerifiedForDeclaredClaim",
+        "query": "VerifiedForDeclaredClaim",
+        "policy": "VerifiedForDeclaredClaim",
+        "authorization": "Rejected",
+        "execution": "NotEvaluated",
+        "outcome": "NotEvaluated"
+      },
+      "expected_composition": "DecisionNotJustifiedAtAcceptedFrontier",
+      "expected_claim_ceiling": {
+        "authentication": "EstablishedWithinProfile",
+        "completeness": "EstablishedWithinProfile",
+        "truth": "NotEvaluated",
+        "authority": "Rejected",
+        "effect": "NotEvaluated"
+      },
+      "rationale": "Equal action counts do not imply equal authorization sets. The canonical plan digest and authority decision bind the actual action identities."
+    },
+    {
+      "id": "DJCC-007",
+      "title": "OutcomeUnknown followed by attempted new mutation",
+      "class": "hard-safety",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:unknown-outcome-retry",
+      "mutation": {
+        "operator": "append-new-effect-before-reconciliation",
+        "target": "execution.events"
+      },
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "VerifiedForDeclaredClaim",
+        "semantic_projection": "VerifiedForDeclaredClaim",
+        "query": "VerifiedForDeclaredClaim",
+        "policy": "VerifiedForDeclaredClaim",
+        "authorization": "VerifiedForDeclaredClaim",
+        "execution": "Rejected",
+        "outcome": "NotEvaluated"
+      },
+      "expected_composition": "Indeterminate",
+      "expected_claim_ceiling": {
+        "authentication": "EstablishedWithinProfile",
+        "completeness": "EstablishedWithinProfile",
+        "truth": "NotEvaluated",
+        "authority": "EstablishedWithinProfile",
+        "effect": "Indeterminate"
+      },
+      "rationale": "A possible effect with unknown outcome freezes the same idempotency/effect scope until exact reconciliation. A retry cannot assume the prior effect did not occur."
+    },
+    {
+      "id": "DJCC-008",
+      "title": "Provider completion without independent physical outcome",
+      "class": "hard-safety",
+      "synthetic_only": true,
+      "fixture_ref": "fixture:djcc:v0.1:provider-only-completion",
+      "mutation": {
+        "operator": "promote-provider-completion-to-independent-outcome",
+        "target": "outcome.observations"
+      },
+      "expected_stages": {
+        "verifier_frontier": "VerifiedForDeclaredClaim",
+        "source_trust": "VerifiedForDeclaredClaim",
+        "semantic_projection": "VerifiedForDeclaredClaim",
+        "query": "VerifiedForDeclaredClaim",
+        "policy": "VerifiedForDeclaredClaim",
+        "authorization": "VerifiedForDeclaredClaim",
+        "execution": "VerifiedForDeclaredClaim",
+        "outcome": "Indeterminate"
+      },
+      "expected_composition": "Indeterminate",
+      "expected_claim_ceiling": {
+        "authentication": "EstablishedWithinProfile",
+        "completeness": "Indeterminate",
+        "truth": "Indeterminate",
+        "authority": "EstablishedWithinProfile",
+        "effect": "Indeterminate"
+      },
+      "rationale": "Provider status, work-order completion and execution acknowledgement are not independent measurements of physical restoration or an accepted service outcome."
+    }
+  ]
+}
