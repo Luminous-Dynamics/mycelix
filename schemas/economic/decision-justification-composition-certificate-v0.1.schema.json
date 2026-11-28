@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/economic/decision-justification-composition-certificate-v0.1.schema.json",
+  "title": "Mycelix Decision Justification Composition Certificate V0.1",
+  "description": "Shape contract only. Cross-stage digest equality, dependency acyclicity, completeness, authentication, policy semantics and claim-ceiling monotonicity require independent semantic verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "certificate_id",
+    "profile_ref",
+    "decision",
+    "scope",
+    "assessment",
+    "stages",
+    "composition",
+    "canonical_commitment",
+    "extensions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.decision-justification-composition-certificate.v0.1"
+    },
+    "certificate_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "profile_ref": {
+      "$ref": "#/$defs/identifier"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "revision",
+        "operation",
+        "outcome_claim"
+      ],
+      "properties": {
+        "reference": { "$ref": "#/$defs/identifier" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "operation": { "$ref": "#/$defs/identifier" },
+        "outcome_claim": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "subject_ref",
+        "resource_ref",
+        "purpose",
+        "jurisdiction",
+        "valid_time_ref"
+      ],
+      "properties": {
+        "digest": { "$ref": "#/$defs/digest" },
+        "subject_ref": { "$ref": "#/$defs/identifier" },
+        "resource_ref": { "$ref": "#/$defs/identifier" },
+        "purpose": { "$ref": "#/$defs/identifier" },
+        "jurisdiction": { "$ref": "#/$defs/identifier" },
+        "valid_time_ref": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "verifier_ref",
+        "accepted_frontier_digest",
+        "policy_epoch",
+        "reassesses_certificate_digest"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["Historical", "Current"]
+        },
+        "verifier_ref": { "$ref": "#/$defs/identifier" },
+        "accepted_frontier_digest": { "$ref": "#/$defs/digest" },
+        "policy_epoch": { "$ref": "#/$defs/identifier" },
+        "reassesses_certificate_digest": {
+          "oneOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verifier_frontier",
+        "source_trust",
+        "semantic_projection",
+        "query",
+        "policy",
+        "authorization",
+        "execution",
+        "outcome"
+      ],
+      "properties": {
+        "verifier_frontier": { "$ref": "#/$defs/stage" },
+        "source_trust": { "$ref": "#/$defs/stage" },
+        "semantic_projection": { "$ref": "#/$defs/stage" },
+        "query": { "$ref": "#/$defs/stage" },
+        "policy": { "$ref": "#/$defs/stage" },
+        "authorization": { "$ref": "#/$defs/stage" },
+        "execution": { "$ref": "#/$defs/stage" },
+        "outcome": { "$ref": "#/$defs/stage" }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "profile_digest",
+        "evaluator_build_digest",
+        "stage_binding_digest",
+        "reason_codes",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "disposition": {
+          "enum": [
+            "DecisionJustifiedAtAcceptedFrontier",
+            "DecisionNotJustifiedAtAcceptedFrontier",
+            "Indeterminate",
+            "HistoricalReplayMismatch",
+            "UnsupportedByProfile"
+          ]
+        },
+        "profile_digest": { "$ref": "#/$defs/digest" },
+        "evaluator_build_digest": { "$ref": "#/$defs/digest" },
+        "stage_binding_digest": { "$ref": "#/$defs/digest" },
+        "reason_codes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "claim_ceiling": { "$ref": "#/$defs/claimCeiling" }
+      }
+    },
+    "canonical_commitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "encoding_profile", "digest"],
+      "properties": {
+        "algorithm": { "const": "SHA-256" },
+        "encoding_profile": { "$ref": "#/$defs/identifier" },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Namespaced, explicitly versioned extensions. Mandatory unknown semantics must fail closed; this object is not an escape hatch for unvalidated authority fields.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": ".*\\S.*"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "stageDisposition": {
+      "enum": [
+        "VerifiedForDeclaredClaim",
+        "Rejected",
+        "Indeterminate",
+        "NotEvaluated",
+        "UnsupportedByProfile",
+        "NotApplicable"
+      ]
+    },
+    "claimState": {
+      "enum": [
+        "EstablishedWithinProfile",
+        "Rejected",
+        "Indeterminate",
+        "NotEvaluated",
+        "UnsupportedByProfile",
+        "NotApplicable"
+      ]
+    },
+    "claimCeiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authentication",
+        "completeness",
+        "truth",
+        "authority",
+        "effect"
+      ],
+      "properties": {
+        "authentication": { "$ref": "#/$defs/claimState" },
+        "completeness": { "$ref": "#/$defs/claimState" },
+        "truth": { "$ref": "#/$defs/claimState" },
+        "authority": { "$ref": "#/$defs/claimState" },
+        "effect": { "$ref": "#/$defs/claimState" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_ref",
+        "version_ref",
+        "source_commit",
+        "build_digest"
+      ],
+      "properties": {
+        "owner_ref": { "$ref": "#/$defs/identifier" },
+        "version_ref": { "$ref": "#/$defs/identifier" },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+        },
+        "build_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "inputBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest", "schema_ref"],
+      "properties": {
+        "name": { "$ref": "#/$defs/identifier" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "schema_ref": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage_id", "output_digest", "schema_ref"],
+      "properties": {
+        "stage_id": {
+          "enum": [
+            "verifier_frontier",
+            "source_trust",
+            "semantic_projection",
+            "query",
+            "policy",
+            "authorization",
+            "execution",
+            "outcome"
+          ]
+        },
+        "output_digest": { "$ref": "#/$defs/digest" },
+        "schema_ref": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "profile_ref",
+        "producer",
+        "input_bindings",
+        "output_digest",
+        "claim_ceiling",
+        "dependencies",
+        "reason_codes",
+        "details",
+        "extensions"
+      ],
+      "properties": {
+        "disposition": { "$ref": "#/$defs/stageDisposition" },
+        "profile_ref": { "$ref": "#/$defs/identifier" },
+        "producer": { "$ref": "#/$defs/producer" },
+        "input_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inputBinding" }
+        },
+        "output_digest": {
+          "oneOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        },
+        "claim_ceiling": { "$ref": "#/$defs/claimCeiling" },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependency" },
+          "uniqueItems": true
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "details": {
+          "type": "object",
+          "description": "Profile-specific details. Each profile must define and validate its own shape."
+        },
+        "extensions": {
+          "type": "object",
+          "description": "Namespaced optional extension fields.",
+          "additionalProperties": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "enum": [
+                  "NotEvaluated",
+                  "NotApplicable",
+                  "UnsupportedByProfile"
+                ]
+              }
+            },
+            "required": ["disposition"]
+          },
+          "then": {
+            "properties": {
+              "output_digest": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "output_digest": { "$ref": "#/$defs/digest" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
