@@ -1,8 +1,8 @@
 package oracle
 
 import (
-	"bytes"
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"os"
