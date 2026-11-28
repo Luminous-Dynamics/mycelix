@@ -2,7 +2,7 @@ id,activity,timestamp,ot:Pump,ot:Zone,ot:Sample,ot:Calibration,ot:LabBatch,press
 OCEL-E1,pressure_observed,2026-11-28T08:00:00Z,P-17#measured_asset,Z-3#served_zone,,CAL-4#calibration_basis,,410,
 OCEL-E2,sample_collected,2026-11-28T08:08:00Z,,Z-3#sampled_zone,S-17#collected_sample,,,,routine
 ,,,"P-17{""status"":""active""}"
-,,,"P-17{""status"":""maintenance_pending""}"
+,,2026-11-28T08:10:00Z,"P-17{""status"":""maintenance_pending""}"
 ,,,,"Z-3{""zone_class"":""distribution""}"
 ,,,,,"S-17{""status"":""collected""}"
 ,,,,,,"CAL-4{""certificate_state"":""valid_within_fixture""}"
