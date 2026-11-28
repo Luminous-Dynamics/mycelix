@@ -658,6 +658,76 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 	return "", rawExecutionSubmissionDigest(events)
 }
 
+func validateCorrectionImpactConeV1(
+	transition ExecutionTransitionV1,
+	receiptsByDigest map[string]OracleReceiptV1,
+	receiptsByID map[string]OracleReceiptV1,
+	appliedStepOrder []string,
+	appliedStepReceiptDigests map[string][]string,
+) error {
+	if transition.Kind != StepRecomputeAfterCorrection {
+		return nil
+	}
+	consumed, err := canonicalDigestSet(transition.ConsumedReceiptDigests, MaxEvidenceReferences, "correction receipt set")
+	if err != nil {
+		return err
+	}
+	supersededReceiptDigests := make(map[string]struct{})
+	for _, digest := range consumed {
+		receipt, exists := receiptsByDigest[digest]
+		if !exists {
+			return errors.New("correction consumes a receipt outside the verified chain")
+		}
+		seenReceiptIDs := make(map[string]struct{})
+		for receipt.SupersedesReceiptID != "" {
+			priorID := receipt.SupersedesReceiptID
+			if _, seen := seenReceiptIDs[priorID]; seen {
+				return errors.New("receipt supersession ancestry contains a cycle")
+			}
+			seenReceiptIDs[priorID] = struct{}{}
+			prior, exists := receiptsByID[priorID]
+			if !exists {
+				return errors.New("correction receipt supersedes an unknown receipt")
+			}
+			supersededReceiptDigests[prior.ReceiptDigest] = struct{}{}
+			receipt = prior
+		}
+	}
+	if len(supersededReceiptDigests) == 0 {
+		return errors.New("RecomputeAfterCorrection must consume a receipt with supersession ancestry")
+	}
+	earliestAffected := -1
+	for index, stepID := range appliedStepOrder {
+		for _, digest := range appliedStepReceiptDigests[stepID] {
+			if _, affected := supersededReceiptDigests[digest]; affected {
+				earliestAffected = index
+				break
+			}
+		}
+		if earliestAffected >= 0 {
+			break
+		}
+	}
+	if earliestAffected < 0 {
+		return errors.New("correction does not affect any previously applied execution step")
+	}
+	expected := append([]string(nil), appliedStepOrder[earliestAffected:]...)
+	sort.Strings(expected)
+	actual, err := canonicalStepIDs(transition.SupersedesStepIDs)
+	if err != nil {
+		return err
+	}
+	if len(actual) != len(expected) {
+		return fmt.Errorf("correction impact cone incomplete: expected %d superseded steps, received %d", len(expected), len(actual))
+	}
+	for i := range expected {
+		if actual[i] != expected[i] {
+			return fmt.Errorf("correction impact cone mismatch at canonical step %d", i)
+		}
+	}
+	return nil
+}
+
 func applyExecutionTransition(state *executionActiveState, transition ExecutionTransitionV1, digest string) {
 	state.stateDigest = transition.OutputStateDigest
 	state.proofDigest = transition.IVCUpdate.NextProofDigest
@@ -774,11 +844,15 @@ func ReplayOracleExecutionTranscriptV1(
 	}
 	receiptFrontiers := make([]string, len(receipts)+1)
 	receiptSequence := make(map[string]uint64, len(receipts))
+	receiptsByDigest := make(map[string]OracleReceiptV1, len(receipts))
+	receiptsByID := make(map[string]OracleReceiptV1, len(receipts))
 	receiptFrontiers[0] = genesisDigest(scopeDigest)
 	for index, receipt := range receipts {
 		sequence := uint64(index + 1)
 		receiptFrontiers[sequence] = receipt.ReceiptDigest
 		receiptSequence[receipt.ReceiptDigest] = sequence
+		receiptsByDigest[receipt.ReceiptDigest] = receipt
+		receiptsByID[receipt.ReceiptID] = receipt
 	}
 	state := executionActiveState{
 		stateDigest: executionGenesisStateDigest(scopeDigest),
@@ -796,6 +870,8 @@ func ReplayOracleExecutionTranscriptV1(
 	reservedStepIDs := make(map[string]struct{}, len(events))
 	appliedStepIDs := make(map[string]struct{}, len(events))
 	appliedStepFrontier := make(map[string]uint64, len(events))
+	appliedStepOrder := make([]string, 0, len(events))
+	appliedStepReceiptDigests := make(map[string][]string, len(events))
 	var pending *executionPendingState
 	stepDigests := make([]string, 0, len(events))
 
@@ -841,10 +917,16 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
+			if err := validateCorrectionImpactConeV1(*event.Transition, receiptsByDigest, receiptsByID, appliedStepOrder, appliedStepReceiptDigests); err != nil {
+				result.Reason = err.Error()
+				return finalizeExecutionReplay(result)
+			}
 			stepDigest, _ := executionTransitionDigestV1(scopeDigest, *event.Transition)
 			reservedStepIDs[event.Transition.StepID] = struct{}{}
 			appliedStepIDs[event.Transition.StepID] = struct{}{}
 			appliedStepFrontier[event.Transition.StepID] = event.Transition.ReceiptFrontierSequence
+			appliedStepOrder = append(appliedStepOrder, event.Transition.StepID)
+			appliedStepReceiptDigests[event.Transition.StepID] = append([]string(nil), event.Transition.ConsumedReceiptDigests...)
 			applyExecutionTransition(&state, *event.Transition, stepDigest)
 			result.AppliedStepIDs = append(result.AppliedStepIDs, event.Transition.StepID)
 			stepDigests = append(stepDigests, stepDigest)
@@ -860,6 +942,10 @@ func ReplayOracleExecutionTranscriptV1(
 			}
 			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 				result.Reason = "unknown execution intent is invalid: " + err.Error()
+				return finalizeExecutionReplay(result)
+			}
+			if err := validateCorrectionImpactConeV1(*event.Transition, receiptsByDigest, receiptsByID, appliedStepOrder, appliedStepReceiptDigests); err != nil {
+				result.Reason = "unknown execution intent impact cone is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
 			stepDigest, _ := executionTransitionDigestV1(scopeDigest, *event.Transition)
@@ -881,9 +967,15 @@ func ReplayOracleExecutionTranscriptV1(
 					result.Reason = "reconciled execution transition is no longer valid: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
+				if err := validateCorrectionImpactConeV1(pending.transition, receiptsByDigest, receiptsByID, appliedStepOrder, appliedStepReceiptDigests); err != nil {
+					result.Reason = "reconciled execution impact cone is no longer valid: " + err.Error()
+					return finalizeExecutionReplay(result)
+				}
 				applyExecutionTransition(&state, pending.transition, pending.digest)
 				appliedStepIDs[pending.transition.StepID] = struct{}{}
 				appliedStepFrontier[pending.transition.StepID] = pending.transition.ReceiptFrontierSequence
+				appliedStepOrder = append(appliedStepOrder, pending.transition.StepID)
+				appliedStepReceiptDigests[pending.transition.StepID] = append([]string(nil), pending.transition.ConsumedReceiptDigests...)
 				result.AppliedStepIDs = append(result.AppliedStepIDs, pending.transition.StepID)
 			}
 			pending = nil
