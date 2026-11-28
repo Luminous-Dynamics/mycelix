@@ -145,5 +145,5 @@ func Solve(c Case) (Report, error) {
 	if r.NetDecisionValue>eps { r.Status=Recommend } else { r.Status=DoNotAcquire }
 	return r,nil
 }
-func GreedyOneStep(c Case)(string,float64,error){if err:=validate(c);err!=nil{return "",0,err};p:=planner{c:c,actions:map[string]Action{}};for _,a:=range c.Actions{p.actions[a.ID]=a};b:=make([]float64,len(c.States));for i,s:=range c.States{b[i]=s.Probability};base,_:=p.terminal(b);id:="";best:=0.0;for _,o:=range c.Observations{s,ok:=scoreOne(c,o,b,base);if ok&&s.NetValue>best+eps{id,best=o.ID,s.NetValue}};return id,best,nil
+func GreedyOneStep(c Case)(string,float64,error){if err:=validate(c);err!=nil{return "",0,err};if c.MandatoryEvidenceOpen||c.Horizon==0{return "",0,nil};for _,o:=range c.Observations{if o.Mandatory{return "",0,nil}};p:=planner{c:c,actions:map[string]Action{}};for _,a:=range c.Actions{p.actions[a.ID]=a};b:=make([]float64,len(c.States));for i,s:=range c.States{b[i]=s.Probability};base,_:=p.terminal(b);id:="";best:=0.0;for _,o:=range c.Observations{if o.Cost>c.Budget+eps{continue};s,ok:=scoreOne(c,o,b,base);if ok&&s.NetValue>best+eps{id,best=o.ID,s.NetValue}};return id,best,nil
 }
