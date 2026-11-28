@@ -1,0 +1,107 @@
+name: Craft evidence-subgraph independent Go oracle
+
+on:
+  push:
+    branches:
+      - research/craft-evidence-subgraph-oracle-v0.1-20261128-r1
+  pull_request:
+    branches:
+      - research/craft-evidence-preserving-projections-v0.1-20261128
+    paths:
+      - ".github/workflows/craft-evidence-subgraph-go-oracle.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/evidence-subgraph-go-v0.1/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: craft-evidence-subgraph-oracle-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  exact-head:
+    name: Exact-head evidence-subgraph Go oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      ORACLE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/evidence-subgraph-go-v0.1
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert exact head and required inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -s "$ORACLE_DIR/go.mod"
+          test -s "$ORACLE_DIR/oracle/score.go"
+          test -s "$ORACLE_DIR/oracle/score_test.go"
+          test -s "$ORACLE_DIR/fixtures/evidence-subgraph-kat-v0.1.json"
+      - name: Install pinned Go 1.23.2
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: 1.23.2
+          cache: false
+          check-latest: false
+      - name: Check Go formatting
+        id: gofmt
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [[ -n "$unformatted" ]]; then printf '%s\n' "$unformatted"; exit 1; fi
+      - name: Run frozen scoring tests and coverage
+        id: tests
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go test -cover ./...
+      - name: Run Go race detector
+        id: race
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: go test -race ./...
+      - name: Run go vet
+        id: vet
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: go vet ./...
+      - name: Assemble exact-head receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/craft-evidence-subgraph-oracle"
+          mkdir -p "$out"
+          {
+            printf 'exact_head\t%s\n' "$EXPECTED_HEAD"
+            printf 'go_version\t%s\n' "$(go version 2>&1 || printf UNAVAILABLE)"
+            printf 'gofmt\t%s\n' "${{ steps.gofmt.outcome }}"
+            printf 'tests\t%s\n' "${{ steps.tests.outcome }}"
+            printf 'race\t%s\n' "${{ steps.race.outcome }}"
+            printf 'vet\t%s\n' "${{ steps.vet.outcome }}"
+            printf 'source_authentication\tNotEvaluated\n'
+            printf 'source_universe_completeness\tNotEvaluated\n'
+            printf 'legal_authority\tNotEvaluated\n'
+            printf 'water_quality_truth\tNotEvaluated\n'
+            printf 'physical_outcome\tNotEvaluated\n'
+          } > "$out/qualification.tsv"
+          find "$ORACLE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum > "$out/source-sha256.txt"
+          ( cd "$out" && sha256sum qualification.tsv source-sha256.txt > SHA256SUMS )
+          cat "$out/qualification.tsv"
+      - name: Upload exact-head receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: craft-evidence-subgraph-oracle-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/craft-evidence-subgraph-oracle/
+          if-no-files-found: error
+          retention-days: 30
