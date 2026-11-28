@@ -1,0 +1,400 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_DECISION_SCORE_V0_1.schema.json",
+  "title": "CIV-IMPACT Decision Episode Scoring Receipt",
+  "description": "Evaluator-only per-episode receipt. policy_id identifies the arm; all arms in this prototype share the same hashed source file. The policy runner must never receive this document or the truth artifact it references.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "episode_id",
+    "policy_id",
+    "policy_artifact_sha256",
+    "policy_observation_sha256",
+    "evidence_model_sha256",
+    "evaluator_truth_sha256",
+    "decision",
+    "evidence_requests",
+    "outcome",
+    "costs",
+    "regret",
+    "guardrails",
+    "evidence_quality",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "policy_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy_observation_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "evidence_model_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "evaluator_truth_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "chosen_action_id",
+        "requested_evidence_option_ids",
+        "pre_outcome_confidence_ppm",
+        "decision_latency_ms"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "act",
+            "request_evidence",
+            "abstain",
+            "wait_replan"
+          ]
+        },
+        "chosen_action_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "requested_evidence_option_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "pre_outcome_confidence_ppm": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "decision_latency_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "evidence_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_option_id",
+          "disposition",
+          "cost_microcredits",
+          "latency_ms",
+          "returned_observation_sha256",
+          "source_family_refs"
+        ],
+        "properties": {
+          "request_option_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "disposition": {
+            "enum": [
+              "provided",
+              "denied",
+              "not_authorized",
+              "budget_exceeded",
+              "timeout",
+              "no_result",
+              "invalid_receipt"
+            ]
+          },
+          "cost_microcredits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latency_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "returned_observation_sha256": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/sha256"
+              }
+            ]
+          },
+          "source_family_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "completed_units",
+        "unserved_units",
+        "fallback_used",
+        "fallback_succeeded",
+        "realized_decision_loss_microcredits"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "successful",
+            "partial",
+            "unserved",
+            "deferred",
+            "invalid_decision",
+            "unknown"
+          ]
+        },
+        "completed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unserved_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fallback_used": {
+          "type": "boolean"
+        },
+        "fallback_succeeded": {
+          "type": "boolean"
+        },
+        "realized_decision_loss_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "costs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_acquisition_microcredits",
+        "compute_microcredits",
+        "delay_microcredits",
+        "human_review_microcredits",
+        "fallback_microcredits",
+        "operational_microcredits",
+        "failure_recovery_microcredits",
+        "total_cost_microcredits"
+      ],
+      "properties": {
+        "evidence_acquisition_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "compute_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delay_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "human_review_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fallback_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "operational_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_recovery_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_cost_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "regret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "oracle_action_loss_microcredits",
+        "regret_vs_oracle_microcredits",
+        "comparator_policy_artifact_sha256",
+        "comparator_baseline_core_sha256",
+        "comparator_policy_loss_microcredits",
+        "comparator_total_cost_microcredits",
+        "candidate_minus_comparator_end_to_end_loss_microcredits",
+        "realized_end_to_end_loss_reduction_vs_comparator_microcredits",
+        "realized_loss_reduction_defined"
+      ],
+      "properties": {
+        "oracle_action_loss_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "regret_vs_oracle_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comparator_policy_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "comparator_baseline_core_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "SHA-256 of the canonical baseline comparison core (episode, policy id, input/truth digests, selected decision, decision loss and total cost); this is not a digest of a complete baseline scoring receipt."
+        },
+        "comparator_policy_loss_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comparator_total_cost_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_minus_comparator_end_to_end_loss_microcredits": {
+          "type": "integer"
+        },
+        "realized_end_to_end_loss_reduction_vs_comparator_microcredits": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Signed paired difference: baseline end-to-end loss minus candidate end-to-end loss on the same synthetic episode. Positive means the candidate had lower loss; it is descriptive and not a causal estimate of value-of-information."
+        },
+        "realized_loss_reduction_defined": {
+          "type": "boolean"
+        }
+      },
+      "description": "Oracle regret uses registered synthetic decision loss. The paired realized loss-reduction field compares complete end-to-end loss, including registered resource costs, with the observation-rule comparator; it is descriptive, not causal."
+    },
+    "guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "budget_compliant",
+        "acquisition_authorized",
+        "privacy_and_consent_compliant",
+        "source_rights_compliant",
+        "no_external_side_effects",
+        "violations",
+        "artifact_integrity_valid",
+        "invalid_receipt_rejected"
+      ],
+      "properties": {
+        "budget_compliant": {
+          "type": "boolean"
+        },
+        "acquisition_authorized": {
+          "type": "boolean"
+        },
+        "privacy_and_consent_compliant": {
+          "type": "boolean"
+        },
+        "source_rights_compliant": {
+          "type": "boolean"
+        },
+        "no_external_side_effects": {
+          "type": "boolean"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "artifact_integrity_valid": {
+          "type": "boolean",
+          "description": "True when no invalid/tampered evidence receipt was encountered in this episode."
+        },
+        "invalid_receipt_rejected": {
+          "type": "boolean",
+          "description": "True only when every malformed/tampered receipt was rejected without ingesting any of its observations."
+        }
+      }
+    },
+    "evidence_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unique_source_family_count",
+        "stale_observation_count",
+        "conflicted_observation_count",
+        "observation_coverage_permille",
+        "brier_score"
+      ],
+      "properties": {
+        "unique_source_family_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conflicted_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_coverage_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "brier_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "claim_ceiling": {
+      "const": "synthetic_or_replay_scoring_only; not proof_of_real_world_effect_or_economic_benefit"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  }
+}

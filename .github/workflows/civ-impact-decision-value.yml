@@ -1,0 +1,74 @@
+name: CIV-IMPACT Decision Value
+
+on:
+  pull_request:
+    paths:
+      - "tools/civ-impact-decision-value/**"
+      - "docs/research/CIV_IMPACT_DECISION_VALUE_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_DECISION_*.schema.json"
+      - ".github/workflows/civ-impact-decision-value.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/civ-impact-decision-value/**"
+      - "docs/research/CIV_IMPACT_DECISION_VALUE_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_DECISION_*.schema.json"
+      - ".github/workflows/civ-impact-decision-value.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-impact-decision-value-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  decision-value:
+    name: Rust harness, schema contracts, and synthetic negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust and rustfmt
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt
+
+      - name: Validate JSON schema syntax
+        run: |
+          set -euo pipefail
+          jq empty docs/research/schema/CIV_IMPACT_DECISION_EPISODE_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_DECISION_TRUTH_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_DECISION_SCORE_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_DECISION_REPORT_V0_1.schema.json
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/civ-impact-decision-value/Cargo.toml -- --check
+
+      - name: Run unit and JSON Schema contract tests
+        run: cargo test --manifest-path tools/civ-impact-decision-value/Cargo.toml
+
+      - name: Generate deterministic synthetic benchmark report
+        run: |
+          set -euo pipefail
+          out_dir="$(mktemp -d)"
+          cargo run --manifest-path tools/civ-impact-decision-value/Cargo.toml -- evaluate "$out_dir/report.json" | tee "$out_dir/summary.json"
+          jq -e '
+            .status == "synthetic_policy_evaluation_completed" and
+            .fixture_count == 96 and
+            .policy_count == 7 and
+            .run_count == 672 and
+            .all_scheduled_runs_accounted_for == true and
+            .economic_benefit_established == false and
+            .claim_ceiling == "synthetic_or_replay_scoring_only; not proof_of_real_world_effect_or_economic_benefit"
+          ' "$out_dir/summary.json"
+          jq -e '
+            .evidence_class == "synthetic_known_truth" and
+            .fixture_count == 96 and
+            .run_count == 672 and
+            (.receipts | length == 672) and
+            (.stratified_results | length == 12) and
+            .economic_benefit_established == false
+          ' "$out_dir/report.json"
