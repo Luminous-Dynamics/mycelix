@@ -147,3 +147,8 @@ The validator is a **restricted water-service OCEL 2.0 profile**, not a full OCE
 OCEL 2.0 JSON is the stable interoperability baseline. OCEL 2.1.0pre5 remains an experimental follow-on and is not a production dependency. See issue [#6794](https://github.com/Luminous-Dynamics/mycelix/issues/6794).
 
 The cross-core source-composition workflow now copies and hashes every source file under `harness/src`. It runs the stdlib-only adversarial normalizer tests and the PM4Py 2.7.23.15 import/export oracle as separate gates, alongside exact-head OCEL tests, the combined six-owner test suite, Rust formatting and Clippy. A PM4Py round-trip only qualifies the declared normalized interchange inventory for the captured environment; it does not establish source authenticity, authority validity, or correctness of the temporal-relationship extension.
+
+
+## Temporal relationship exact-head requalification snapshot — 28 November 2026
+
+Current branch head before this documentation-only trigger: `fc25e88cd58c2293abbbee5753685d3d9d274544`. Prior dedicated run `46051624735` failed Rust 1.96 formatting on the older source head `439c564d8b2baef2e56523b1970e444cfe9a15b0`; tests and Clippy were skipped. The branch has since advanced with formatter-normalized relationship, replay, scale-probe and module-order source. This documentation update is intended to trigger a fresh exact-head run. The new run must complete on the new exact commit; this note does not claim tests, Clippy or qualification have passed. The #6796 base also advanced independently and the stacked PR ancestry must be reconciled before merge.
