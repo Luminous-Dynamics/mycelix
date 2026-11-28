@@ -58,6 +58,7 @@ jobs:
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.tla
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.cfg
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone-Mutant.cfg
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone-StaleState-Mutant.cfg
 
       - name: Set up Go reference toolchain
         uses: actions/setup-go@v7
@@ -239,6 +240,26 @@ jobs:
           fi
           grep -F "Invariant NoStaleActiveDescendant is violated." "$log"
 
+      - name: Require stale-current-state correction mutant counterexample
+        id: stale_state_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-correction-stale-state-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-correction-stale-state-mutant" \
+            -config CorrectionImpactCone-StaleState-Mutant.cfg \
+            CorrectionImpactCone.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Stale-current-state correction mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant CorrectionStartsAtPreImpactState is violated." "$log"
+
       - name: Assemble execution transcript qualification receipt
         if: always()
         shell: bash
@@ -254,6 +275,7 @@ jobs:
           PENDING: ${{ steps.pending_mutant.outcome }}
           CORRECTION_CONE: ${{ steps.correction_cone_tlc.outcome }}
           CORRECTION_MUTANT: ${{ steps.correction_cone_mutant.outcome }}
+          STALE_STATE_MUTANT: ${{ steps.stale_state_mutant.outcome }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/oracle-ivc-transcript"
@@ -276,6 +298,7 @@ jobs:
             --arg pending_mutant "$PENDING" \
             --arg correction_cone "$CORRECTION_CONE" \
             --arg correction_mutant "$CORRECTION_MUTANT" \
+            --arg stale_state_mutant "$STALE_STATE_MUTANT" \
             '{
               schema:$schema,
               repository:$repository,
@@ -294,7 +317,8 @@ jobs:
                 proof_only_advancement_mutant:$proof_mutant,
                 mutation_during_unknown_mutant:$pending_mutant,
                 correction_impact_cone_tlc:$correction_cone,
-                incomplete_correction_cone_mutant:$correction_mutant
+                incomplete_correction_cone_mutant:$correction_mutant,
+                stale_current_state_correction_mutant:$stale_state_mutant
               },
               claims:{
                 execution_transcript_structure_only:true,
