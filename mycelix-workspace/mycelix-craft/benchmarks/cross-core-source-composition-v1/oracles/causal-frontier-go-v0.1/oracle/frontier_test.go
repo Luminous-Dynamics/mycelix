@@ -176,7 +176,6 @@ func TestCanonicalEmptyParentSetProducesStableReceipt(t *testing.T) {
 	}
 }
 
-
 func TestIncompleteFrontierCannotAnswerCausalComparison(t *testing.T) {
 	child := entry("child", "beta", 1, 1, "child", "missing-parent")
 	p := Validate([]Entry{child}, Frontier{Cuts: []StreamCut{cut("beta", 1, 1, child.Digest)}})
