@@ -1,0 +1,174 @@
+{
+  "schema_id": "mycelix.craft.sequential-evsi-adaptive-followup.v0.1",
+  "case": {
+    "id": "adaptive-followup",
+    "factorization_profile": "conditional_independence_given_complete_latent_state_v0.1",
+    "states": [
+      {
+        "id": "z0w0",
+        "probability": 0.25
+      },
+      {
+        "id": "z0w1",
+        "probability": 0.25
+      },
+      {
+        "id": "z1w0",
+        "probability": 0.25
+      },
+      {
+        "id": "z1w1",
+        "probability": 0.25
+      }
+    ],
+    "actions": [
+      {
+        "id": "A",
+        "loss_by_state": {
+          "z0w0": 0,
+          "z0w1": 10,
+          "z1w0": 0,
+          "z1w1": 10
+        }
+      },
+      {
+        "id": "B",
+        "loss_by_state": {
+          "z0w0": 10,
+          "z0w1": 0,
+          "z1w0": 10,
+          "z1w1": 0
+        }
+      }
+    ],
+    "safe_actions": [
+      "A",
+      "B"
+    ],
+    "observations": [
+      {
+        "id": "observe-Z",
+        "cost": 0.1,
+        "available": true,
+        "in_domain": true,
+        "admissible": true,
+        "conditioned_on_latent_state": true,
+        "mandatory": false,
+        "likelihood_by_state": {
+          "z0w0": [
+            {
+              "result_id": "z0",
+              "probability": 1
+            }
+          ],
+          "z0w1": [
+            {
+              "result_id": "z0",
+              "probability": 1
+            }
+          ],
+          "z1w0": [
+            {
+              "result_id": "z1",
+              "probability": 1
+            }
+          ],
+          "z1w1": [
+            {
+              "result_id": "z1",
+              "probability": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "observe-W-if-Z0",
+        "cost": 0.3,
+        "available": true,
+        "in_domain": true,
+        "admissible": true,
+        "conditioned_on_latent_state": true,
+        "mandatory": false,
+        "likelihood_by_state": {
+          "z0w0": [
+            {
+              "result_id": "w0",
+              "probability": 1
+            }
+          ],
+          "z0w1": [
+            {
+              "result_id": "w1",
+              "probability": 1
+            }
+          ],
+          "z1w0": [
+            {
+              "result_id": "none",
+              "probability": 1
+            }
+          ],
+          "z1w1": [
+            {
+              "result_id": "none",
+              "probability": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "observe-W-if-Z1",
+        "cost": 0.3,
+        "available": true,
+        "in_domain": true,
+        "admissible": true,
+        "conditioned_on_latent_state": true,
+        "mandatory": false,
+        "likelihood_by_state": {
+          "z0w0": [
+            {
+              "result_id": "none",
+              "probability": 1
+            }
+          ],
+          "z0w1": [
+            {
+              "result_id": "none",
+              "probability": 1
+            }
+          ],
+          "z1w0": [
+            {
+              "result_id": "w0",
+              "probability": 1
+            }
+          ],
+          "z1w1": [
+            {
+              "result_id": "w1",
+              "probability": 1
+            }
+          ]
+        }
+      }
+    ],
+    "budget": 0.4,
+    "horizon": 2,
+    "mandatory_evidence_open": false
+  },
+  "expected": {
+    "baseline_expected_loss": 5,
+    "observe_z_one_step_evsi": 0,
+    "observe_w_if_z0_one_step_evsi": 2.5,
+    "observe_w_if_z1_one_step_evsi": 2.5,
+    "greedy_one_step_net_value": 2.2,
+    "expected_terminal_loss": 0,
+    "expected_acquisition_cost": 0.4,
+    "gross_evsi": 5,
+    "net_decision_value": 4.6,
+    "first_observation": "observe-Z",
+    "z0_followup": "observe-W-if-Z0",
+    "z1_followup": "observe-W-if-Z1",
+    "selected_policy_depth": 2
+  }
+}
