@@ -1,0 +1,21 @@
+{
+  "schema_id": "mycelix.craft.decision-separating-observation.v0.1",
+  "case_id": "DSOP-001-branch-separating-observation",
+  "scope_basis": "declared_set",
+  "actions": ["operate", "hold"],
+  "worlds": [
+    {"id": "w-high", "losses": {"operate": 10, "hold": 0}},
+    {"id": "w-low", "losses": {"operate": 0, "hold": 10}}
+  ],
+  "observations": [
+    {
+      "id": "water-quality-lab-test",
+      "outcome_by_world": {"w-high": "contaminated", "w-low": "clear"},
+      "acquisition_cost_units": 3,
+      "delay_units": 2,
+      "burden_units": 1,
+      "failure_domain_ids": ["lab-admin"],
+      "existing_failure_domain_ids": []
+    }
+  ]
+}
