@@ -1,0 +1,37 @@
+name: ITOPS Continuous Scenario Reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-continuous-reference/**"
+      - ".github/workflows/itops-continuous-reference.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lise-benchmarks/itops-continuous-reference/**"
+      - ".github/workflows/itops-continuous-reference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: itops-continuous-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Require jq
+        run: command -v jq
+      - name: Validate scenario contract
+        run: bash lise-benchmarks/itops-continuous-reference/validate.sh
+      - name: Run adversarial mutations
+        run: bash lise-benchmarks/itops-continuous-reference/mutation-tests.sh

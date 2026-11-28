@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/itops-continuous-scenario-v0.1.schema.json",
+  "title": "ITOPS Continuous Operations Public Scenario Fixture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["suite_id", "schema_version", "contract", "visibility", "scenario"],
+  "properties": {
+    "suite_id": { "const": "itops-continuous-scenario-reference" },
+    "schema_version": { "const": "0.1.0" },
+    "contract": { "const": "ITOPS-CONTINUOUS-001" },
+    "visibility": { "const": "PUBLIC_REFERENCE_SCENARIO" },
+    "scenario": { "$ref": "#/$defs/scenario" }
+  },
+  "$defs": {
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "time_profile", "services", "dependencies", "workload", "operator_observations", "fault_schedule", "agent_payload_policy", "terminal_propositions"],
+      "properties": {
+        "scenario_id": { "type": "string", "minLength": 1 },
+        "time_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["horizon_seconds", "tick_seconds", "seed", "agent_invocation_period_seconds", "clock_mode"],
+          "properties": {
+            "horizon_seconds": { "type": "integer", "minimum": 3600 },
+            "tick_seconds": { "type": "integer", "minimum": 1 },
+            "seed": { "type": "integer", "minimum": 0 },
+            "agent_invocation_period_seconds": { "type": "integer", "minimum": 1 },
+            "clock_mode": { "enum": ["deterministic_replay", "live_realtime"] }
+          }
+        },
+        "services": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["service_id", "zone_id", "depends_on"],
+            "properties": {
+              "service_id": { "type": "string", "minLength": 1 },
+              "zone_id": { "type": "string", "minLength": 1 },
+              "depends_on": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+            }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from_service", "to_service", "dependency_kind"],
+            "properties": {
+              "from_service": { "type": "string" },
+              "to_service": { "type": "string" },
+              "dependency_kind": { "enum": ["runtime", "data", "network", "identity"] }
+            }
+          }
+        },
+        "workload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workload_id", "steady_request_rate_per_second", "functional_probes"],
+          "properties": {
+            "workload_id": { "type": "string" },
+            "steady_request_rate_per_second": { "type": "number", "exclusiveMinimum": 0 },
+            "functional_probes": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        },
+        "operator_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["observation_id", "observed_at_seconds", "observation_kind", "target_service_id", "agent_visible", "payload"],
+            "properties": {
+              "observation_id": { "type": "string" },
+              "observed_at_seconds": { "type": "integer", "minimum": 0 },
+              "observation_kind": { "enum": ["alert", "deployment_change", "metric_anomaly", "trace_gap", "policy_event", "functional_probe"] },
+              "target_service_id": { "type": "string" },
+              "agent_visible": { "const": true },
+              "payload": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "fault_schedule": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["event_id", "event_class", "family", "start_seconds", "duration_seconds", "target_service_id", "injection_kind", "agent_visible", "affected_observation_ids"],
+            "properties": {
+              "event_id": { "type": "string" },
+              "event_class": { "enum": ["fault", "planned_change", "benign_signal", "authorization_challenge"] },
+              "family": { "type": "string" },
+              "start_seconds": { "type": "integer", "minimum": 0 },
+              "duration_seconds": { "type": "integer", "minimum": 1 },
+              "target_service_id": { "type": "string" },
+              "injection_kind": { "type": "string" },
+              "agent_visible": { "const": false },
+              "affected_observation_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }
+            }
+          }
+        },
+        "agent_payload_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exposes_fault_schedule", "exposes_oracle", "observations_available_only_after_observed_time"],
+          "properties": {
+            "exposes_fault_schedule": { "const": false },
+            "exposes_oracle": { "const": false },
+            "observations_available_only_after_observed_time": { "const": true }
+          }
+        },
+        "terminal_propositions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["proposition_id", "metric", "operator", "threshold", "unit", "window_seconds", "independent_verification_required"],
+            "properties": {
+              "proposition_id": { "type": "string" },
+              "metric": { "type": "string" },
+              "operator": { "enum": ["eq", "gte", "lte"] },
+              "threshold": { "type": ["number", "integer", "boolean"] },
+              "unit": { "type": "string" },
+              "window_seconds": { "type": "integer", "minimum": 0 },
+              "independent_verification_required": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  }
+}

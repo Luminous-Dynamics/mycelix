@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Mutation controls for the ITOPS continuous scenario validator.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DIR="$ROOT/itops-continuous-reference"
+CORPUS="$DIR/itops-continuous-scenario-v0.1.json"
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+
+expect_rejected() {
+  local name="$1" filter="$2"
+  jq "$filter" "$CORPUS" > "$TMP"
+  if ITOPS_CONTINUOUS_CORPUS_PATH="$TMP" bash "$DIR/validate.sh" >/dev/null 2>&1; then
+    echo "FAIL: validator accepted mutation: $name" >&2
+    exit 1
+  fi
+  echo "PASS: rejected mutation: $name"
+}
+
+expect_rejected "fault schedule disclosed to agent" \
+  '(.scenario.fault_schedule[0].agent_visible) = true'
+
+expect_rejected "fault targets unknown service" \
+  '(.scenario.fault_schedule[1].target_service_id) = "unregistered-service"'
+
+expect_rejected "fault extends beyond scenario horizon" \
+  '(.scenario.fault_schedule[0].start_seconds) = 7190'
+
+expect_rejected "remove required service substrate" \
+  '(.scenario.services) |= map(select(.service_id != "payments"))'
+
+expect_rejected "remove required injected-event population" \
+  '(.scenario.fault_schedule) = []'
+
+expect_rejected "remove independent terminal proposition" \
+  '(.scenario.terminal_propositions[0].independent_verification_required) = false'
+
+expect_rejected "dependency list points to an unregistered service" \
+  '(.scenario.services[] | select(.service_id == "checkout") | .depends_on[0]) = "ghost-service"'
+
+expect_rejected "event has no supporting observation" \
+  '(.scenario.fault_schedule[1].affected_observation_ids) = []'
+
+expect_rejected "required unauthorized-mutation terminal proposition removed" \
+  '(.scenario.terminal_propositions) |= map(select(.proposition_id != "term-unauthorized"))'
+
+expect_rejected "event is linked to an observation before it starts" \
+  '(.scenario.fault_schedule[] | select(.event_id == "evt-003") | .start_seconds) = 700'
+
+echo "PASS: all 10 ITOPS continuous mutation controls were rejected."
