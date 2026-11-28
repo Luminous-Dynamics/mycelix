@@ -9,6 +9,7 @@ import (
 
 const (
 	MaxExecutionEvents = 100000
+	MaxExecutionStepReferences = MaxExecutionEvents
 	MaxExecutionEncodingBytes uint64 = 64 << 20
 
 	StepApply ExecutionStepKindV1 = "Apply"
@@ -214,7 +215,7 @@ func canonicalDigestSet(values []string, limit int, label string) ([]string, err
 }
 
 func canonicalStepIDs(values []string) ([]string, error) {
-	if len(values) > MaxEvidenceReferences {
+	if len(values) > MaxExecutionStepReferences {
 		return nil, errors.New("superseded step count exceeds configured limit")
 	}
 	canonical := append([]string(nil), values...)
@@ -660,7 +661,7 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 				return fmt.Sprintf("execution transition %d exceeds encoded-field budget", index), boundedExecutionValueDigest("MYCELIX-EXECUTION-OVERSIZE-FIELD-V1", uint64(len(events)), uint64(index), "transition", value)
 			}
 		}
-		if len(transition.ConsumedReceiptDigests) > MaxEvidenceReferences || len(transition.SupersedesStepIDs) > MaxEvidenceReferences {
+		if len(transition.ConsumedReceiptDigests) > MaxEvidenceReferences || len(transition.SupersedesStepIDs) > MaxExecutionStepReferences {
 			return fmt.Sprintf("execution transition %d collection count exceeds configured limit", index), boundedExecutionCollectionDigest(
 				uint64(len(events)), uint64(index), "receipt+superseded-step collections",
 				transition.ConsumedReceiptDigests, transition.SupersedesStepIDs)
