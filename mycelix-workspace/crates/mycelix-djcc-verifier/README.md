@@ -69,13 +69,13 @@ This is a structural candidate, not a cryptographic trust implementation or prod
 
 ## Failure-domain lineage submodule
 
-The `failure_domain` module checks a declared lineage DAG for sorted/canonical identifiers, required failure-domain class coverage, missing parents, cycles, unreachable nodes and shared material ancestor IDs. It returns one of:
+The `failure_domain` module checks a declared lineage DAG for sorted/canonical identifiers, required failure-domain class coverage, missing parents, cycles, unreachable nodes, shared material ancestor IDs and explicitly classified non-material shared classes. It returns one of:
 
 - `StructurallyDisjointWithinDeclaredGraph`
 - `CommonCauseDetected`
 - `LineageCoverageIncomplete`
 
-This is a structural graph assessment only. A structurally disjoint graph is not a trusted independence claim: the verifier does not authenticate who supplied the graph, prove that its lineage is complete, or decide whether the declared failure-domain model covers all relevant common causes. Those remain source-trust/profile obligations. Tests include disjoint channels, a shared upstream feed, missing key-custody lineage, shared non-material infrastructure, cycles, missing parent references and canonical-order mutations.
+This is a structural graph assessment only. A shared domain class omitted from both the material and explicitly non-material profile sets remains LineageCoverageIncomplete; no unlisted shared class is silently treated as harmless. A structurally disjoint graph is not a trusted independence claim: the verifier does not authenticate who supplied the graph, prove that its lineage is complete, or decide whether the declared failure-domain model covers all relevant common causes. Those remain source-trust/profile obligations. Tests include disjoint channels, a shared upstream feed, missing key-custody lineage, shared non-material infrastructure, cycles, missing parent references and canonical-order mutations.
 
 
 The failure-domain profile requires each shared domain class to be explicitly classified as material or explicitly non-material. A shared class omitted from both sets remains LineageCoverageIncomplete; the checker never infers that an unlisted infrastructure dependency is harmless.
