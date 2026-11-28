@@ -47,6 +47,34 @@ jobs:
           python3 -m py_compile "$ORACLE_DIR/pm4py_ocel2_roundtrip.py" "$ORACLE_DIR/test_pm4py_ocel2_roundtrip.py"
           python3 -m unittest discover -s "$ORACLE_DIR" -p 'test_pm4py_ocel2_roundtrip.py' -v
 
+      - name: Install pinned PM4Py interoperability oracle
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input "pm4py[ocel,stable]==2.7.23.15"
+          python3 - <<'PY'
+          import pm4py
+          expected = "2.7.23.15"
+          actual = getattr(pm4py, "__version__", "unknown")
+          if actual != expected:
+              raise SystemExit(f"PM4Py version mismatch: expected {expected}, got {actual}")
+          print(f"PM4Py oracle version: {actual}")
+          PY
+          python3 -m pip freeze --all > "$RUNNER_TEMP/pm4py-oracle-environment.txt"
+          mkdir -p "$RUNNER_TEMP/pm4py-oracle"
+
+      - name: Run independent PM4Py OCEL 2.0 round-trip
+        run: |
+          set -euo pipefail
+          ORACLE_DIR="mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles"
+          FIXTURE="mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/ocel/ocel-water-service-v1.json"
+          python3 "$ORACLE_DIR/pm4py_ocel2_roundtrip.py" \
+            --source "$FIXTURE" \
+            --roundtrip "$RUNNER_TEMP/pm4py-oracle/ocel-water-service-roundtrip.json" \
+            | tee "$RUNNER_TEMP/pm4py-oracle/report.json"
+          python3 --version > "$RUNNER_TEMP/pm4py-oracle/python-version.txt"
+          python3 -m pip --version > "$RUNNER_TEMP/pm4py-oracle/pip-version.txt"
+          cp "$RUNNER_TEMP/pm4py-oracle-environment.txt" "$RUNNER_TEMP/pm4py-oracle/"
+
       - name: Install pinned Rust toolchain and components
         run: |
           rustup toolchain install 1.96.0 --profile minimal
@@ -75,6 +103,14 @@ jobs:
 
       - name: Run combined-workspace Clippy
         run: cargo +1.96.0 clippy --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
+
+      - name: Upload PM4Py round-trip evidence and resolved oracle environment
+        uses: actions/upload-artifact@v4
+        with:
+          name: pm4py-ocel-roundtrip-${{ github.sha }}
+          path: ${{ runner.temp }}/pm4py-oracle/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Emit exact-source composition receipt
         run: |
