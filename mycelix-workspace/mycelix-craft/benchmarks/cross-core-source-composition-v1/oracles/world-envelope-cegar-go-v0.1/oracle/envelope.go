@@ -3,12 +3,13 @@
 package oracle
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
+	"io"
 	"reflect"
 	"sort"
 )
@@ -131,7 +132,7 @@ func DecodeProblem(raw []byte) (Problem, error) {
 		return Problem{}, err
 	}
 	var p Problem
-	dec := json.NewDecoder(bytesReader(raw))
+	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&p); err != nil {
 		return Problem{}, err
@@ -510,7 +511,7 @@ func Summarize(actions []string, worlds []WorldEvaluation) DecisionSummary {
 	bestLoss := make([]int64, len(worlds))
 	worldOptima := make([]map[string]struct{}, len(worlds))
 	for i, world := range worlds {
-		minimum := int64(math.MaxInt64)
+		minimum := int64(int64(^uint64(0) >> 1))
 		safe := make([]string, 0, len(ordered))
 		for _, action := range ordered {
 			if contains(world.HardViolations, action) {
@@ -527,7 +528,7 @@ func Summarize(actions []string, worlds []WorldEvaluation) DecisionSummary {
 				delete(identified, action)
 			}
 			worldOptima[i] = map[string]struct{}{}
-			bestLoss[i] = math.MaxInt64
+			bestLoss[i] = int64(^uint64(0) >> 1)
 			continue
 		}
 		bestLoss[i] = minimum
@@ -556,7 +557,7 @@ func Summarize(actions []string, worlds []WorldEvaluation) DecisionSummary {
 			if loss > maxLoss {
 				maxLoss = loss
 			}
-			if bestLoss[i] != math.MaxInt64 {
+			if bestLoss[i] != int64(^uint64(0) >> 1) {
 				regret := loss - bestLoss[i]
 				if regret > maxRegret {
 					maxRegret = regret
@@ -602,7 +603,7 @@ func findSpuriousDecisionFlip(spurious, concrete []WorldEvaluation, constraints 
 }
 
 func SummarizeWorld(world WorldEvaluation) []string {
-	best := int64(math.MaxInt64)
+	best := int64(int64(^uint64(0) >> 1))
 	for action, loss := range world.Losses {
 		if contains(world.HardViolations, action) {
 			continue
@@ -611,7 +612,7 @@ func SummarizeWorld(world WorldEvaluation) []string {
 			best = loss
 		}
 	}
-	if best == math.MaxInt64 {
+	if best == int64(^uint64(0) >> 1) {
 		return []string{}
 	}
 	result := make([]string, 0)
@@ -768,7 +769,7 @@ func minimize(candidates map[string]struct{}, metric map[string]int64) []string 
 	if len(candidates) == 0 {
 		return []string{}
 	}
-	best := int64(math.MaxInt64)
+	best := int64(int64(^uint64(0) >> 1))
 	for action := range candidates {
 		if metric[action] < best {
 			best = metric[action]
@@ -866,15 +867,77 @@ func mustDomainWorldDigest(p Problem) string {
 	return digest
 }
 
-// JSON helpers below keep the module standard-library-only and reject
-// duplicate keys and trailing values before typed decoding.
-type byteReader struct { data []byte; offset int }
-func bytesReader(data []byte) *byteReader { return &byteReader{data: data} }
-func (r *byteReader) Read(out []byte) (int, error) {
-	if r.offset >= len(r.data) { return 0, errors.New("EOF") }
-	n := copy(out, r.data[r.offset:])
-	r.offset += n
-	return n, nil
+// JSON helpers reject duplicate object keys and trailing values before typed decoding.
+func rejectDuplicateKeys(raw []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	if err := scanJSONValue(dec); err != nil {
+		return err
+	}
+	return ensureNoTrailingJSON(dec)
 }
-func rejectDuplicateKeys(raw []byte) error { return nil }
-func ensureNoTrailingJSON(dec *json.Decoder) error { return nil }
+
+func scanJSONValue(dec *json.Decoder) error {
+	token, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		seen := make(map[string]struct{})
+		for dec.More() {
+			keyToken, err := dec.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return errors.New("JSON object key is not a string")
+			}
+			if _, exists := seen[key]; exists {
+				return fmt.Errorf("duplicate JSON object key %q", key)
+			}
+			seen[key] = struct{}{}
+			if err := scanJSONValue(dec); err != nil {
+				return err
+			}
+		}
+		closeToken, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		if closeToken != json.Delim('}') {
+			return errors.New("malformed JSON object")
+		}
+	case '[':
+		for dec.More() {
+			if err := scanJSONValue(dec); err != nil {
+				return err
+			}
+		}
+		closeToken, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		if closeToken != json.Delim(']') {
+			return errors.New("malformed JSON array")
+		}
+	default:
+		return errors.New("unexpected JSON delimiter")
+	}
+	return nil
+}
+
+func ensureNoTrailingJSON(dec *json.Decoder) error {
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return errors.New("trailing JSON value")
+		}
+		return fmt.Errorf("trailing JSON or malformed bytes: %w", err)
+	}
+	return nil
+}
