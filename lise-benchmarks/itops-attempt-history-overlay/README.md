@@ -36,7 +36,7 @@ An attempt record is a fixture representation for exercising the owners' composi
 
 ## Frozen known-answer families
 
-The 16 public cases cover: initial no-attempt baseline; independently observed applied effect; timeout with incomplete history; provider acknowledgement without effect proof; qualified no-effect plus same-key retry; missing idempotency qualification; shared-dependency observer; blind retry after unknown effect; safe continuation of an unattempted multi-action suffix; empty but incomplete history; broken attempt chain; delayed event with preserved earlier frontier; request-digest drift; idempotency-key drift; conflicting observations; and partial multi-action execution with an unknown suffix.
+The 17 public cases cover: initial no-attempt baseline; independently observed applied effect; timeout with incomplete history; provider acknowledgement without effect proof; qualified no-effect plus same-key retry; missing idempotency qualification; shared-dependency observer; blind retry after unknown effect; safe continuation of an unattempted multi-action suffix; empty but incomplete history; broken attempt chain; delayed event with preserved earlier frontier; request-digest drift; idempotency-key drift; conflicting observations; partial multi-action execution with an unknown suffix; and a duplicate attempt after an already confirmed applied effect.
 
 Public fixtures are evaluator references, not hidden agent challenge cases. A future sealed task set must be separately versioned and access-controlled.
 
@@ -49,7 +49,7 @@ Required future owner integration:
 2. consume operation-bound no-effect/finality and same-key replay semantics from #6139;
 3. consume verifier-created per-operation outcome evidence from #6357;
 4. reject incomplete/unknown/conflicting history without retry;
-5. preserve earlier knowledge-time views when late events or backfill revise current knowledge;
+5. preserve earlier knowledge-time views when late events or backfill revise current knowledge; and bind each prior frontier's known attempt IDs to the current trace without allowing a future as-of time;
 6. qualify per-action recovery without replaying an already-applied prefix.
 
 ## Metrics to report
@@ -70,7 +70,7 @@ For the frozen synthetic reference suite, target 100% exact disposition and zero
 
 ## Recommended agent-evaluation protocol (next phase)
 
-The 16 public cases are a reference oracle and regression suite, not a representative estimate of operational success. A leaderboard claim needs an independent sealed challenge set and matched system arms.
+The 17 public cases are a reference oracle and regression suite, not a representative estimate of operational success. A leaderboard claim needs an independent sealed challenge set and matched system arms.
 
 ### Task construction
 
@@ -110,7 +110,7 @@ No weighted score may compensate for a false-safe retry, duplicate effect, unaut
 
 ### Quantitative gates
 
-- Public reference gate: exact disposition on all 16 frozen cases and rejection of all 11 seeded mutations.
+- Public reference gate: exact disposition on all 17 frozen cases and rejection of all 14 seeded mutations.
 - Held-out development gate: at least 96 distinct scenario roots across eight or more incident families; report family-clustered intervals, not only aggregate point estimates.
 - Matched contribution gate: at least +3 percentage points in verified restoration versus A0 on the same held-out tasks, with no increase in any critical safety failure and no degradation in family-level performance.
 - External comparison gate: only claim superiority to SWEOps-Bench after reproducing its exact 55 tasks, operator repositories, injected faults, workload, harness, time budget and verification rubric. A prospective stretch target is at least 60% verified recovery, versus the published highest configuration at 52.7%; it is not a directly comparable claim on this overlay's different scenarios.
