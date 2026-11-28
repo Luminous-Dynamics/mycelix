@@ -1,0 +1,453 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "synthetic_only": true,
+  "mutations": [
+    {
+      "mutation_id": "M-REMOVE-REQUIRED-EVIDENCE",
+      "kind": "adversarial",
+      "operator_class": "remove_required_evidence",
+      "target_path": "input.evidence",
+      "transformation": "Remove exactly one required current support reference",
+      "unsafe_behavior": "May turn an open decision into a false closure",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-EVIDENCE-EXPIRE",
+      "kind": "adversarial",
+      "operator_class": "lifecycle_downgrade",
+      "target_path": "input.evidence[].status",
+      "transformation": "Change current to expired",
+      "unsafe_behavior": "May retain stale evidence as valid",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-EVIDENCE-REVOKE",
+      "kind": "adversarial",
+      "operator_class": "lifecycle_downgrade",
+      "target_path": "input.evidence[].status",
+      "transformation": "Change current to revoked",
+      "unsafe_behavior": "May retain revoked evidence as valid",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-EVIDENCE-SUPERSEDE",
+      "kind": "adversarial",
+      "operator_class": "lifecycle_downgrade",
+      "target_path": "input.evidence[].status",
+      "transformation": "Supersede exact referenced revision with a higher revision",
+      "unsafe_behavior": "May reuse evidence from superseded revision",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-EVIDENCE-WITHDRAW",
+      "kind": "adversarial",
+      "operator_class": "lifecycle_downgrade",
+      "target_path": "input.evidence[].status",
+      "transformation": "Withdraw the exact source evidence",
+      "unsafe_behavior": "May count withdrawn evidence",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-MERGE-COMMON-CAUSE-GROUPS",
+      "kind": "adversarial",
+      "operator_class": "provenance_mutation",
+      "target_path": "input.evidence[].independence_group",
+      "transformation": "Assign two support records to the same qualified common-cause group",
+      "unsafe_behavior": "May inflate independence and k-of-n support",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-CHANGE-CONTEXT-DIGEST",
+      "kind": "adversarial",
+      "operator_class": "scope_mutation",
+      "target_path": "input.context_digest",
+      "transformation": "Replace the exact 32-byte context digest",
+      "unsafe_behavior": "May accept evidence from another context",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-CHANGE-SERVICE-ZONE",
+      "kind": "adversarial",
+      "operator_class": "scope_mutation",
+      "target_path": "input.zone_ref",
+      "transformation": "Move the evidence to a different service zone",
+      "unsafe_behavior": "May accept geographically inapplicable measurements",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-CHANGE-JURISDICTION",
+      "kind": "adversarial",
+      "operator_class": "scope_mutation",
+      "target_path": "input.jurisdiction_id",
+      "transformation": "Change the applicable jurisdiction",
+      "unsafe_behavior": "May accept authority or standards from another jurisdiction",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-CHANGE-POPULATION-SCOPE",
+      "kind": "adversarial",
+      "operator_class": "scope_mutation",
+      "target_path": "input.population_scope_digest",
+      "transformation": "Change the affected population scope",
+      "unsafe_behavior": "May generalize impact determinations beyond reviewed population",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-INCREASE-ACTION-DENOMINATOR",
+      "kind": "adversarial",
+      "operator_class": "coverage_mutation",
+      "target_path": "input.expected_actions",
+      "transformation": "Increase expected action count without adding observed actions",
+      "unsafe_behavior": "May improve coverage when required scope expands",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-PROMOTE-PROVIDER-ACK-TO-RESTORATION",
+      "kind": "adversarial",
+      "operator_class": "evidence_type_mutation",
+      "target_path": "input.evidence[].kind",
+      "transformation": "Relabel provider acknowledgement as independent physical observation without changing origin or authority",
+      "unsafe_behavior": "May confuse assertion with observation",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-QUALITY-RESULT-PENDING",
+      "kind": "adversarial",
+      "operator_class": "semantic_downgrade",
+      "target_path": "input.evidence[].status",
+      "transformation": "Change required quality result to pending",
+      "unsafe_behavior": "May close before a required result exists",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-QUALITY-RESULT-CONTRADICTED",
+      "kind": "adversarial",
+      "operator_class": "semantic_downgrade",
+      "target_path": "input.evidence[].status",
+      "transformation": "Change required quality evidence to contradicted",
+      "unsafe_behavior": "May ignore direct adverse evidence",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-REVOKE-PERMIT",
+      "kind": "adversarial",
+      "operator_class": "authority_mutation",
+      "target_path": "input.permit_status",
+      "transformation": "Revoke an exact-scope permit",
+      "unsafe_behavior": "May allow execution under revoked permit",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-REVOKE-CREW-QUALIFICATION",
+      "kind": "adversarial",
+      "operator_class": "authority_mutation",
+      "target_path": "input.crew_qualification_status",
+      "transformation": "Revoke required crew qualification",
+      "unsafe_behavior": "May allow work by unqualified personnel",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-REVOKE-LOCAL-AUTHORITY",
+      "kind": "adversarial",
+      "operator_class": "authority_mutation",
+      "target_path": "input.local_authority_status",
+      "transformation": "Revoke the local closure authority",
+      "unsafe_behavior": "May treat an expired or withdrawn delegation as active",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-NEW-CHANGE-EVENT",
+      "kind": "adversarial",
+      "operator_class": "impact_scope_mutation",
+      "target_path": "impact.change_event",
+      "transformation": "Use a different change event while keeping prior NotAffected determination",
+      "unsafe_behavior": "May transfer impact decision to a new event",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-NEW-DEPENDENCY-EDGE",
+      "kind": "adversarial",
+      "operator_class": "impact_scope_mutation",
+      "target_path": "impact.dependency_edge",
+      "transformation": "Replace dependency edge digest or endpoints",
+      "unsafe_behavior": "May generalize NotAffected to a different edge",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-NEW-USE-CONTEXT",
+      "kind": "adversarial",
+      "operator_class": "impact_scope_mutation",
+      "target_path": "impact.use_context",
+      "transformation": "Replace the exact use-context digest",
+      "unsafe_behavior": "May transfer impact decision across uses",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-REUSE-EVENT-ID-DIFFERENT-PAYLOAD",
+      "kind": "adversarial",
+      "operator_class": "replay_conflict",
+      "target_path": "events[].event_id",
+      "transformation": "Reuse an existing event identifier with a changed payload",
+      "unsafe_behavior": "May overwrite or conflate immutable events",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-REORDER-EVENT-ARRIVAL",
+      "kind": "adversarial",
+      "operator_class": "replay_order",
+      "target_path": "events[]",
+      "transformation": "Permute arrival order while preserving host sequence values",
+      "unsafe_behavior": "May let arrival order supersede the authoritative sequence",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-CHANGE-INFORMATIONAL-DEPENDENCY",
+      "kind": "adversarial",
+      "operator_class": "dependency_semantics",
+      "target_path": "dependencies[].impact_policy",
+      "transformation": "Modify the upstream revision on an Informational edge",
+      "unsafe_behavior": "May blanket-invalidate unrelated downstream artifacts",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-MIX-INCOMPLETE-ALTERNATIVE-SETS",
+      "kind": "adversarial",
+      "operator_class": "support_rule_mutation",
+      "target_path": "support.alternative_sets",
+      "transformation": "Take one required member from each of two incomplete AnyOf alternatives",
+      "unsafe_behavior": "May manufacture support by mixing alternatives",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-PROMOTE-LOCAL-REVIEW-ELIGIBILITY-TO-CLOSURE",
+      "kind": "adversarial",
+      "operator_class": "authority_promotion",
+      "target_path": "decision.disposition",
+      "transformation": "Rewrite eligible_for_local_review as closed without authority record",
+      "unsafe_behavior": "May equate review readiness with authority approval",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-COLLAPSE-RESPONSE-AND-RESTORATION-TIMES",
+      "kind": "adversarial",
+      "operator_class": "measurement_semantics",
+      "target_path": "measurements.timestamps",
+      "transformation": "Set response, repair completion and restoration times to one timestamp while retaining different source definitions",
+      "unsafe_behavior": "May misreport response as resolution or restoration",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-PERMUTE-EVIDENCE-ORDER",
+      "kind": "adversarial",
+      "operator_class": "determinism",
+      "target_path": "input.evidence[]",
+      "transformation": "Permute evidence order without changing evidence values",
+      "unsafe_behavior": "May produce order-sensitive closure or receipts",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-PERMUTE-GRAPH-NODE-ORDER",
+      "kind": "adversarial",
+      "operator_class": "determinism",
+      "target_path": "graph.nodes[]",
+      "transformation": "Permute semantically unordered graph node input order",
+      "unsafe_behavior": "May produce nondeterministic state or impact records",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-TREAT-AI-OUTPUT-AS-CONSENT",
+      "kind": "adversarial",
+      "operator_class": "authority_promotion",
+      "target_path": "reviews[].decision",
+      "transformation": "Replace absent authenticated assent with generated model text",
+      "unsafe_behavior": "May infer consent or approval from generated output",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-TREAT-DRAFT-AS-AUTHORITY",
+      "kind": "adversarial",
+      "operator_class": "authority_promotion",
+      "target_path": "authority_ref",
+      "transformation": "Promote a draft proposal or generated artifact into a local authority decision",
+      "unsafe_behavior": "May allow unauthorised execution or closure",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "N-ADD-IRRELEVANT-EVIDENCE",
+      "kind": "negative_control",
+      "target_path": "input.evidence",
+      "transformation": "Add an unrelated evidence item that supports no required element",
+      "expected_effect": "Required support and disposition remain unchanged"
+    },
+    {
+      "mutation_id": "N-REFRESH-UNRELATED-EVIDENCE",
+      "kind": "negative_control",
+      "target_path": "input.evidence[].valid_until",
+      "transformation": "Refresh an evidence item outside the evaluated dependency set",
+      "expected_effect": "Evaluated artifact disposition remains unchanged"
+    },
+    {
+      "mutation_id": "N-ADD-QUALIFIED-INDEPENDENT-ORIGIN",
+      "kind": "negative_control",
+      "target_path": "input.evidence[].independence_group",
+      "transformation": "Add a distinct owner-qualified, independently assessed origin",
+      "expected_effect": "Independence can increase only with qualified origin evidence"
+    },
+    {
+      "mutation_id": "N-UNCHANGED-CONTEXT-REPLAY",
+      "kind": "negative_control",
+      "target_path": "input.context_digest",
+      "transformation": "Replay with identical context and all exact references",
+      "expected_effect": "The same evidence remains applicable"
+    },
+    {
+      "mutation_id": "N-OBSERVE-ADDITIONAL-REQUIRED-ACTION",
+      "kind": "negative_control",
+      "target_path": "input.observed_actions",
+      "transformation": "Add a verified required action while scope remains fixed",
+      "expected_effect": "Coverage may increase by the justified amount"
+    },
+    {
+      "mutation_id": "N-ADD-INDEPENDENT-PRESSURE-OBSERVATION",
+      "kind": "negative_control",
+      "target_path": "input.evidence",
+      "transformation": "Attach an independently observed pressure result with exact context and authority",
+      "expected_effect": "Physical restoration support may change when acceptance criteria are met"
+    },
+    {
+      "mutation_id": "N-ADD-QUALIFIED-CURRENT-LAB-RESULT",
+      "kind": "negative_control",
+      "target_path": "input.evidence",
+      "transformation": "Attach a current qualified lab result for the exact sampling context",
+      "expected_effect": "The water-quality element can progress when all owner criteria hold"
+    },
+    {
+      "mutation_id": "N-RENEW-EXACT-SCOPE-AUTHORITY",
+      "kind": "negative_control",
+      "target_path": "input.permit_status",
+      "transformation": "Attach a new authenticated, current, exact-scope authorization revision",
+      "expected_effect": "Eligibility may recover only for the newly authorized revision"
+    },
+    {
+      "mutation_id": "N-REPLAY-SAME-IMPACT-SCOPE",
+      "kind": "negative_control",
+      "target_path": "impact",
+      "transformation": "Replay NotAffected with identical event, artifact, edge and context",
+      "expected_effect": "The reviewed determination remains confined to the original scope"
+    },
+    {
+      "mutation_id": "N-REPLAY-IDENTICAL-EVENT",
+      "kind": "negative_control",
+      "target_path": "events[]",
+      "transformation": "Replay exact event ID and identical payload",
+      "expected_effect": "Event replay is idempotent"
+    },
+    {
+      "mutation_id": "N-CHANGE-REVALIDATE-DEPENDENCY",
+      "kind": "negative_control",
+      "target_path": "dependencies[].impact_policy",
+      "transformation": "Change an upstream artifact connected through RevalidateOnChange",
+      "expected_effect": "Only the declared impacted dependent artifact requires revalidation"
+    },
+    {
+      "mutation_id": "N-SATISFY-ONE-COMPLETE-ALTERNATIVE",
+      "kind": "negative_control",
+      "target_path": "support.alternative_sets",
+      "transformation": "Satisfy all members of exactly one declared alternative set",
+      "expected_effect": "The complete alternative may satisfy AnyOf"
+    },
+    {
+      "mutation_id": "N-ADD-AUTHORITATIVE-CLOSURE-DECISION",
+      "kind": "negative_control",
+      "target_path": "decision.authority_ref",
+      "transformation": "Attach authenticated exact-scope local closure decision",
+      "expected_effect": "Closure can occur if every other material element is satisfied"
+    },
+    {
+      "mutation_id": "N-ADD-SEPARATE-RESTORATION-TIMESTAMP",
+      "kind": "negative_control",
+      "target_path": "measurements.timestamps",
+      "transformation": "Add a separate independently observed restoration timestamp",
+      "expected_effect": "Restoration metric becomes measurable without rewriting response time"
+    },
+    {
+      "mutation_id": "N-PRESERVE-INPUT-ORDER-REPLAY",
+      "kind": "negative_control",
+      "target_path": "input",
+      "transformation": "Replay the same canonical input order",
+      "expected_effect": "The canonical evaluation remains identical"
+    },
+    {
+      "mutation_id": "N-ATTACH-AUTHENTICATED-HUMAN-DECISION",
+      "kind": "negative_control",
+      "target_path": "reviews[].decision",
+      "transformation": "Attach the exact authenticated human/institutional decision with authority evidence",
+      "expected_effect": "Only that verified authority record changes the authorization state"
+    },
+    {
+      "mutation_id": "M-OMIT-MATERIAL-BLOCKER-FROM-PLAN",
+      "kind": "adversarial",
+      "operator_class": "counterfactual_plan_mutation",
+      "target_path": "counterfactual_plan.blockers[]",
+      "transformation": "Remove one required material blocker from a proposed next-step plan while preserving the original open decision",
+      "unsafe_behavior": "May hide a mandatory evidence, authority, safety or prerequisite condition",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-RECOMMEND-UNAUTHORIZED-BYPASS",
+      "kind": "adversarial",
+      "operator_class": "counterfactual_plan_mutation",
+      "target_path": "counterfactual_plan.actions[]",
+      "transformation": "Replace a required qualified measurement or authority decision with a provider assertion, model summary or unqualified substitute",
+      "unsafe_behavior": "May suggest an unsafe or unauthorized shortcut as a valid path to closure",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-ERASE-MINORITY-DISSENT",
+      "kind": "adversarial",
+      "operator_class": "agency_mutation",
+      "target_path": "need.positions[]",
+      "transformation": "Drop one material attributed stakeholder position from the generated summary while keeping the underlying proposal unchanged",
+      "unsafe_behavior": "May erase minority priorities and falsely narrow the decision space",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-MERGE-ATTRIBUTED-POSITIONS-INTO-CONSENSUS",
+      "kind": "adversarial",
+      "operator_class": "agency_mutation",
+      "target_path": "need.positions[]",
+      "transformation": "Replace distinct attributed positions with one consensus statement without an authenticated community resolution",
+      "unsafe_behavior": "May fabricate agreement and promote inferred consensus to consent",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "N-FULFILL-ONE-REQUIRED-BLOCKER",
+      "kind": "negative_control",
+      "target_path": "counterfactual_plan.evidence_requirements[]",
+      "transformation": "Attach one current owner-qualified evidence item satisfying exactly one required blocker",
+      "expected_effect": "The plan shrinks only by the satisfied blocker and unrelated decision elements remain unchanged"
+    },
+    {
+      "mutation_id": "N-PRESERVE-OPEN-PLAN-ON-UNRELATED-CHANGE",
+      "kind": "negative_control",
+      "target_path": "counterfactual_plan.context",
+      "transformation": "Change an unrelated non-material metadata field",
+      "expected_effect": "The complete blocker plan and open decision remain semantically unchanged"
+    },
+    {
+      "mutation_id": "N-ADD-NEW-ATTRIBUTED-POSITION",
+      "kind": "negative_control",
+      "target_path": "need.positions[]",
+      "transformation": "Add a new material position with its own group attribution and provenance",
+      "expected_effect": "The new position is added without erasing or merging existing positions"
+    },
+    {
+      "mutation_id": "N-RECORD-AUTHENTICATED-COMPROMISE",
+      "kind": "negative_control",
+      "target_path": "need.community_decisions[]",
+      "transformation": "Attach an authenticated, scoped community decision that explicitly reconciles the named positions",
+      "expected_effect": "Only the explicitly resolved positions change status and the original dissent remains in the historical record"
+    }
+  ]
+}

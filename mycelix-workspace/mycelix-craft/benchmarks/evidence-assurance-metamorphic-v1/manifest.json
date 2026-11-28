@@ -1,0 +1,30 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "version": "1.0.0-draft",
+  "issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6775",
+  "date": "2026-11-27",
+  "data_classification": "synthetic-only",
+  "no_real_personal_data": true,
+  "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+  "source_cases": 16,
+  "relation_count": 18,
+  "adversarial_operator_count": 34,
+  "negative_control_count": 20,
+  "digest_semantics": "All seed records are synthetic. WSR seeds reference synthetic WSR corpus case IDs; the NIV1 dissent seed is a benchmark-authored synthetic scenario. Any digest used by a future adapter must be recomputed from exact fixture bytes; shape-only placeholders are never commitments.",
+  "execution_status": "protocol-and-structural-validation-only",
+  "prohibited_claims": [
+    "production evaluator execution",
+    "real municipal data access",
+    "regulatory compliance",
+    "real-world service improvement",
+    "SOTA performance",
+    "source independence inferred from identifiers"
+  ],
+  "scorecard_metric_count": 17,
+  "comparator_count": 9,
+  "seed_count": 10,
+  "source_benchmarks": [
+    "CRAFT-WATER-SERVICE-REPAIR-V1",
+    "CRAFT-NEED-INTAKE-V1"
+  ]
+}

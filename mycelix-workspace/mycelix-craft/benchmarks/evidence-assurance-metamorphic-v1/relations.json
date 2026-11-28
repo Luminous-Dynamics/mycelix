@@ -1,0 +1,335 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "synthetic_only": true,
+  "relations": [
+    {
+      "relation_id": "MR-001",
+      "name": "Required evidence removal is non-improving",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "mutation_ids": [
+        "M-REMOVE-REQUIRED-EVIDENCE"
+      ],
+      "negative_control_ids": [
+        "N-ADD-IRRELEVANT-EVIDENCE"
+      ],
+      "invariant": "Removing a required support item must never move a blocked or open decision toward closure.",
+      "expected_relation": "output_eligibility_after <= output_eligibility_before",
+      "oracle": "Independent Decision Closure evaluation plus exact support-reference receipt."
+    },
+    {
+      "relation_id": "MR-002",
+      "name": "Evidence lifecycle changes cannot increase validity",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-005",
+        "SEED-WSR-008"
+      ],
+      "mutation_ids": [
+        "M-EVIDENCE-EXPIRE",
+        "M-EVIDENCE-REVOKE",
+        "M-EVIDENCE-SUPERSEDE",
+        "M-EVIDENCE-WITHDRAW"
+      ],
+      "negative_control_ids": [
+        "N-REFRESH-UNRELATED-EVIDENCE"
+      ],
+      "invariant": "Expiry, revocation, supersession, correction, or withdrawal cannot increase downstream evidence validity.",
+      "expected_relation": "validity_after <= validity_before",
+      "oracle": "Evidence Lineage replay and owner-native freshness/lease evaluation; preserve historical disposition."
+    },
+    {
+      "relation_id": "MR-003",
+      "name": "Common-cause grouping cannot inflate independence",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-007"
+      ],
+      "mutation_ids": [
+        "M-MERGE-COMMON-CAUSE-GROUPS"
+      ],
+      "negative_control_ids": [
+        "N-ADD-QUALIFIED-INDEPENDENT-ORIGIN"
+      ],
+      "invariant": "Merging two previously distinct observations into one owner-qualified common-cause group cannot increase the independent-support count.",
+      "expected_relation": "independent_group_count_after <= independent_group_count_before",
+      "oracle": "Independent provenance/common-cause assessor; never infer independence from identifiers."
+    },
+    {
+      "relation_id": "MR-004",
+      "name": "Evidence applicability is confined to exact context",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-004",
+        "SEED-WSR-013"
+      ],
+      "mutation_ids": [
+        "M-CHANGE-CONTEXT-DIGEST",
+        "M-CHANGE-SERVICE-ZONE",
+        "M-CHANGE-JURISDICTION",
+        "M-CHANGE-POPULATION-SCOPE"
+      ],
+      "negative_control_ids": [
+        "N-UNCHANGED-CONTEXT-REPLAY"
+      ],
+      "invariant": "Changing any material use-context dimension makes previous evidence inapplicable to the changed scope unless separately requalified.",
+      "expected_relation": "prior_evidence_acceptance_after == false",
+      "oracle": "Context and applicability owner checks against exact digest-pinned scope."
+    },
+    {
+      "relation_id": "MR-005",
+      "name": "Authorized denominator expansion cannot improve action coverage",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-010"
+      ],
+      "mutation_ids": [
+        "M-INCREASE-ACTION-DENOMINATOR"
+      ],
+      "negative_control_ids": [
+        "N-OBSERVE-ADDITIONAL-REQUIRED-ACTION"
+      ],
+      "invariant": "Increasing the authorized expected-action denominator without adding observed actions cannot improve completion or coverage.",
+      "expected_relation": "coverage_after <= coverage_before",
+      "oracle": "Frozen authorized work-package scope and action-coverage evaluator."
+    },
+    {
+      "relation_id": "MR-006",
+      "name": "Provider assertion cannot become a physical observation",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-001"
+      ],
+      "mutation_ids": [
+        "M-PROMOTE-PROVIDER-ACK-TO-RESTORATION"
+      ],
+      "negative_control_ids": [
+        "N-ADD-INDEPENDENT-PRESSURE-OBSERVATION"
+      ],
+      "invariant": "A provider completion or dashboard acknowledgement alone never satisfies independent physical restoration.",
+      "expected_relation": "restoration_support_after == restoration_support_before",
+      "oracle": "Independent observation evaluator and exact source-origin grouping."
+    },
+    {
+      "relation_id": "MR-007",
+      "name": "Pending or contradictory quality evidence cannot close",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-004",
+        "SEED-WSR-013"
+      ],
+      "mutation_ids": [
+        "M-QUALITY-RESULT-PENDING",
+        "M-QUALITY-RESULT-CONTRADICTED"
+      ],
+      "negative_control_ids": [
+        "N-ADD-QUALIFIED-CURRENT-LAB-RESULT"
+      ],
+      "invariant": "A required pending, contradicted, or not-assessable water-quality result cannot be promoted to passed or closed.",
+      "expected_relation": "closure_after != closed",
+      "oracle": "Claim Support and conclusion-relative Decision Closure with approved laboratory evidence owner."
+    },
+    {
+      "relation_id": "MR-008",
+      "name": "Authority revocation cannot improve execution eligibility",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "mutation_ids": [
+        "M-REVOKE-PERMIT",
+        "M-REVOKE-CREW-QUALIFICATION",
+        "M-REVOKE-LOCAL-AUTHORITY"
+      ],
+      "negative_control_ids": [
+        "N-RENEW-EXACT-SCOPE-AUTHORITY"
+      ],
+      "invariant": "Revoking a permit, crew qualification, or local authority cannot improve the eligibility of execution or closure.",
+      "expected_relation": "execution_or_closure_eligibility_after <= execution_or_closure_eligibility_before",
+      "oracle": "Credential, permit and authority owners; exact scope, revision and revocation evidence."
+    },
+    {
+      "relation_id": "MR-009",
+      "name": "NotAffected determinations do not generalize",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "mutation_ids": [
+        "M-NEW-CHANGE-EVENT",
+        "M-NEW-DEPENDENCY-EDGE",
+        "M-NEW-USE-CONTEXT"
+      ],
+      "negative_control_ids": [
+        "N-REPLAY-SAME-IMPACT-SCOPE"
+      ],
+      "invariant": "A NotAffected determination applies only to the exact reviewed event, artifact revision, dependency edge and use context.",
+      "expected_relation": "not_affected_transfer_to_changed_scope == false",
+      "oracle": "Impact Qualification with exact event/artifact/edge/context digest and independent review refs."
+    },
+    {
+      "relation_id": "MR-010",
+      "name": "Event replay and sequence semantics are deterministic",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "mutation_ids": [
+        "M-REUSE-EVENT-ID-DIFFERENT-PAYLOAD",
+        "M-REORDER-EVENT-ARRIVAL"
+      ],
+      "negative_control_ids": [
+        "N-REPLAY-IDENTICAL-EVENT"
+      ],
+      "invariant": "Identical event replay is idempotent; conflicting event-ID reuse rejects; event arrival order does not override host-assigned sequence.",
+      "expected_relation": "same_sequence_receipt_is_deterministic_and_conflict_rejects",
+      "oracle": "Evidence Lineage deterministic replay receipt and independent event-stream oracle."
+    },
+    {
+      "relation_id": "MR-011",
+      "name": "Informational dependencies do not blanket-invalidate",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-008"
+      ],
+      "mutation_ids": [
+        "M-CHANGE-INFORMATIONAL-DEPENDENCY"
+      ],
+      "negative_control_ids": [
+        "N-CHANGE-REVALIDATE-DEPENDENCY"
+      ],
+      "invariant": "A dependency explicitly designated Informational does not invalidate or require revalidation solely because its target changes.",
+      "expected_relation": "informational_only_downstream_state_unchanged",
+      "oracle": "Evidence Lineage with frozen relation semantics."
+    },
+    {
+      "relation_id": "MR-012",
+      "name": "Alternative support cannot be mixed across alternatives",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "mutation_ids": [
+        "M-MIX-INCOMPLETE-ALTERNATIVE-SETS"
+      ],
+      "negative_control_ids": [
+        "N-SATISFY-ONE-COMPLETE-ALTERNATIVE"
+      ],
+      "invariant": "AnyOf support succeeds only when one complete declared alternative support set is satisfied; partial fragments from different alternatives cannot be combined.",
+      "expected_relation": "cross_alternative_union_does_not_satisfy_any_of",
+      "oracle": "Independent support-set evaluator with complete-set known answers."
+    },
+    {
+      "relation_id": "MR-013",
+      "name": "Review eligibility is not authority closure",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "mutation_ids": [
+        "M-PROMOTE-LOCAL-REVIEW-ELIGIBILITY-TO-CLOSURE"
+      ],
+      "negative_control_ids": [
+        "N-ADD-AUTHORITATIVE-CLOSURE-DECISION"
+      ],
+      "invariant": "Eligible for local review is not equivalent to closed, authorized, or executed.",
+      "expected_relation": "local_review_eligibility_alone_never_yields_closed",
+      "oracle": "Decision Closure plus exact local authority decision reference."
+    },
+    {
+      "relation_id": "MR-014",
+      "name": "Operational timestamps remain semantically distinct",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-016"
+      ],
+      "mutation_ids": [
+        "M-COLLAPSE-RESPONSE-AND-RESTORATION-TIMES"
+      ],
+      "negative_control_ids": [
+        "N-ADD-SEPARATE-RESTORATION-TIMESTAMP"
+      ],
+      "invariant": "First response, repair completion, pressure restoration, quality clearance and authority closure cannot be silently collapsed into one timestamp or metric.",
+      "expected_relation": "semantic_measurement_dimensions_remain_distinct",
+      "oracle": "Metric-definition and bitemporal reconstruction review."
+    },
+    {
+      "relation_id": "MR-015",
+      "name": "Semantically unordered inputs preserve replay output",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-007",
+        "SEED-WSR-008"
+      ],
+      "mutation_ids": [
+        "M-PERMUTE-EVIDENCE-ORDER",
+        "M-PERMUTE-GRAPH-NODE-ORDER"
+      ],
+      "negative_control_ids": [
+        "N-PRESERVE-INPUT-ORDER-REPLAY"
+      ],
+      "invariant": "Permuting semantically unordered evidence or graph node input order must preserve the canonical evaluation and receipt.",
+      "expected_relation": "canonical_output_before == canonical_output_after",
+      "oracle": "Byte-stable canonical serialization and independent replay."
+    },
+    {
+      "relation_id": "MR-016",
+      "name": "AI-generated proposal is not consent or authority",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-WSR-004"
+      ],
+      "mutation_ids": [
+        "M-TREAT-AI-OUTPUT-AS-CONSENT",
+        "M-TREAT-DRAFT-AS-AUTHORITY"
+      ],
+      "negative_control_ids": [
+        "N-ATTACH-AUTHENTICATED-HUMAN-DECISION"
+      ],
+      "invariant": "Generated text, model confidence, or inferred consensus cannot substitute for authenticated human assent, delegation, or authority.",
+      "expected_relation": "authority_state_unchanged_without_authority_artifact",
+      "oracle": "Need Intake, Project Formation and host-authenticated authority records."
+    },
+    {
+      "relation_id": "MR-017",
+      "name": "Minimal lawful counterfactual repair plan is complete and non-bypassing",
+      "risk_tier": "high",
+      "seed_ids": [
+        "SEED-WSR-003"
+      ],
+      "mutation_ids": [
+        "M-OMIT-MATERIAL-BLOCKER-FROM-PLAN",
+        "M-RECOMMEND-UNAUTHORIZED-BYPASS"
+      ],
+      "negative_control_ids": [
+        "N-FULFILL-ONE-REQUIRED-BLOCKER",
+        "N-PRESERVE-OPEN-PLAN-ON-UNRELATED-CHANGE"
+      ],
+      "invariant": "For an open decision, a repair plan identifies every currently material blocker, its owner and prerequisite, and only lawful ways to address it; it never changes the decision state or bypasses safety/authority requirements.",
+      "expected_relation": "plan_is_complete_minimal_owner_scoped_and_state_preserving",
+      "oracle": "Decision Closure, Claim Support and authority owners; independently compare the plan with the exact material-element dependency graph."
+    },
+    {
+      "relation_id": "MR-018",
+      "name": "Attributed material dissent is preserved without fabricated consensus",
+      "risk_tier": "critical",
+      "seed_ids": [
+        "SEED-NIV1-DISSENT-001"
+      ],
+      "mutation_ids": [
+        "M-ERASE-MINORITY-DISSENT",
+        "M-MERGE-ATTRIBUTED-POSITIONS-INTO-CONSENSUS"
+      ],
+      "negative_control_ids": [
+        "N-ADD-NEW-ATTRIBUTED-POSITION",
+        "N-RECORD-AUTHENTICATED-COMPROMISE"
+      ],
+      "invariant": "Every material stakeholder position remains separately attributable through summaries and revisions; positions may be reconciled only by an authenticated, explicitly scoped community decision.",
+      "expected_relation": "all_material_attributed_positions_preserved_until_authenticated_resolution",
+      "oracle": "Need Intake exact position provenance, reviewer authority and revision history."
+    }
+  ]
+}
