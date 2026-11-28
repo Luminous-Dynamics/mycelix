@@ -757,8 +757,23 @@
               },
               "full_incremental_outputs_identical": {
                 "const": true
+              },
+              "positive_control_total": {
+                "minimum": 1
+              },
+              "hard_negative_total": {
+                "minimum": 1
+              },
+              "safety_mutant_total": {
+                "minimum": 1
+              },
+              "canonicalization_vector_total": {
+                "minimum": 1
               }
             }
+          },
+          "run_class": {
+            "const": "qualification"
           }
         }
       }
