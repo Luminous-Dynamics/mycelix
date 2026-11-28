@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/execution_transcript.go"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/execution_transcript_test.go"
+      - "tools/economic/temporal-hindsight/reference/oraclereceipts/ORACLE_IVC_ADVICE_VECTORS_V1.txt"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/EXECUTION_TRANSCRIPT_V0_1.md"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution*"
       - ".github/workflows/temporal-oracle-ivc-transcript.yml"
@@ -13,6 +14,7 @@ on:
     paths:
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/execution_transcript.go"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/execution_transcript_test.go"
+      - "tools/economic/temporal-hindsight/reference/oraclereceipts/ORACLE_IVC_ADVICE_VECTORS_V1.txt"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/EXECUTION_TRANSCRIPT_V0_1.md"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution*"
       - ".github/workflows/temporal-oracle-ivc-transcript.yml"
