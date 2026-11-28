@@ -42,6 +42,7 @@ Report each profile independently. NotEvaluated, UnsupportedByProfile, and Indet
 ### Research snapshot (28 November 2026)
 
 - **SCITT:** RFC 9943 is a Proposed Standard architecture for trustworthy and transparent digital supply chains; RFC 9942 defines COSE Receipts. The SCITT MMR receipt profile draft-ietf-scitt-receipts-mmr-profile-00 was published 21 November 2026 and is an Internet-Draft, not an RFC. Treat draft fields and APIs as versioned inputs, not stable normative guarantees.
+- **Receipt and action-join caution:** the MMR profile's published text says that a non-empty inclusion path binds the node index, but an empty path (a peak) needs a verifier-held tree size and accumulator to pin the index; its detached payload is recomputed from the proof. An independent, informational SCITT decision-provenance Internet-Draft (-03, 17 November 2026; not a WG standard or endorsement) also documents why a receipt alone may not authenticate every tree-size/index field, and why approval, exact action parameters, occurrence identity, target observation and independently trusted outcome must be joined field-by-field. Treat it as a useful adversarial-design input, not normative authority.
 - **VeriTS:** the 28 August 2026 arXiv paper reports more than two orders of magnitude better verification efficiency for windowed aggregation versus per-record proofs and range-query proofs up to 14.5x smaller. These are paper-reported component results, not DJCC results; reproduce only on matching workloads.
 - **VTRQ:** the 21 August 2026 paper targets verifiable spatio-temporal trajectory range queries with separate spatial and temporal authenticated structures. Use it for the query primitive, not as an end-to-end decision-composition baseline.
 - **Cedar:** its verification-guided development combines executable formal models/proofs with differential random and property-based tests against production Rust. DJCC should adopt that discipline for its own composition model rather than duplicate Cedar's policy engine.
@@ -51,6 +52,7 @@ Sources:
 - RFC 9943 / SCITT status: https://datatracker.ietf.org/doc/html/rfc9943 and https://datatracker.ietf.org/group/scitt/documents/
 - RFC 9942: https://datatracker.ietf.org/doc/html/rfc9942
 - SCITT MMR profile: https://datatracker.ietf.org/doc/html/draft-ietf-scitt-receipts-mmr-profile-00
+- SCITT decision-provenance discussion draft (informational, independent): https://rsync.nic.funet.fi/pub/doc/netinfo/internet-drafts/draft-lemonnier-scitt-decision-provenance-03.html
 - VeriTS: https://arxiv.org/abs/2608.28318
 - VTRQ: https://arxiv.org/abs/2608.21314
 - Cedar specification and differential testing: https://github.com/cedar-policy/cedar-spec
@@ -115,6 +117,8 @@ The initial frozen corpus must cover at least these classes; each needs a positi
 26. Correction-impact overreach into unrelated decisions.
 27. Historical replay leakage from later policy or trust state.
 28. Compound fault: one valid proof plus one incomplete owner universe plus one shared failure domain.
+29. MMR peak inclusion with an empty path but no verifier-pinned tree size/accumulator.
+30. Locally valid approval and execution receipts whose authenticated action/amount/target/occurrence joins disagree.
 
 A corpus entry is not executable until the actual bytes and digest are checked into the fixture corpus and consumed by both the candidate and independent oracle. Keep expected results outside the candidate implementation.
 
