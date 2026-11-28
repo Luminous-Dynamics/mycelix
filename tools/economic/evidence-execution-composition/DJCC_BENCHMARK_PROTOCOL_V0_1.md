@@ -39,6 +39,18 @@ Report each profile independently. NotEvaluated, UnsupportedByProfile, and Indet
 | Transparency and receipts | RFC 9943 SCITT architecture; RFC 9942 COSE Receipts; RFC 9162; current SCITT MMR and CCF profiles | Same signed statements, verifier-pinned checkpoints, inclusion/consistency task and trust assumptions |
 | End-to-end composition | Baseline pipeline assembled from the above owners without DJCC composition checks | Same owner outputs, scope, frontier, policy epoch, action denominator and outcome observations |
 
+## 3A. Existing Mycelix owners and matched benchmark lanes
+
+DJCC should compose existing owners rather than clone their semantics:
+
+- [#6170 LARP agent-authorization/effect benchmark](https://github.com/Luminous-Dynamics/mycelix/issues/6170) owns agent task/authorization/effect matched evaluation, with separate task success, authority and realized-effect outcomes. Reuse its matched Cedar/OPA and held-out action-effect methodology; do not claim DJCC improves the agent-authorization rate.
+- [#6189 effect-boundary interposition](https://github.com/Luminous-Dynamics/mycelix/issues/6189) is the enforcement-time control. DJCC is a post-hoc composition verifier and must not be described as blocking effects merely because its certificate rejects them.
+- [#830 AGENT-010 offline independent reconstruction](https://github.com/Luminous-Dynamics/mycelix/issues/830) is the natural consumer for a bounded, content-addressed evidence package and dimension-preserving verification report. Integration must preserve its rule that a report is not a runtime authority capability.
+- [#6816 execution transcript](https://github.com/Luminous-Dynamics/mycelix/pull/6816) owns state/proof/frontier replay and unknown-outcome reconciliation; [#6819 immutable action denominator](https://github.com/Luminous-Dynamics/mycelix/pull/6819) owns the canonical authority-bound action set. DJCC consumes their versioned outputs and exact digests; it does not replace their domain invariants.
+- [#6530 SCITT adapter](https://github.com/Luminous-Dynamics/mycelix/issues/6530), [#6810 checkpoint trust bridge](https://github.com/Luminous-Dynamics/mycelix/issues/6810), and [#5942 split-view defense](https://github.com/Luminous-Dynamics/mycelix/issues/5942) remain the owners for receipt, checkpoint and witness trust.
+
+The benchmark should include **integration rows** that use the exact owner outputs from these tracks. A mismatch between a valid action approval and a different executed operation is a DJCC composition failure only when each owner’s own local checks pass but the cross-owner join fails. A local owner's own failure remains attributed to that owner. This prevents double-counting bugs and prevents DJCC from claiming to own controls it does not enforce.
+
 ### Research snapshot (28 November 2026)
 
 - **SCITT:** RFC 9943 is a Proposed Standard architecture for trustworthy and transparent digital supply chains; RFC 9942 defines COSE Receipts. The SCITT MMR receipt profile draft-ietf-scitt-receipts-mmr-profile-00 was published 21 November 2026 and is an Internet-Draft, not an RFC. Treat draft fields and APIs as versioned inputs, not stable normative guarantees.
