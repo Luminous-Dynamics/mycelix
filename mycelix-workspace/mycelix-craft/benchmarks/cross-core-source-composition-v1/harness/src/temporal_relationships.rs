@@ -229,7 +229,8 @@ fn validate_mutation(
     if mutation.source_digest == [0; 32] || mutation.target_claim_digest == [0; 32] {
         return Err(TemporalRelationshipErrorV1::ZeroSourceDigest);
     }
-    if !valid_utc_second(&mutation.effective_at) || !valid_utc_second(&mutation.source_recorded_at) {
+    if !valid_utc_second(&mutation.effective_at) || !valid_utc_second(&mutation.source_recorded_at)
+    {
         return Err(TemporalRelationshipErrorV1::InvalidUtcTimestamp);
     }
     match mutation.kind {
