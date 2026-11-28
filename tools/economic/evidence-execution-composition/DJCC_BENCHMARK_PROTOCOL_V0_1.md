@@ -104,7 +104,7 @@ Use a pairwise covering design for broad performance exploration, then exhaustiv
 
 ## 5. Minimum adversarial corpus
 
-The initial frozen corpus must cover at least these classes; each needs a positive control, a negative control, an explicit mutation operator, expected stage/root dispositions, and claim ceilings:
+The initial frozen corpus must cover at least these 30 classes. Every class needs a distinct executable positive-control fixture and a distinct executable hard-negative fixture, an explicit mutation operator, expected stage/root dispositions, and claim ceilings. A qualification corpus therefore contains at least 60 executable fixture cases, zero symbolic fixtures, a frozen fixture-set digest, and a separately versioned/digested independent oracle. The result record must enumerate the class IDs and enumerate the exact same class set for positive and hard-negative controls; counts alone are insufficient.
 
 1. Valid positive decision.
 2. Unauthenticated source or caller-selected root.
