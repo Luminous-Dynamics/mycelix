@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/craft-robust-evsi-v0.1.json",
+  "title": "Craft Robust EVSI Model Ambiguity Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "model_set_id",
+    "model_set_admissible",
+    "coverage_established",
+    "safe_actions",
+    "actions",
+    "models",
+    "observation_cost",
+    "observation_available",
+    "observation_in_domain",
+    "observation_admissible",
+    "mandatory_evidence_open"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_set_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_set_admissible": {
+      "type": "boolean"
+    },
+    "coverage_established": {
+      "type": "boolean"
+    },
+    "safe_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "loss_by_state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "loss_by_state": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "states",
+          "likelihood_by_state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "states": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "probability"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "probability": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "likelihood_by_state": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "observation_cost": {
+      "type": "number",
+      "minimum": 0
+    },
+    "observation_available": {
+      "type": "boolean"
+    },
+    "observation_in_domain": {
+      "type": "boolean"
+    },
+    "observation_admissible": {
+      "type": "boolean"
+    },
+    "mandatory_evidence_open": {
+      "type": "boolean"
+    }
+  }
+}
