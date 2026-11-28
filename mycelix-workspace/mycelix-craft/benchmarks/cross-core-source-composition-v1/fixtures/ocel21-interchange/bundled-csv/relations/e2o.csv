@@ -1,6 +1,0 @@
-ocel_event_id,ocel_object_id,ocel_qualifier
-OCEL-E1,P-17,measured_asset
-OCEL-E1,Z-3,served_zone
-OCEL-E1,CAL-4,calibration_basis
-OCEL-E2,S-17,collected_sample
-OCEL-E2,Z-3,sampled_zone
