@@ -283,6 +283,38 @@ func validate(p Projection) error {
 	return nil
 }
 func finish(p Projection) (Projection, error) {
+	for i := range p.Events {
+		t, err := parseOCELTime(p.Events[i].Time)
+		if err != nil {
+			return p, err
+		}
+		p.Events[i].Time = t.Format(time.RFC3339Nano)
+	}
+	for i := range p.Assignments {
+		t, err := parseOCELTime(p.Assignments[i].Time)
+		if err != nil {
+			return p, err
+		}
+		p.Assignments[i].Time = t.Format(time.RFC3339Nano)
+		if p.Assignments[i].Type == "time" {
+			v, err := parseOCELTime(p.Assignments[i].Value)
+			if err != nil {
+				return p, err
+			}
+			p.Assignments[i].Value = v.Format(time.RFC3339Nano)
+		}
+	}
+	for i := range p.Events {
+		for j := range p.Events[i].Attributes {
+			if p.Events[i].Attributes[j].Type == "time" {
+				v, err := parseOCELTime(p.Events[i].Attributes[j].Value)
+				if err != nil {
+					return p, err
+				}
+				p.Events[i].Attributes[j].Value = v.Format(time.RFC3339Nano)
+			}
+		}
+	}
 	normalize(&p)
 	if e := validate(p); e != nil {
 		return p, e
