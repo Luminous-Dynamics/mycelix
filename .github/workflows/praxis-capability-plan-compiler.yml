@@ -28,7 +28,7 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Verify source head and resolve a locked workspace
+      - name: Verify exact source head and tracked dependency lock
         shell: bash
         run: |
           set -euo pipefail
@@ -36,7 +36,8 @@ jobs:
           test "$actual_head" = "$EXPECTED_HEAD"
           workspace="mycelix-workspace/mycelix-praxis"
           manifest="$workspace/Cargo.toml"
-          cargo generate-lockfile --manifest-path "$manifest"
+          test -f "$workspace/Cargo.lock"
+          git ls-files --error-unmatch "$workspace/Cargo.lock"
           mkdir -p "$RUNNER_TEMP/praxis-capability-plan-receipt"
           cp "$workspace/Cargo.lock" "$RUNNER_TEMP/praxis-capability-plan-receipt/Cargo.lock"
           {
@@ -44,6 +45,7 @@ jobs:
             echo "rustc=$(rustc --version)"
             echo "cargo=$(cargo --version)"
             echo "lockfile_sha256=$(sha256sum "$workspace/Cargo.lock" | cut -d' ' -f1)"
+            echo "lockfile_status=tracked-and-required"
             echo "commands=fmt,test,clippy,bench-no-run"
           } | tee "$RUNNER_TEMP/praxis-capability-plan-receipt/receipt.txt"
 
