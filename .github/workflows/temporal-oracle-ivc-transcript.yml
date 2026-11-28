@@ -8,6 +8,7 @@ on:
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/ORACLE_IVC_ADVICE_VECTORS_V1.txt"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/EXECUTION_TRANSCRIPT_V0_1.md"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution*"
+      - "tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone*"
       - ".github/workflows/temporal-oracle-ivc-transcript.yml"
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/ORACLE_IVC_ADVICE_VECTORS_V1.txt"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/EXECUTION_TRANSCRIPT_V0_1.md"
       - "tools/economic/temporal-hindsight/reference/oraclereceipts/formal/OracleIVCExecution*"
+      - "tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone*"
       - ".github/workflows/temporal-oracle-ivc-transcript.yml"
 
 permissions:
@@ -59,6 +61,9 @@ jobs:
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.cfg
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone-Mutant.cfg
           test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone-StaleState-Mutant.cfg
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.tla
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone.cfg
+          test -f tools/economic/temporal-hindsight/reference/oraclereceipts/formal/CorrectionImpactCone-Mutant.cfg
 
       - name: Set up Go reference toolchain
         uses: actions/setup-go@v7
@@ -106,7 +111,245 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test -run '^$' -bench BenchmarkReplayOracleExecutionTranscript -benchmem -benchtime=1x ./... 2>&1 | tee "$RUNNER_TEMP/oracle-ivc-transcript/benchmark.log"
+          go test -run '^ 2>&1 | tee "$RUNNER_TEMP/oracle-ivc-transcript/benchmark.log"
+
+      - name: Set up pinned Java toolchain
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download and verify pinned TLA+ tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          curl --fail --location --silent --show-error --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$jar"
+          printf '%s  %s\n' \
+            "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88" \
+            "$jar" | sha256sum --check --status
+          jar tf "$jar" | grep -q "^tlc2/TLC.class$"
+
+      - name: Check correct oracle IVC execution model
+        id: transcript_tlc
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/oracle-ivc-transcript"
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-execution-correct.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-execution-correct" \
+            -config OracleIVCExecution.cfg \
+            OracleIVCExecution.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          exit "$status"
+
+      - name: Require receipt frontier regression mutant counterexample
+        id: regress_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-execution-regress-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-execution-regress-mutant" \
+            -config OracleIVCExecution-Regress-Mutant.cfg \
+            OracleIVCExecution.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Receipt frontier regression mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant ReceiptFrontierMonotone is violated." "$log"
+
+      - name: Require proof-only advancement mutant counterexample
+        id: proof_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-execution-proof-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-execution-proof-mutant" \
+            -config OracleIVCExecution-Proof-Mutant.cfg \
+            OracleIVCExecution.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Proof-only advancement mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant StateProofHeadsConsistent is violated." "$log"
+
+      - name: Require mutation-during-unknown mutant counterexample
+        id: pending_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-execution-pending-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-execution-pending-mutant" \
+            -config OracleIVCExecution-Pending-Mutant.cfg \
+            OracleIVCExecution.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Mutation-during-unknown mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant UnknownOutcomeFreezesHeads is violated." "$log"
+
+      - name: Check complete correction impact-cone model
+        id: correction_cone_tlc
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-correction-cone-correct.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-correction-cone-correct" \
+            -config CorrectionImpactCone.cfg \
+            CorrectionImpactCone.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          exit "$status"
+
+      - name: Require incomplete correction-cone mutant counterexample
+        id: correction_cone_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-correction-cone-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-correction-cone-mutant" \
+            -config CorrectionImpactCone-Mutant.cfg \
+            CorrectionImpactCone.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Incomplete correction-cone mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant NoStaleActiveDescendant is violated." "$log"
+
+      - name: Require stale-current-state correction mutant counterexample
+        id: stale_state_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/oraclereceipts/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/oracle-ivc-transcript/tlc-correction-stale-state-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-correction-stale-state-mutant" \
+            -config CorrectionImpactCone-StaleState-Mutant.cfg \
+            CorrectionImpactCone.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Stale-current-state correction mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant CorrectionStartsAtPreImpactState is violated." "$log"
+
+      - name: Assemble execution transcript qualification receipt
+        if: always()
+        shell: bash
+        env:
+          TESTS: ${{ steps.transcript_tests.outcome }}
+          RACE: ${{ steps.transcript_race.outcome }}
+          VET: ${{ steps.transcript_vet.outcome }}
+          REPEAT: ${{ steps.transcript_repeat.outcome }}
+          BENCHMARK: ${{ steps.transcript_benchmark.outcome }}
+          TLC: ${{ steps.transcript_tlc.outcome }}
+          REGRESS: ${{ steps.regress_mutant.outcome }}
+          PROOF: ${{ steps.proof_mutant.outcome }}
+          PENDING: ${{ steps.pending_mutant.outcome }}
+          CORRECTION_CONE: ${{ steps.correction_cone_tlc.outcome }}
+          CORRECTION_MUTANT: ${{ steps.correction_cone_mutant.outcome }}
+          STALE_STATE_MUTANT: ${{ steps.stale_state_mutant.outcome }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/oracle-ivc-transcript"
+          mkdir -p "$dir"
+          jq -n \
+            --arg schema "mycelix.temporal-oracle-ivc-transcript-qualification.v1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflow_sha "$(git rev-parse HEAD)" \
+            --arg go "$(go version 2>&1 || printf UNAVAILABLE)" \
+            --arg tests "$TESTS" \
+            --arg race "$RACE" \
+            --arg vet "$VET" \
+            --arg repeated "$REPEAT" \
+            --arg benchmark "$BENCHMARK" \
+            --arg correct_tlc "$TLC" \
+            --arg regress_mutant "$REGRESS" \
+            --arg proof_mutant "$PROOF" \
+            --arg pending_mutant "$PENDING" \
+            --arg correction_cone "$CORRECTION_CONE" \
+            --arg correction_mutant "$CORRECTION_MUTANT" \
+            --arg stale_state_mutant "$STALE_STATE_MUTANT" \
+            '{
+              schema:$schema,
+              repository:$repository,
+              run_id:$run_id,
+              run_attempt:$attempt,
+              workflow_sha:$workflow_sha,
+              go_toolchain:$go,
+              outcomes:{
+                tests:$tests,
+                race:$race,
+                vet:$vet,
+                repeated_adversarial:$repeated,
+                benchmark_smoke:$benchmark,
+                correct_tlc:$correct_tlc,
+                receipt_frontier_regression_mutant:$regress_mutant,
+                proof_only_advancement_mutant:$proof_mutant,
+                mutation_during_unknown_mutant:$pending_mutant,
+                correction_impact_cone_tlc:$correction_cone,
+                incomplete_correction_cone_mutant:$correction_mutant,
+                stale_current_state_correction_mutant:$stale_state_mutant
+              },
+              claims:{
+                execution_transcript_structure_only:true,
+                oracle_signature_authentication:"NotEvaluated",
+                source_universe_completeness:"NotEvaluated",
+                ivc_proof_verification:"NotEvaluated",
+                answer_truth:"NotEvaluated",
+                decision_authority:"NotEvaluated",
+                unbounded_proof:false
+              }
+            }' > "$dir/qualification.json"
+          grep -hE 'states generated|distinct states found|depth of the complete state graph|Invariant .* is violated' "$dir"/tlc-*.log > "$dir/tlc-model-summary.txt" || true
+          (
+            cd "$dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          )
+
+      - name: Upload execution transcript evidence bundle
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: temporal-oracle-ivc-transcript-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/oracle-ivc-transcript/
+          if-no-files-found: error
+          retention-days: 90
+ -bench 'BenchmarkReplayOracleExecutionTranscript|BenchmarkValidateCorrectionImpactCone' -benchmem -benchtime=1x ./... 2>&1 | tee "$RUNNER_TEMP/oracle-ivc-transcript/benchmark.log"
 
       - name: Set up pinned Java toolchain
         uses: actions/setup-java@v6.2.0
