@@ -53,8 +53,12 @@ jobs:
           test -f tools/economic/evidence-execution-composition/go.mod
           test -f tools/economic/evidence-execution-composition/oracle/oracle.go
           test -f tools/economic/evidence-execution-composition/oracle/oracle_test.go
+          test -f tools/economic/evidence-execution-composition/oracle/lineage_attestation.go
+          test -f tools/economic/evidence-execution-composition/oracle/lineage_attestation_test.go
+          test -f tools/economic/evidence-execution-composition/LINEAGE_ATTESTATION_V1_KAT.tsv
           test -f mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml
           test -f mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs
+          test -f mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
 
       - name: Set up pinned Go reference toolchain
         uses: actions/setup-go@v7
