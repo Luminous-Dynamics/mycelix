@@ -69,3 +69,14 @@ func TestDynamicProgramMatchesUnmemoizedPolicyTreeEnumeration(t *testing.T){
  brute:=bruteForceTotal(c,[]float64{.25,.25,.25,.25},[]string{"observe-X","observe-Y"},c.Budget,c.Horizon)
  near(t,"unmemoized exhaustive policy tree",report.ExpectedTotalLoss,brute)
 }
+
+func TestGreedyOneStepRespectsBudget(t *testing.T) {
+ c:=xorCase();c.Budget=.2
+ id,value,err:=GreedyOneStep(c);if err!=nil{t.Fatal(err)}
+ if id!=""||value!=0{t.Fatalf("greedy selected over-budget evidence %q (%v)",id,value)}
+}
+func TestGreedyOneStepMandatoryEvidencePreempts(t *testing.T) {
+ c:=xorCase();c.MandatoryEvidenceOpen=true
+ id,value,err:=GreedyOneStep(c);if err!=nil{t.Fatal(err)}
+ if id!=""||value!=0{t.Fatalf("greedy selected optional evidence with mandatory evidence open %q (%v)",id,value)}
+}
