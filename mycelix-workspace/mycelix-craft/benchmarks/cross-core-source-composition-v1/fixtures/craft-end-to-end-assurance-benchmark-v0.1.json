@@ -248,6 +248,43 @@
       ],
       "fixture": "fixtures/ocel21-interchange/ocel21-interchange-parity-v0.1.json",
       "target": "100% frozen semantic KAT agreement for each implemented format; unsupported formats NotComparable/NotImplemented, never silently accepted"
+    },
+    {
+      "id": "sequential_complementary_evidence_acquisition",
+      "metrics": [
+        "finite_horizon_net_decision_value",
+        "adaptive_policy_tree_regret",
+        "complementarity_detection_recall",
+        "branch_specific_followup_accuracy",
+        "expected_terminal_loss",
+        "expected_acquisition_cost",
+        "budget_violation_rate",
+        "mandatory_evidence_compliance",
+        "unknown_dependency_abstention_rate",
+        "DP_vs_bruteforce_agreement"
+      ],
+      "baselines": [
+        "mandatory_only",
+        "fixed_schedule",
+        "random_safe",
+        "expert_priority",
+        "one_step_EIG_greedy",
+        "one_step_EVSI_greedy",
+        "bounded_sequential_DP",
+        "clairvoyant_hindsight_upper_bound"
+      ],
+      "counterexamples": [
+        "xor_two_observations_each_zero_one_step_EVSI_joint_EVSI_positive",
+        "first_observation_selects_different_optimal_followup_by_result"
+      ],
+      "hard_rules": [
+        "unknown_cross_observation_dependence_abstains_without_declared_joint_or_factorization_model",
+        "mandatory_evidence_preempts_optional_value",
+        "budget_is_enforced_per_realized_policy_branch",
+        "EVSI_and_EIG_remain_distinct"
+      ],
+      "reference_oracle": "PR #6857",
+      "target": "exact agreement with exhaustive policy-tree enumeration on frozen small domains"
     }
   ],
   "comparators": [
@@ -420,5 +457,16 @@
     "bundled_parquet": "NotImplemented",
     "production_craft_integration": "NotEvaluated",
     "status": "independent_test_only_reference_added; local tests passed; hosted_exact_head_pending; bundled_parquet_not_implemented"
+  },
+  "sequential_evsi_registry": {
+    "pr": 6857,
+    "branch": "research/craft-sequential-evsi-go-oracle-v0.1-20261128",
+    "fixture_root": "oracles/sequential-evsi-go-v0.1/fixtures/",
+    "fixtures": [
+      "sequential-evsi-complementarity-v0.1.json",
+      "sequential-evsi-adaptive-followup-v0.1.json"
+    ],
+    "status": "local_tests_race_vet_passed; hosted_exact_head_pending",
+    "claim_limit": "finite-state declared likelihood model only; not calibrated or production planning"
   }
 }
