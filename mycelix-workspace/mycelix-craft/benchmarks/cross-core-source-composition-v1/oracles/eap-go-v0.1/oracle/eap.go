@@ -78,6 +78,8 @@ type Candidate struct {
 	InDomain bool `json:"in_domain"`
 	ConditionedOnCurrentEvidence bool `json:"conditioned_on_current_evidence"`
 	IndependenceRequired bool `json:"independence_required"`
+	CandidateSetDigest string `json:"candidate_set_digest"`
+	ObservationModelDigest string `json:"observation_model_digest"`
 	FailureDomainProfileDigest string `json:"failure_domain_profile_digest"`
 	ExistingDependencyGraphDigest string `json:"existing_dependency_graph_digest"`
 	ResultImpacts []ResultImpact `json:"result_impacts"`
@@ -196,7 +198,7 @@ func Validate(p Proposal) Report {
 	if _, ok := parseCanonicalUTC(p.PriorDecisionBasis.ValidAt); !ok {
 		add(&violations, "EAP-DBC-TIME", "prior_decision_basis.valid_at", "prior DBC valid time must be canonical UTC seconds")
 	}
-	if !validRef(p.EVSI.Receipt) || !validDigest(p.EVSI.EvaluatorDigest) ||
+	if !validRef(p.EVSI.Receipt) || p.EVSI.Receipt.Schema != "mycelix.craft.evsi-evaluation-receipt.v0.1" || !validDigest(p.EVSI.EvaluatorDigest) ||
 		!validDigest(p.EVSI.LossProfileDigest) || !validDigest(p.EVSI.CandidateSetDigest) ||
 		!validDigest(p.EVSI.ObservationModelDigest) {
 		add(&violations, "EAP-EVSI-BINDING", "evsi_evaluation", "EVSI receipt, evaluator, loss, candidate-set and observation-model digests are required")
@@ -234,6 +236,12 @@ func Validate(p Proposal) Report {
 		add(&violations, "EAP-CANDIDATE-IDENTITY", "candidate", "candidate ID, method, target claim and qualified role are required")
 	}
 	if !validDigest(p.EVSI.CandidateSetDigest) { add(&violations, "EAP-CANDIDATE-SET", "evsi_evaluation.candidate_set_digest", "candidate set digest is invalid") }
+	if p.Candidate.CandidateSetDigest != p.EVSI.CandidateSetDigest || !validDigest(p.Candidate.CandidateSetDigest) {
+		add(&violations, "EAP-CANDIDATE-SET-MISMATCH", "candidate.candidate_set_digest", "candidate must be a member of the exact candidate set evaluated by EVSI")
+	}
+	if p.Candidate.ObservationModelDigest != p.EVSI.ObservationModelDigest || !validDigest(p.Candidate.ObservationModelDigest) {
+		add(&violations, "EAP-OBSERVATION-MODEL-MISMATCH", "candidate.observation_model_digest", "candidate and EVSI must bind the same observation model")
+	}
 	if p.Candidate.IndependenceRequired && (!validDigest(p.Candidate.FailureDomainProfileDigest) || !validDigest(p.Candidate.ExistingDependencyGraphDigest)) {
 		add(&violations, "EAP-INDEPENDENCE-CONTEXT", "candidate", "independence-required proposal must bind a failure-domain profile and existing dependency graph")
 	}
@@ -293,6 +301,9 @@ func Validate(p Proposal) Report {
 	expires, expiresOK := parseCanonicalUTC(p.ValidUntil)
 	if !issuedOK || !expiresOK || !expires.After(issued) {
 		add(&violations, "EAP-EXPIRY", "valid_until", "proposal issue and expiry must be canonical UTC seconds with expiry after issue time")
+	}
+	if validAt, ok := parseCanonicalUTC(p.PriorDecisionBasis.ValidAt); issuedOK && ok && issued.Before(validAt) {
+		add(&violations, "EAP-ISSUED-BEFORE-DBC", "issued_at", "proposal cannot predate its prior decision basis valid time")
 	}
 	if !strictlySorted(p.InvalidatedBy) {
 		add(&violations, "EAP-INVALIDATION-RULES", "invalidated_by", "invalidation triggers must be sorted and unique")
