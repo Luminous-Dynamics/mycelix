@@ -38,6 +38,14 @@ pub enum OcelProfileErrorV1 {
     EventWithoutObjectRelationship,
 }
 
+impl std::fmt::Display for OcelProfileErrorV1 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for OcelProfileErrorV1 {}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OcelProfileReceiptV1 {
     pub object_type_count: usize,
