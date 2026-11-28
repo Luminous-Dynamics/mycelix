@@ -119,6 +119,12 @@ jq -e '
         . as $ev
         | ($c.operation.actions | map(.action_id) | index($ev.action_id)) != null
           and $ev.request_digest == $c.operation.request_digest
+          and $ev.event_at <= $ev.observed_at
+          and $ev.observed_at <= $c.history.as_of
+      )
+      and all($c.attempts[];
+        .attempted_at <= .recorded_at
+        and .recorded_at <= $c.history.as_of
       )
       and (
         if $c.expected_next_step == "START_INITIAL_ATTEMPT" then
@@ -193,11 +199,8 @@ jq -e '
         else $c.prior_frontier.status != "COMPLETE_FOR_SCOPE"
           and $c.prior_frontier.expected_next_step == "HOLD_FOR_RECONCILIATION"
           and $c.prior_frontier.as_of <= $c.history.as_of
-          and (($c.prior_frontier.known_attempt_ids | length) == ($c.prior_frontier.known_attempt_ids | unique | length))
-          and all($c.prior_frontier.known_attempt_ids[];
-            . as $known_id
-            | any($c.attempts[]; .attempt_id == $known_id)
-          )
+          and (($c.prior_frontier.known_attempt_ids) == ([$c.attempts[] | select(.recorded_at <= $c.prior_frontier.as_of) | .attempt_id]))
+          and (($c.prior_frontier.known_evidence_ids) == ([$c.evidence[] | select(.observed_at <= $c.prior_frontier.as_of) | .evidence_id]))
         end
       )
   )
