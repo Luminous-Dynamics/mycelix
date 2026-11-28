@@ -1134,6 +1134,106 @@ mod tests {
         }
     }
 
+    fn independent_corroboration_profile() -> CompositionProfile {
+        let mut profile = valid_profile();
+        profile.profile_ref = "profile:independent-corroboration:v1".to_owned();
+        profile.profile_digest = digest(101);
+        profile.allowed_not_applicable =
+            BTreeSet::from([StageId::Execution, StageId::Outcome]);
+
+        profile.required_claims.remove(&ClaimDimension::Effect);
+        profile.required_claims.insert(ClaimDimension::Independence);
+        profile.claim_stages.remove(&ClaimDimension::Effect);
+        profile.claim_stages.insert(
+            ClaimDimension::Independence,
+            BTreeSet::from([
+                StageId::SourceTrust,
+                StageId::SemanticProjection,
+                StageId::Query,
+            ]),
+        );
+        profile
+            .claim_stages
+            .get_mut(&ClaimDimension::Truth)
+            .unwrap()
+            .remove(&StageId::Outcome);
+
+        for stage_id in [StageId::Execution, StageId::Outcome] {
+            profile.dependency_claims.remove(&stage_id);
+        }
+        {
+            let query_edges = profile.dependency_claims.get_mut(&StageId::Query).unwrap();
+            for producer in [StageId::SourceTrust, StageId::SemanticProjection] {
+                query_edges
+                    .get_mut(&producer)
+                    .unwrap()
+                    .insert(ClaimDimension::Independence);
+            }
+        }
+        profile
+            .dependency_claims
+            .get_mut(&StageId::Policy)
+            .unwrap()
+            .get_mut(&StageId::Query)
+            .unwrap()
+            .insert(ClaimDimension::Independence);
+        profile
+    }
+
+    fn positive_independence_input() -> (CompositionInput, CompositionProfile) {
+        let mut input = positive_input();
+        let profile = independent_corroboration_profile();
+
+        for stage_id in [
+            StageId::SourceTrust,
+            StageId::SemanticProjection,
+            StageId::Query,
+        ] {
+            input
+                .stages
+                .get_mut(&stage_id)
+                .unwrap()
+                .claim_ceiling
+                .independence = ClaimState::EstablishedWithinProfile;
+        }
+
+        for dependency in input
+            .stages
+            .get_mut(&StageId::Query)
+            .unwrap()
+            .dependencies
+            .iter_mut()
+        {
+            if matches!(
+                dependency.stage_id,
+                StageId::SourceTrust | StageId::SemanticProjection
+            ) {
+                dependency.required_claims.push(ClaimDimension::Independence);
+                dependency.required_claims.sort();
+            }
+        }
+        let policy_query_dependency = input
+            .stages
+            .get_mut(&StageId::Policy)
+            .unwrap()
+            .dependencies
+            .iter_mut()
+            .find(|dependency| dependency.stage_id == StageId::Query)
+            .unwrap();
+        policy_query_dependency
+            .required_claims
+            .push(ClaimDimension::Independence);
+        policy_query_dependency.required_claims.sort();
+
+        mark_not_applicable(&mut input, StageId::Execution);
+        mark_not_applicable(&mut input, StageId::Outcome);
+        input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
+        input.declared_claim_ceiling.independence = ClaimState::EstablishedWithinProfile;
+        input.declared_disposition =
+            CompositionDisposition::DecisionJustifiedAtAcceptedFrontier;
+        (input, profile)
+    }
+
     fn mark_not_evaluated(input: &mut CompositionInput, stage_id: StageId) {
         let stage = input.stages.get_mut(&stage_id).expect("required fixture stage");
         stage.disposition = StageDisposition::NotEvaluated;
@@ -1787,6 +1887,64 @@ mod tests {
             item.code == "DJCC-CLAIM-CEILING-WIDENED"
                 && item.message.contains("completeness")
         }));
+    }
+
+
+    #[test]
+    fn independent_corroboration_profile_requires_an_established_independence_claim() {
+        let (input, profile) = positive_independence_input();
+        let report = verify_composition(&input, &profile);
+        assert!(report.is_valid(), "{:?}", report.violations);
+        assert_eq!(
+            report.derived_disposition,
+            CompositionDisposition::DecisionJustifiedAtAcceptedFrontier
+        );
+    }
+
+    #[test]
+    fn common_cause_provenance_keeps_independence_indeterminate() {
+        let (mut input, profile) = positive_independence_input();
+        let source = input.stages.get_mut(&StageId::SourceTrust).unwrap();
+        source.disposition = StageDisposition::Indeterminate;
+        source.claim_ceiling.independence = ClaimState::Indeterminate;
+        let semantic = input
+            .stages
+            .get_mut(&StageId::SemanticProjection)
+            .unwrap();
+        semantic.disposition = StageDisposition::Indeterminate;
+        semantic.claim_ceiling.independence = ClaimState::Indeterminate;
+        let query = input.stages.get_mut(&StageId::Query).unwrap();
+        query.disposition = StageDisposition::Indeterminate;
+        query.claim_ceiling.independence = ClaimState::Indeterminate;
+        for stage_id in [StageId::Policy, StageId::Authorization] {
+            mark_not_evaluated(&mut input, stage_id);
+        }
+        input.declared_claim_ceiling.independence = ClaimState::Indeterminate;
+        input.declared_claim_ceiling.truth = ClaimState::NotEvaluated;
+        input.declared_claim_ceiling.authority = ClaimState::NotEvaluated;
+        input.declared_disposition = CompositionDisposition::Indeterminate;
+        let report = verify_composition(&input, &profile);
+        assert!(report.is_valid(), "{:?}", report.violations);
+        assert_eq!(report.derived_disposition, CompositionDisposition::Indeterminate);
+    }
+
+    #[test]
+    fn independence_claim_cannot_be_omitted_from_a_required_edge() {
+        let (mut input, profile) = positive_independence_input();
+        let query = input.stages.get_mut(&StageId::Query).unwrap();
+        let source_dependency = query
+            .dependencies
+            .iter_mut()
+            .find(|dependency| dependency.stage_id == StageId::SourceTrust)
+            .unwrap();
+        source_dependency
+            .required_claims
+            .retain(|dimension| *dimension != ClaimDimension::Independence);
+        let report = verify_composition(&input, &profile);
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-EDGE-CLAIMS-WEAKENED"));
     }
 
 
