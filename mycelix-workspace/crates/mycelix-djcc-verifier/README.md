@@ -4,13 +4,16 @@ A dependency-free Rust structural candidate verifier for DJCC V0.1.
 
 ## Run
 
-From the repository root:
+This crate has no third-party Rust dependencies. To avoid resolving unrelated packages in the enclosing Mycelix workspace, run the candidate directly with the pinned Rust 1.96 toolchain from the repository root:
 
 ```sh
-cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml -- --check
-cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets
-cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets -- -D warnings
+rustfmt +1.96.0 --edition 2024 --check mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
+rustc +1.96.0 --edition=2024 --test mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs -o /tmp/djcc-tests
+/tmp/djcc-tests
+rustup run 1.96.0 clippy-driver --edition=2024 --test mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs -o /tmp/djcc-tests-clippy -D warnings
 ```
+
+The CI uses these direct commands intentionally: Cargo resolution in the enclosing workspace has unrelated path-dependency failures and is not needed to compile this dependency-free verifier.
 
 ## What the candidate checks
 
