@@ -303,10 +303,10 @@ func TestProfileManifestRejectsClaimMappedToNotApplicableStage(t *testing.T) {
 func TestStageEdgeRejectsUnsortedOrUnknownRequiredClaims(t *testing.T) {
 	var digest [32]byte
 	edge := StageEdgeV1{
-		ProducerStage : "policy", ConsumerStage: "authorization",
-		InputName     : "decision", OutputSchemaRef: "policy:v1",
+		ProducerStage:  "policy", ConsumerStage: "authorization",
+		InputName:      "decision", OutputSchemaRef: "policy:v1",
 		RequiredClaims: []string{"truth", "authentication"},
-		OutputDigest  : digest,
+		OutputDigest:   digest,
 	}
 	if _, err := CanonicalStageEdgeBytesV1(edge); err == nil {
 		t.Fatal("unsorted required claims accepted")
