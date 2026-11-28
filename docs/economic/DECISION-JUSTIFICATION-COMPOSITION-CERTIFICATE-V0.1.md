@@ -318,6 +318,41 @@ An equivalent mutant is not a killed mutant. Invalid fixture shape is not an eva
 
 Record product/version/configuration and adapters. A capability that is not exposed by the tested interface is NotTested, not a failure. Publish per-obligation comparison matrices and the cost of stronger guarantees.
 
+### 9.1 Matched comparison protocol: compete at the composition boundary
+
+DJCC should not claim to outperform a specialist on a capability the specialist is designed to optimize. In particular, VeriTS (arXiv:2608.28318, 28 August 2026) reports authenticated time-series query improvements—over two orders of magnitude in one windowed-aggregation verification comparison and up to 14.5× smaller range-query proofs than per-record proofs. Those results are a baseline to reproduce, not an invitation to make an unsupported blanket “faster than SOTA” claim.
+
+Use a two-plane evaluation:
+
+1. **Native component plane.** Compare the component with its natural specialist: query proof vs VeriTS/VTRQ/TruthTable; policy decision vs Cedar; temporal correction vs SQL Server temporal/XTDB; incremental view maintenance vs DBSP/Differential Dataflow; transparency receipts vs RFC 9162 and the selected SCITT/RFC 9942 VDS profile. Match input data, query/policy semantics, data freshness, hardware, cryptographic suite, setup costs and verification placement. Report setup, proof generation, proof size, verification and update cost separately.
+2. **End-to-end composition plane.** Starting from the exact same synthetic operational decision, compare each native component chain with and without DJCC's independent composition verifier. Require the same accepted frontier, owner universe, source claims, semantic projection, query, policy epoch, authority scope, execution transcript and outcome obligations. Report both the additional assurance obtained and its marginal cost. A specialist's result is NotTested for obligations outside its advertised interface, not an automatic failure.
+
+For query specialists, report two distinct outcomes: (a) same query proof task, where the specialist's native design should be allowed to win; and (b) the cost to carry the authenticated query into a complete decision certificate with the other owners' exact dependency bindings. Do not conflate them.
+
+For Cedar, use the exact same principal, action, resource, context, schema and policy in the native policy evaluator. Compare decision correctness and evaluation latency directly. Separately measure DJCC's ability to bind the policy epoch, evaluator build, canonical input digest, historical replay result and downstream authority edge. That composition layer is additional; it is not a replacement for Cedar's formalized policy semantics or sound schema validation.
+
+For OpenTelemetry, preserve and test Timestamp and ObservedTimestamp semantics in adapters. Treat them as source-event and observation timestamps, respectively; neither alone is an accepted causal frontier, an authenticated owner-universe closure, or proof that no late/withheld event exists.
+
+### 9.2 Assurance frontier and falsifiable novelty claims
+
+The primary novelty hypothesis is not “more hashes” or “one universal proof.” It is that an independent verifier can identify exactly which decision claims are justified, which are not, and which remain indeterminate—while checking the relationships across independently owned systems.
+
+Measure the following separately:
+
+| Metric | Operational definition | Required interpretation |
+|---|---|---|
+| Assurance-cost frontier | Pareto curve of verification time, proof/certificate bytes, storage/network cost and operator effort against the set of root claims established | Compare only profiles with the same claim set and trust assumptions |
+| Claim-boundary precision | Number of root claims established without violating their declared stage/edge obligations | Do not reward the verifier for making broader unsupported claims |
+| Common-cause detection | Fraction of common-operator, common-key-custody, shared-sensor, shared-calibration, shared-feed and shared-control-plane mutants that leave Independence non-established | Authentic signatures do not count as independent corroboration |
+| Completeness/absence soundness | False-absence and false-completeness rates under hidden, withheld, gapped, stale and forked owner universes | Required high-consequence target: zero false-safe results |
+| Correction locality | Impacted decisions requalified / all decisions requalified, with affected-decision recall and unaffected-decision precision reported separately | Never optimize precision by sacrificing recall |
+| Historical stability | Byte-identical historical certificate/replay under evidence and policy updates outside its pinned frontier | Current reassessment must be a separate artifact |
+| Abstention quality | Coverage vs error/risk curve, with reason codes and time-to-resolution | A safe Indeterminate is preferable to an unsupported pass |
+| Review burden | Blinded human minutes, escalations and false holds per accepted decision | Compare under equal evidence, training and time budgets |
+
+The research claim should be rejected or narrowed if a specialist baseline achieves the same claims with lower total cost, if the independent-corroboration profile accepts common-cause evidence, or if a correction can alter a historical certificate. Publish those negative outcomes.
+
+
 ## 10. Performance protocol
 
 Do not benchmark the certificate as one monolithic JSON blob. Measure each stage and the composition critical path.
@@ -332,7 +367,7 @@ Do not benchmark the certificate as one monolithic JSON blob. Measure each stage
 | dependency fan-out | 1 / 2 / 4 / 8 / 16 / 64 |
 | frontier regime | comparable / concurrent / gapped / forked / stale / withheld |
 
-Report p50/p95/p99, CPU/hash operations, allocations, peak RSS, proof bytes, certificate bytes, network bytes, storage amplification, full replay, incremental requalification, correction recall/precision, human-review burden, abstention and recovery time.
+Report p50/p95/p99, CPU/hash operations, allocations, peak RSS, proof bytes, certificate bytes, network bytes, storage amplification, full replay, incremental requalification, correction recall/precision, common-cause detection, false-absence/false-completeness, historical stability, assurance-cost frontier, human-review burden, abstention coverage/error, false holds and recovery time. Separate proof generation, proof verification, frontier authentication, owner-universe closure, semantic projection, query, policy, authority, execution and outcome costs; include cold-start/setup costs and cache-hit/miss regimes.
 
 Run at least 30 independent timed trials after warm-up. Freeze source SHAs, corpus hashes, toolchains, machine/kernel, benchmark parameters and scripts. Publish raw machine-readable samples, including failures and timeouts.
 
