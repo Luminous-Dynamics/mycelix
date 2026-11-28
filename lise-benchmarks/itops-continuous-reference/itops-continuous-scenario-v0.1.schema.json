@@ -101,7 +101,7 @@
               "target_service_id": { "type": "string" },
               "injection_kind": { "type": "string" },
               "agent_visible": { "const": false },
-              "affected_observation_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+              "affected_observation_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }
             }
           }
         },
