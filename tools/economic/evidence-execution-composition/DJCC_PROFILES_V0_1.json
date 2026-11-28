@@ -17,6 +17,7 @@
       "authority",
       "completeness",
       "effect",
+      "independence",
       "truth"
     ],
     "dependency_claims": "Each edge's required_claims is a non-empty, sorted, unique list under claim_dimensions ordering."
@@ -201,6 +202,94 @@
         }
       },
       "claim_ceiling_notes": "Execution and outcome stages are profile-qualified NotApplicable, not green. The certificate cannot claim effect or a physical outcome. The outcome stage is omitted from the truth-producing stage set."
+    },
+    {
+      "profile_ref": "mycelix.djcc.independent-corroboration.v0.1",
+      "title": "Independent corroboration decision profile",
+      "required_claims": [
+        "authentication",
+        "authority",
+        "completeness",
+        "independence",
+        "truth"
+      ],
+      "allowed_not_applicable": [
+        "execution",
+        "outcome"
+      ],
+      "claim_stages": {
+        "authentication": [
+          "verifier_frontier",
+          "source_trust"
+        ],
+        "authority": [
+          "authorization"
+        ],
+        "completeness": [
+          "verifier_frontier",
+          "source_trust",
+          "semantic_projection",
+          "query"
+        ],
+        "independence": [
+          "source_trust",
+          "semantic_projection",
+          "query"
+        ],
+        "truth": [
+          "query",
+          "policy"
+        ]
+      },
+      "dependency_claims": {
+        "source_trust": {
+          "verifier_frontier": [
+            "authentication",
+            "completeness"
+          ]
+        },
+        "semantic_projection": {
+          "verifier_frontier": [
+            "authentication"
+          ],
+          "source_trust": [
+            "authentication"
+          ]
+        },
+        "query": {
+          "verifier_frontier": [
+            "authentication",
+            "completeness"
+          ],
+          "source_trust": [
+            "authentication",
+            "completeness",
+            "independence"
+          ],
+          "semantic_projection": [
+            "authentication",
+            "completeness",
+            "independence"
+          ]
+        },
+        "policy": {
+          "query": [
+            "authentication",
+            "completeness",
+            "independence",
+            "truth"
+          ]
+        },
+        "authorization": {
+          "verifier_frontier": [
+            "authentication"
+          ],
+          "policy": [
+            "authentication",
+            "truth"
+          ]
+        }
+      }
     }
   ]
 }
