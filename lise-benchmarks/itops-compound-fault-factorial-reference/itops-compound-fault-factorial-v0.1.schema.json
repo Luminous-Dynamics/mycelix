@@ -51,10 +51,10 @@
         "terminal": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["availability_fraction", "unrecovered_degradation_minutes", "fault_persists_after_trigger_removed", "functional_contract_pass"],
+          "required": ["availability_fraction", "service_degraded_minutes", "fault_persists_after_trigger_removed", "functional_contract_pass"],
           "properties": {
             "availability_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
-            "unrecovered_degradation_minutes": { "type": "number", "minimum": 0 },
+            "service_degraded_minutes": { "type": "number", "minimum": 0 },
             "fault_persists_after_trigger_removed": { "type": "boolean" },
             "functional_contract_pass": { "type": "boolean" }
           }
@@ -76,7 +76,7 @@
           "maxItems": 4,
           "items": { "$ref": "#/$defs/arm" }
         },
-        "interaction_metric": { "const": "unrecovered_degradation_minutes" },
+        "interaction_metric": { "const": "service_degraded_minutes" },
         "expected_interaction_contrast": { "type": "number" },
         "expected_causal_factor_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
         "required_remediation_action_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
