@@ -62,7 +62,27 @@ func safeBundlePath(root, name string) (string, error) {
 			return "", fmt.Errorf("invalid bundle-relative path %q", name)
 		}
 	}
-	return filepath.Join(root, filepath.FromSlash(name)), nil
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return "", err
+	}
+	candidate := filepath.Join(rootAbs, filepath.FromSlash(name))
+	resolvedCandidate, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(resolvedRoot, resolvedCandidate)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("bundle path resolves outside declared root: %q", name)
+	}
+	return resolvedCandidate, nil
 }
 
 func readTable(root, rel string, required []string) ([][]string, map[string]int, error) {
