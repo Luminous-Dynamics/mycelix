@@ -58,6 +58,9 @@ jq -e '
     and all($c.claims[]; . as $claim | $claim.expected_qualification_disposition == expected_qualification($c; $claim))
     and $c.effect_authority.expected_decision == expected_authority($c)
     and $c.outcome_evidence.expected_status == expected_observation($c)
+    and (if $c.outcome_evidence.observer_changed then
+           any($c.changed_artifact_refs[]; . == $c.outcome_evidence.observer_ref)
+         else true end)
     and $c.benchmark_score.expected_comparability == expected_score($c)
   )
   and ([ $root.cases[] | select(.case_id == "ITOPS-QI-PERMISSION-REVOKE-001") ][0]
