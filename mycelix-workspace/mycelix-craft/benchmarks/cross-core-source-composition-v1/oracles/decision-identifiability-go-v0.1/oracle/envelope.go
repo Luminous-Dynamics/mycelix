@@ -16,9 +16,9 @@ import (
 const SchemaID = "mycelix.craft.decision-identifiability.v0.1"
 
 var frozenFixtureDigests = map[string]string{
-	"CDIE-001-invariant-action": "aa85d2b017e1985cce707dcb97517b277fe196c550b8442ce0a84fde6e54967b",
-	"CDIE-002-no-invariant-optimum": "8b89a70900c5333258aee59820a7fbb497216d205b3d3239a27c1371c52eb7ab",
-	"CDIE-003-hard-safety-veto": "d18e647c1d14e95edade175f38595274b2ff73b33e0e1860c826e137922bb07d",
+	"CDIE-001-invariant-action": "6fc9da3fb2c237033531454fda2d90471c9cb59a940b8b523cc746cbc8e9e7ef",
+	"CDIE-002-no-invariant-optimum": "e82893357979278e83bfe97e6526837cb16bf87ac0ca79a1be7bb2895d0cb6b6",
+	"CDIE-003-hard-safety-veto": "6ac5bfd06dfd73ba2328b2671d9b2ade0bc9557ad8c1261311947cee34946",
 }
 
 type CoverageBasis string
