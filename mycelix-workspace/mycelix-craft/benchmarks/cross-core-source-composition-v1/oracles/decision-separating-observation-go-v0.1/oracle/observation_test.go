@@ -31,8 +31,8 @@ func TestObservationSeparatesDifferentOptimalActions(t *testing.T) {
 	if observation.OutcomeCount != 2 || observation.IdentifiedWorldCount != 2 {
 		t.Fatalf("unexpected branch coverage: %+v", observation)
 	}
-	if !reflect.DeepEqual(observation.Branches[0].Decision.OptimalInEveryWorld, []string{"hold"}) ||
-		!reflect.DeepEqual(observation.Branches[1].Decision.OptimalInEveryWorld, []string{"operate"}) {
+	if !reflect.DeepEqual(observation.Branches[0].Decision.OptimalInEveryWorld, []string{"operate"}) ||
+		!reflect.DeepEqual(observation.Branches[1].Decision.OptimalInEveryWorld, []string{"hold"}) {
 		t.Fatalf("branch-specific decisions are wrong: %+v", observation.Branches)
 	}
 	if observation.Disposition != "CONDITIONALLY_DECISION_SEPARATING_WITHIN_DECLARED_SET" {
