@@ -1,0 +1,84 @@
+name: Praxis capability plan exact-head
+
+on:
+  push:
+    branches:
+      - praxis/capability-plan-compiler-v1
+    paths:
+      - mycelix-workspace/mycelix-praxis/Cargo.toml
+      - mycelix-workspace/mycelix-praxis/crates/praxis-core/**
+      - .github/workflows/praxis-capability-plan-compiler.yml
+  pull_request:
+    branches:
+      - praxis/evidence-authority-v1
+    paths:
+      - mycelix-workspace/mycelix-praxis/Cargo.toml
+      - mycelix-workspace/mycelix-praxis/crates/praxis-core/**
+      - .github/workflows/praxis-capability-plan-compiler.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: praxis-capability-plan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  exact-head:
+    name: Exact-head format, test, Clippy and bench compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      CARGO_TARGET_DIR: ${{ runner.temp }}/praxis-capability-plan-target
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact PR or push source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: clippy, rustfmt
+
+      - name: Verify source head and resolve a locked workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$EXPECTED_HEAD"
+          workspace="mycelix-workspace/mycelix-praxis"
+          manifest="$workspace/Cargo.toml"
+          cargo generate-lockfile --manifest-path "$manifest"
+          mkdir -p "$RUNNER_TEMP/praxis-capability-plan-receipt"
+          cp "$workspace/Cargo.lock" "$RUNNER_TEMP/praxis-capability-plan-receipt/Cargo.lock"
+          {
+            echo "source_head=$actual_head"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "lockfile_sha256=$(sha256sum "$workspace/Cargo.lock" | cut -d' ' -f1)"
+            echo "commands=fmt,test,clippy,bench-no-run"
+          } | tee "$RUNNER_TEMP/praxis-capability-plan-receipt/receipt.txt"
+
+      - name: Check package formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml -p praxis-core -- --check
+
+      - name: Test capability-plan package
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml --locked -p praxis-core
+
+      - name: Lint all capability-plan targets
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml --locked -p praxis-core --all-targets -- -D warnings
+
+      - name: Compile native benchmark without claiming performance
+        run: cargo +1.96.0 bench --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml --locked -p praxis-core --bench capability_plan --no-run
+
+      - name: Upload exact-head receipt and generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: praxis-capability-plan-exact-head-${{ env.EXPECTED_HEAD }}
+          path: ${{ runner.temp }}/praxis-capability-plan-receipt/
+          if-no-files-found: error
+          retention-days: 14
