@@ -2,12 +2,9 @@ package oraclereceipts
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 )
 
 const (
@@ -106,6 +103,7 @@ type executionActiveState struct {
 	stateDigest string
 	proofDigest string
 	stepHeadDigest string
+	receiptFrontierSequence uint64
 }
 
 type executionPendingState struct {
@@ -263,38 +261,6 @@ func executionTransitionDigestV1(scopeDigest string, transition ExecutionTransit
 	return digestBytes(b.Bytes()), nil
 }
 
-func ExecutionPublicInputDigestFromScopeDigestV1(scopeDigest string, transition ExecutionTransitionV1, receipts, supersedes []string) (string, error) {
-	if !validDigest(scopeDigest) {
-		return "", errors.New("execution scope digest is malformed")
-	}
-	var b bytes.Buffer
-	writeString(&b, "MYCELIX-ORACLE-IVC-PUBLIC-INPUTS-V1")
-	writeString(&b, scopeDigest)
-	for _, value := range []string{
-		string(transition.Kind),
-		transition.StepID,
-		transition.ProgramDigest,
-		transition.EvaluatorVersionDigest,
-		transition.PolicyVersionDigest,
-		transition.QueryPlanDigest,
-		transition.InputStateDigest,
-		transition.OutputStateDigest,
-		transition.OutputDigest,
-	} {
-		writeString(&b, value)
-	}
-	writeUint64(&b, transition.ReceiptFrontierSequence)
-	writeString(&b, transition.ReceiptFrontierDigest)
-	writeUint32(&b, uint32(len(receipts)))
-	for _, digest := range receipts {
-		writeString(&b, digest)
-	}
-	writeUint32(&b, uint32(len(supersedes)))
-	for _, stepID := range supersedes {
-		writeString(&b, stepID)
-	}
-	return digestBytes(b.Bytes()), nil
-}
 
 func validateExecutionTransition(
 	scopeDigest string,
@@ -306,6 +272,7 @@ func validateExecutionTransition(
 	receiptFrontiers []string,
 	appliedStepIDs map[string]struct{},
 	appliedStepFrontier map[string]uint64,
+	currentReceiptFrontier uint64,
 	reservedStepIDs map[string]struct{},
 	checkHeads bool,
 ) error {
@@ -330,6 +297,9 @@ func validateExecutionTransition(
 	}
 	if transition.ReceiptFrontierSequence >= uint64(len(receiptFrontiers)) {
 		return errors.New("receipt frontier sequence exceeds verified receipt chain")
+	}
+	if transition.ReceiptFrontierSequence < currentReceiptFrontier {
+		return errors.New("execution receipt frontier regresses relative to the current state/proof head")
 	}
 	if transition.ReceiptFrontierDigest != receiptFrontiers[transition.ReceiptFrontierSequence] {
 		return errors.New("receipt frontier digest does not match the selected verified receipt-chain prefix")
@@ -397,8 +367,8 @@ func validateExecutionTransition(
 		if _, exists := appliedStepIDs[stepID]; !exists {
 			return errors.New("execution step supersedes an unknown or unapplied prior step")
 		}
-		if transition.Kind == StepRecomputeAfterCorrection && transition.ReceiptFrontierSequence <= appliedStepFrontier[stepID] {
-			return errors.New("correction recomputation must consume a later oracle receipt frontier than the superseded step")
+		if transition.Kind != StepApply && transition.ReceiptFrontierSequence <= appliedStepFrontier[stepID] {
+			return errors.New("correction/compensation/revocation must consume a later oracle receipt frontier than the superseded step")
 		}
 	}
 	if checkHeads {
@@ -409,7 +379,6 @@ func validateExecutionTransition(
 			return errors.New("IVC prior-proof digest does not match the current proof head")
 		}
 	}
-	_ = scopeDigest
 	_ = scope
 	_ = reservedStepIDs
 	return nil
@@ -535,6 +504,7 @@ func applyExecutionTransition(state *executionActiveState, transition ExecutionT
 	state.stateDigest = transition.OutputStateDigest
 	state.proofDigest = transition.IVCUpdate.NextProofDigest
 	state.stepHeadDigest = digest
+	state.receiptFrontierSequence = transition.ReceiptFrontierSequence
 }
 
 func executionReplayCertificateDigest(result ExecutionReplayResultV1) string {
@@ -696,7 +666,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -717,7 +687,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 				result.Reason = "unknown execution intent is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -736,7 +706,7 @@ func ReplayOracleExecutionTranscriptV1(
 				return finalizeExecutionReplay(result)
 			}
 			if event.Outcome == ExecutionReconciledApplied {
-				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, reservedStepIDs, true); err != nil {
+				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 					result.Reason = "reconciled execution transition is no longer valid: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
