@@ -230,7 +230,7 @@ fn run(
     if event_count == 0 || event_count > MAX_EVENTS {
         return Err(format!("events must be between 1 and {MAX_EVENTS}").into());
     }
-    if repeats < 5 || repeats > 100 {
+    if !(5..=100).contains(&repeats) {
         return Err("repeats must be between 5 and 100".into());
     }
 
