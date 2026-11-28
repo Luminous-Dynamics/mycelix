@@ -868,7 +868,7 @@ pub fn project_temporal_relationships(
         }
     }
 
-    let mut ordered_mutations: Vec<_> = known_mutation_records.iter().copied().collect();
+    let mut ordered_mutations: Vec<_> = known_mutation_records.to_vec();
     ordered_mutations.sort_by_key(|mutation| mutation.accepted_sequence);
     let mut mutated_targets = BTreeSet::new();
     for mutation in &ordered_mutations {
@@ -917,9 +917,9 @@ pub fn project_temporal_relationships(
         }
     }
 
-    let mut ordered_known_claims: Vec<_> = known_claims.iter().copied().collect();
+    let mut ordered_known_claims: Vec<_> = known_claims.to_vec();
     ordered_known_claims.sort_by(|left, right| left.relation_id.cmp(&right.relation_id));
-    let known_claim_refs: Vec<_> = ordered_known_claims.iter().copied().collect();
+    let known_claim_refs: Vec<_> = ordered_known_claims.to_vec();
     let known_relation_ids: Vec<_> = known_claim_refs
         .iter()
         .map(|claim| claim.relation_id.clone())
@@ -961,7 +961,7 @@ pub fn project_temporal_relationships(
         .into_iter()
         .collect();
 
-    let mut known_mutations: Vec<_> = known_mutation_records.iter().copied().collect();
+    let mut known_mutations: Vec<_> = known_mutation_records.to_vec();
     known_mutations.sort_by_key(|mutation| mutation.accepted_sequence);
     let pending_mutation_ids: Vec<_> = known_mutations
         .iter()
@@ -1070,7 +1070,7 @@ pub fn project_temporal_relationships(
         .iter()
         .map(|mutation| mutation.event_id.clone())
         .collect();
-    let known_mutation_refs: Vec<_> = known_mutations.iter().copied().collect();
+    let known_mutation_refs: Vec<_> = known_mutations.to_vec();
     let superseded_relation_ids: Vec<_> = superseded.into_iter().collect();
     let revoked_relation_ids: Vec<_> = revoked.into_iter().collect();
     let digest = snapshot_digest(
@@ -1566,7 +1566,7 @@ mod tests {
 
         let known_before_correction = project_temporal_relationships(
             &[original.clone(), replacement.clone()],
-            &[correction.clone()],
+            std::slice::from_ref(&correction),
             &cut(T11, 2),
         )
         .unwrap();
@@ -1722,8 +1722,8 @@ mod tests {
         );
 
         let before_effective_time = project_temporal_relationships(
-            &[original.clone()],
-            &[revocation.clone()],
+            std::slice::from_ref(&original),
+            std::slice::from_ref(&revocation),
             &cut(T11, 2),
         )
         .unwrap();
