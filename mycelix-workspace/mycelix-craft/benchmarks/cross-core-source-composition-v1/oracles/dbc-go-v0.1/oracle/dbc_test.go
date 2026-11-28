@@ -17,7 +17,7 @@ func ref(id string,n int) Ref { return Ref{ID:id,Schema:"schema."+id,Digest:d(n)
 func base() Capsule {
  c:=Capsule{
   SchemaID:"mycelix.craft.decision-basis-capsule.v0.1",ProfileRef:"mycelix.djcc.full-evidence-execution.v0.1",
-  ProfileDigest:d(1),DecisionID:"decision-1",QueryID:"query-1",QueryDigest:d(2),QuerySchema:"query-v1",ScopeDigest:d(3),ValidAt:"2026-11-28T10:00:00Z",
+  ProfileDigest:supportedProfileDigest,DecisionID:"decision-1",QueryID:"query-1",QueryDigest:d(2),QuerySchema:"query-v1",ScopeDigest:d(3),ValidAt:"2026-11-28T10:00:00Z",
   Policy:ref("policy",4),Temporal:struct{ OCELProfile, SourceCorpus, Projection, Replay Ref }{ref("ocel-profile",13),ref("source-corpus",14),ref("projection",15),ref("replay",16)},
   Frontier:FrontierBinding{Kind:"CausalEventFrontier",Receipt:ref("frontier",5),Status:"Valid",Prefix:Established},
   Progress:ProgressBinding{Kind:"ProgressAntichain",Receipt:ref("progress",6),Status:"StableRelativeToDeclaredProgress",Universe:NotEvaluated},
@@ -44,6 +44,12 @@ func base() Capsule {
   Outcome:{{SourceTrust,[]string{"authentication"}},{Semantic,[]string{"completeness"}},{Execution,[]string{"effect"}}},
  }
  for _,st:=range stageOrder { c.Stages=append(c.Stages,StageReceipt{ID:ids[st],Stage:st,Schema:"receipt-v1",OutputSchema:schemas[st],ProfileDigest:c.ProfileDigest,ScopeDigest:c.ScopeDigest,SourceCommit:strings.Repeat("a",40),BuildDigest:d(50+len(c.Stages)),Digest:d(60+len(c.Stages)),OutputDigest:digests[st],Claims:own[st]}) }
+ stageRef:=func(st Stage) Ref { for _,s:=range c.Stages { if s.Stage==st { return Ref{ID:s.ID,Schema:s.OutputSchema,Digest:s.OutputDigest} } }; return Ref{} }
+ c.Frontier.Receipt=stageRef(Frontier)
+ c.Policy=stageRef(Policy)
+ c.Authority.Receipt=stageRef(Authorization)
+ c.Execution=stageRef(Execution)
+ c.Outcome.Receipt=stageRef(Outcome)
  for st,ds:=range dep { for _,e:=range ds { var p StageReceipt; for _,x:=range c.Stages { if x.Stage==e.Producer { p=x } }; for i:=range c.Stages { if c.Stages[i].Stage==st { c.Stages[i].Inputs=append(c.Stages[i].Inputs,Input{Slot:string(e.Producer),Producer:e.Producer,ReceiptID:p.ID,Schema:p.OutputSchema,Digest:p.OutputDigest,Required:e.Required}) } } } }
  for slot,consumer:=range externalSlots { r:=externalRefs(c)[slot]; c.External=append(c.External,ExternalBinding{Consumer:consumer,Slot:slot,ReceiptID:r.ID,Schema:r.Schema,Digest:r.Digest}) }
  return c
@@ -109,4 +115,11 @@ func TestTemporalSourceReferencesAreIndividuallyBound(t *testing.T) {
  c:=base()
  for i:=range c.External { if c.External[i].Slot=="source_corpus" { c.External[i].ReceiptID="wrong-corpus" } }
  expectCode(t,c,"EXTERNAL_BINDING_MISMATCH")
+}
+
+func TestPinnedDJCCProfileDigestIsRequired(t *testing.T) {
+ c:=base(); c.ProfileDigest=d(222); expectCode(t,c,"PROFILE_MISMATCH")
+}
+func TestPolicyAndOutcomeStageReceiptsAreBound(t *testing.T) {
+ c:=base(); c.Policy.Digest=d(333); expectCode(t,c,"RECEIPT_INVALID")
 }
