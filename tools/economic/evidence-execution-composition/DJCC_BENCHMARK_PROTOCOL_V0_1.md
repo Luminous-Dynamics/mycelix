@@ -38,6 +38,7 @@ Report each profile independently. NotEvaluated, UnsupportedByProfile, and Indet
 | Incremental recomputation | DBSP / Differential Dataflow; Rete-style incremental rules; full recomputation | Same query graph and delta stream; exact output parity first, then cost at each delta/fan-out point |
 | Transparency and receipts | RFC 9943 SCITT architecture; RFC 9942 COSE Receipts; RFC 9162; current SCITT MMR and CCF profiles | Same signed statements, verifier-pinned checkpoints, inclusion/consistency task and trust assumptions |
 | End-to-end composition | Baseline pipeline assembled from the above owners without DJCC composition checks | Same owner outputs, scope, frontier, policy epoch, action denominator and outcome observations |
+| Agent authorization and collateral effects | AuthorizationBench; SABench; Mycelix #6170 matched subset | Same executable task, authorized/out-of-scope paths and trace oracle; report goal completion, authorization compliance and unauthorized effects separately |
 
 ## 3A. Existing Mycelix owners and matched benchmark lanes
 
@@ -59,6 +60,8 @@ The benchmark should include **integration rows** that use the exact owner outpu
 - **VTRQ:** the 21 August 2026 paper targets verifiable spatio-temporal trajectory range queries with separate spatial and temporal authenticated structures. Use it for the query primitive, not as an end-to-end decision-composition baseline.
 - **Cedar:** its verification-guided development combines executable formal models/proofs with differential random and property-based tests against production Rust. DJCC should adopt that discipline for its own composition model rather than duplicate Cedar's policy engine.
 - **DBSP:** the 2025 VLDB Journal work addresses automatic incremental view maintenance for rich query languages. Treat incremental replay as a measured optimization over a full-recompute oracle, not as inherently superior.
+- **AuthorizationBench:** its October 2026 arXiv study uses 286 executable tasks and 6,864 trajectories across model/harness configurations; it reports a 19.2% out-of-authorization rate (10.5–26.6% across configurations). The key result for DJCC is methodological: task completion is not authorization compliance.
+- **SABench:** its October 2026 arXiv study uses 201 tasks and reports collateral-damage side effects in 15.2% of 2,211 model-task pairs; 12.8% of goal-satisfied runs still include unauthorized writes. This supports separate outcome axes and an effect-observation oracle, not direct comparison with DJCC certificate verification.
 
 Sources:
 - RFC 9943 / SCITT status: https://datatracker.ietf.org/doc/html/rfc9943 and https://datatracker.ietf.org/group/scitt/documents/
@@ -70,6 +73,8 @@ Sources:
 - Cedar specification and differential testing: https://github.com/cedar-policy/cedar-spec
 - Cedar verification-guided development: https://arxiv.org/abs/2407.01688
 - DBSP: https://doi.org/10.1007/s00778-025-00922-y
+- AuthorizationBench: https://arxiv.org/abs/2610.27548
+- SABench: https://arxiv.org/abs/2610.34167
 - SQL Server temporal tables: https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/overview
 
 These references are comparison inputs, not endorsements, certifications, or claims of feature parity.
