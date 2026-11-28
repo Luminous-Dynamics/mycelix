@@ -27,7 +27,7 @@ expect_rejected "duplicate claim identity" '(.cases[] | select(.case_id == "ITOP
 expect_rejected "required observer identity removed" '(.cases[] | select(.case_id == "ITOPS-QI-OBSERVER-DRIFT-001") | .outcome_evidence.observer_ref) = null'
 expect_rejected "applicable authority operation missing" '(.cases[] | select(.case_id == "ITOPS-QI-PERMISSION-REVOKE-001") | .effect_authority.operation_ref) = null'
 expect_rejected "scored result missing protocol identity" '(.cases[] | select(.case_id == "ITOPS-QI-EVALUATOR-CHANGE-001") | .benchmark_score.current_protocol_digest) = null'
-expect_rejected "known dependency change hidden by incomplete feed" '(.cases[] | select(.case_id == "ITOPS-QI-INCOMPLETE-COVERAGE-001") | .claims[] | select(.claim_id == "repair_payments") | .expected_qualification_disposition) = "UNDER_INVESTIGATION"
+expect_rejected "known direct dependency change hidden by incomplete feed" '(.cases[] | select(.case_id == "ITOPS-QI-INCOMPLETE-COVERAGE-001") | .claims[] | select(.claim_id == "repair_payments") | .expected_qualification_disposition) = "UNDER_INVESTIGATION"'
 expect_rejected "unknown change coverage accepted as complete" '(.cases[] | select(.case_id == "ITOPS-QI-INCOMPLETE-COVERAGE-001") | .change_feed_complete) = true'
 expect_rejected "unknown impact incorrectly treated as unaffected" '(.cases[] | select(.case_id == "ITOPS-QI-INCOMPLETE-COVERAGE-001") | .claims[] | select(.claim_id == "delegated_payments_repair") | .expected_qualification_disposition) = "NOT_AFFECTED"'
 expect_rejected "observer change event points to a different observer" '(.cases[] | select(.case_id == "ITOPS-QI-OBSERVER-DRIFT-001") | .outcome_evidence.observer_ref) = "observer:wrong"'
