@@ -89,3 +89,6 @@ The independent-corroboration profile makes source independence a first-class re
 ### MMR boundary
 
 The planned MMR adversarial classes DJCC-009..017 are specified in the certificate document; they are not part of the eight executable symbolic seed cases and must not be reported as passed. RFC 9942 receipts prove VDS properties under a selected profile, while the MMR profile -00 remains an active Internet-Draft as of 28 November 2026.
+
+
+The DJCC seed-oracle workflow prints the exact gofmt diff when its formatting gate fails so formatting fixes are evidence-driven rather than manually approximated.
