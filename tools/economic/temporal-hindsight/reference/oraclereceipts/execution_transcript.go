@@ -34,6 +34,9 @@ type ExecutionDispositionV1 string
 type IVCUpdateEnvelopeV1 struct {
 	ProtocolRef string
 	ProtocolVersion string
+	PriorAdviceCommitmentDigest string
+	AdviceDeltaCommitmentDigest string
+	NextAdviceCommitmentDigest string
 	ParametersDigest string
 	VerificationKeyDigest string
 	PriorProofDigest string
@@ -88,6 +91,7 @@ type ExecutionReplayResultV1 struct {
 	StepChainDigest string
 	StateHeadDigest string
 	ProofHeadDigest string
+	AdviceCommitmentDigest string
 	PendingEventID string
 	PendingStepID string
 	MutationBlocked bool
@@ -106,6 +110,7 @@ type ExecutionReplayResultV1 struct {
 type executionActiveState struct {
 	stateDigest string
 	proofDigest string
+	adviceCommitmentDigest string
 	stepHeadDigest string
 	receiptFrontierSequence uint64
 }
@@ -135,6 +140,42 @@ func executionGenesisProofDigest(scopeDigest string) string {
 	writeString(&b, "MYCELIX-IVC-PROOF-GENESIS-V1")
 	writeString(&b, scopeDigest)
 	return digestBytes(b.Bytes())
+}
+
+func executionGenesisAdviceCommitmentDigest(scopeDigest string) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-IVC-ADVICE-GENESIS-V1")
+	writeString(&b, scopeDigest)
+	return digestBytes(b.Bytes())
+}
+
+func executionAdviceDeltaCommitmentDigestV1(scopeDigest string, frontierSequence uint64, frontierDigest string, receiptDigests []string) (string, error) {
+	canonical, err := canonicalDigestSet(receiptDigests, MaxEvidenceReferences, "oracle advice receipt set")
+	if err != nil {
+		return "", err
+	}
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-IVC-ADVICE-DELTA-V1")
+	writeString(&b, scopeDigest)
+	writeUint64(&b, frontierSequence)
+	writeString(&b, frontierDigest)
+	writeUint32(&b, uint32(len(canonical)))
+	for _, digest := range canonical {
+		writeString(&b, digest)
+	}
+	return digestBytes(b.Bytes()), nil
+}
+
+func executionNextAdviceCommitmentDigestV1(scopeDigest, priorDigest, deltaDigest string) (string, error) {
+	if !validDigest(scopeDigest) || !validDigest(priorDigest) || !validDigest(deltaDigest) {
+		return "", errors.New("IVC advice commitment input is malformed")
+	}
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-IVC-ADVICE-CHAIN-V1")
+	writeString(&b, scopeDigest)
+	writeString(&b, priorDigest)
+	writeString(&b, deltaDigest)
+	return digestBytes(b.Bytes()), nil
 }
 
 func canonicalDigestSet(values []string, limit int, label string) ([]string, error) {
@@ -218,6 +259,9 @@ func executionPublicInputDigestFromScopeDigestV1(scopeDigest string, transition 
 		transition.InputStateDigest,
 		transition.OutputStateDigest,
 		transition.OutputDigest,
+		transition.IVCUpdate.PriorAdviceCommitmentDigest,
+		transition.IVCUpdate.AdviceDeltaCommitmentDigest,
+		transition.IVCUpdate.NextAdviceCommitmentDigest,
 	} {
 		writeString(&b, value)
 	}
@@ -253,6 +297,9 @@ func executionTransitionDigestV1(scopeDigest string, transition ExecutionTransit
 	for _, value := range []string{
 		transition.IVCUpdate.ProtocolRef,
 		transition.IVCUpdate.ProtocolVersion,
+		transition.IVCUpdate.PriorAdviceCommitmentDigest,
+		transition.IVCUpdate.AdviceDeltaCommitmentDigest,
+		transition.IVCUpdate.NextAdviceCommitmentDigest,
 		transition.IVCUpdate.ParametersDigest,
 		transition.IVCUpdate.VerificationKeyDigest,
 		transition.IVCUpdate.PriorProofDigest,
@@ -272,6 +319,7 @@ func validateExecutionTransition(
 	transition ExecutionTransitionV1,
 	stateHead string,
 	proofHead string,
+	adviceHead string,
 	receiptSequence map[string]uint64,
 	receiptFrontiers []string,
 	appliedStepIDs map[string]struct{},
@@ -316,6 +364,9 @@ func validateExecutionTransition(
 		return errors.New("IVC protocol reference/version exceeds byte limit")
 	}
 	for _, field := range []struct{ label, value string }{
+		{"prior IVC advice commitment digest", transition.IVCUpdate.PriorAdviceCommitmentDigest},
+		{"IVC advice delta commitment digest", transition.IVCUpdate.AdviceDeltaCommitmentDigest},
+		{"next IVC advice commitment digest", transition.IVCUpdate.NextAdviceCommitmentDigest},
 		{"IVC parameters digest", transition.IVCUpdate.ParametersDigest},
 		{"IVC verification-key digest", transition.IVCUpdate.VerificationKeyDigest},
 		{"prior IVC proof digest", transition.IVCUpdate.PriorProofDigest},
@@ -367,6 +418,22 @@ func validateExecutionTransition(
 	if transition.IVCUpdate.PublicInputDigest != publicInputsDigest {
 		return errors.New("IVC public-input digest does not match the exact execution step")
 	}
+	expectedAdviceDelta, err := executionAdviceDeltaCommitmentDigestV1(scopeDigest,
+		transition.ReceiptFrontierSequence, transition.ReceiptFrontierDigest, receipts)
+	if err != nil {
+		return err
+	}
+	if transition.IVCUpdate.AdviceDeltaCommitmentDigest != expectedAdviceDelta {
+		return errors.New("IVC advice-delta commitment does not match the consumed oracle receipts")
+	}
+	expectedNextAdvice, err := executionNextAdviceCommitmentDigestV1(scopeDigest,
+		transition.IVCUpdate.PriorAdviceCommitmentDigest, expectedAdviceDelta)
+	if err != nil {
+		return err
+	}
+	if transition.IVCUpdate.NextAdviceCommitmentDigest != expectedNextAdvice {
+		return errors.New("IVC next advice commitment does not match the prior commitment and receipt delta")
+	}
 	for _, stepID := range supersedes {
 		if _, exists := appliedStepIDs[stepID]; !exists {
 			return errors.New("execution step supersedes an unknown or unapplied prior step")
@@ -381,6 +448,9 @@ func validateExecutionTransition(
 		}
 		if transition.IVCUpdate.PriorProofDigest != proofHead {
 			return errors.New("IVC prior-proof digest does not match the current proof head")
+		}
+		if transition.IVCUpdate.PriorAdviceCommitmentDigest != adviceHead {
+			return errors.New("IVC prior advice commitment does not match the current advice head")
 		}
 	}
 	_ = scope
@@ -559,6 +629,8 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 			transition.InputStateDigest, transition.OutputStateDigest,
 			transition.OutputDigest, transition.ReceiptFrontierDigest,
 			transition.IVCUpdate.ProtocolRef, transition.IVCUpdate.ProtocolVersion,
+			transition.IVCUpdate.PriorAdviceCommitmentDigest, transition.IVCUpdate.AdviceDeltaCommitmentDigest,
+			transition.IVCUpdate.NextAdviceCommitmentDigest,
 			transition.IVCUpdate.ParametersDigest, transition.IVCUpdate.VerificationKeyDigest,
 			transition.IVCUpdate.PriorProofDigest, transition.IVCUpdate.NextProofDigest,
 			transition.IVCUpdate.ProofArtifactDigest, transition.IVCUpdate.PublicInputDigest,
@@ -588,6 +660,7 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 func applyExecutionTransition(state *executionActiveState, transition ExecutionTransitionV1, digest string) {
 	state.stateDigest = transition.OutputStateDigest
 	state.proofDigest = transition.IVCUpdate.NextProofDigest
+	state.adviceCommitmentDigest = transition.IVCUpdate.NextAdviceCommitmentDigest
 	state.stepHeadDigest = digest
 	state.receiptFrontierSequence = transition.ReceiptFrontierSequence
 }
@@ -610,6 +683,7 @@ func executionReplayCertificateDigest(result ExecutionReplayResultV1) string {
 	writeString(&b, result.StepChainDigest)
 	writeString(&b, result.StateHeadDigest)
 	writeString(&b, result.ProofHeadDigest)
+	writeString(&b, result.AdviceCommitmentDigest)
 	writeString(&b, result.PendingEventID)
 	writeString(&b, result.PendingStepID)
 	if result.MutationBlocked { b.WriteByte(1) } else { b.WriteByte(0) }
@@ -707,11 +781,13 @@ func ReplayOracleExecutionTranscriptV1(
 	state := executionActiveState{
 		stateDigest: executionGenesisStateDigest(scopeDigest),
 		proofDigest: executionGenesisProofDigest(scopeDigest),
+		adviceCommitmentDigest: executionGenesisAdviceCommitmentDigest(scopeDigest),
 		stepHeadDigest: executionGenesisEventDigest(scopeDigest),
 	}
 	result.GenesisEventDigest = state.stepHeadDigest
 	result.StateHeadDigest = state.stateDigest
 	result.ProofHeadDigest = state.proofDigest
+	result.AdviceCommitmentDigest = state.adviceCommitmentDigest
 	running := state.stepHeadDigest
 	seenEventIDs := make(map[string]struct{}, len(events))
 	reservedStepIDs := make(map[string]struct{}, len(events))
@@ -758,7 +834,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -779,7 +855,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 				result.Reason = "unknown execution intent is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -798,7 +874,7 @@ func ReplayOracleExecutionTranscriptV1(
 				return finalizeExecutionReplay(result)
 			}
 			if event.Outcome == ExecutionReconciledApplied {
-				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 					result.Reason = "reconciled execution transition is no longer valid: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
@@ -822,6 +898,7 @@ func ReplayOracleExecutionTranscriptV1(
 	}
 	result.StateHeadDigest = state.stateDigest
 	result.ProofHeadDigest = state.proofDigest
+	result.AdviceCommitmentDigest = state.adviceCommitmentDigest
 	if pending != nil {
 		result.PendingEventID = pending.event.EventID
 		result.PendingStepID = pending.transition.StepID
