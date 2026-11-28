@@ -230,7 +230,6 @@ func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
 	}
 }
 
-
 func TestValidateBenchmarkResultV01RejectsQualificationBelowThirtyClasses(t *testing.T) {
 	value := validBenchmarkResultV01()
 	value["corpus"].(map[string]any)["adversarial_class_count"] = 29
