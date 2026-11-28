@@ -1,0 +1,450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/itops-attempt-history-overlay/attempt-history-cases-v0.1.schema.json",
+  "title": "ITOPS Attempt-History Overlay v0.1",
+  "description": "Public known-answer fixtures for retry/attempt-history composition. This is not a canonical operation ledger or production verifier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "schema_version",
+    "contract",
+    "visibility",
+    "ownership",
+    "cases"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "itops-attempt-history-overlay"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "contract": {
+      "const": "ITOPS-OUTCOME-ADAPTER-001"
+    },
+    "visibility": {
+      "const": "PUBLIC_REFERENCE_ORACLE_FIXTURE"
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "sequence"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "request_digest",
+        "idempotency_key",
+        "actions"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        }
+      }
+    },
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "scope_matches",
+        "cursor_complete",
+        "gap_count",
+        "retention_covers_start",
+        "backfill_pending",
+        "provider_dependency_group",
+        "as_of"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "COMPLETE_FOR_SCOPE",
+            "INCOMPLETE",
+            "UNKNOWN"
+          ]
+        },
+        "scope_matches": {
+          "type": "boolean"
+        },
+        "cursor_complete": {
+          "type": "boolean"
+        },
+        "gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retention_covers_start": {
+          "type": "boolean"
+        },
+        "backfill_pending": {
+          "type": "boolean"
+        },
+        "provider_dependency_group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "ordinal",
+        "previous_attempt_id",
+        "action_id",
+        "request_digest",
+        "idempotency_key",
+        "dispatched",
+        "response",
+        "effect",
+        "attempted_at"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "previous_attempt_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dispatched": {
+          "type": "boolean"
+        },
+        "response": {
+          "enum": [
+            "none",
+            "accepted",
+            "rejected",
+            "timeout",
+            "unknown"
+          ]
+        },
+        "effect": {
+          "enum": [
+            "not_attempted",
+            "applied",
+            "not_applied",
+            "partial",
+            "unknown"
+          ]
+        },
+        "attempted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "action_id",
+        "request_digest",
+        "kind",
+        "source_id",
+        "dependency_group",
+        "independence",
+        "result",
+        "freshness"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "kind": {
+          "enum": [
+            "provider_ack",
+            "provider_status",
+            "independent_resource_observation",
+            "owner_reconciliation"
+          ]
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependency_group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independence": {
+          "enum": [
+            "qualified_independent",
+            "shared_dependency",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "result": {
+          "enum": [
+            "applied",
+            "not_applied",
+            "conflicting",
+            "acknowledged",
+            "unknown"
+          ]
+        },
+        "freshness": {
+          "enum": [
+            "current",
+            "stale",
+            "conflicting",
+            "absent"
+          ]
+        }
+      }
+    },
+    "retryBasis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_effect_evidence_id",
+        "idempotency_state",
+        "request_digest",
+        "idempotency_key"
+      ],
+      "properties": {
+        "no_effect_evidence_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "idempotency_state": {
+          "enum": [
+            "VERIFIED_SAME_KEY",
+            "UNVERIFIED",
+            "NOT_SAFE"
+          ]
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "priorFrontier": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "as_of",
+            "status",
+            "expected_next_step",
+            "known_attempt_ids"
+          ],
+          "properties": {
+            "as_of": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "status": {
+              "enum": [
+                "COMPLETE_FOR_SCOPE",
+                "INCOMPLETE",
+                "UNKNOWN"
+              ]
+            },
+            "expected_next_step": {
+              "enum": [
+                "START_INITIAL_ATTEMPT",
+                "DO_NOT_RETRY",
+                "HOLD_FOR_RECONCILIATION",
+                "RETRY_SAME_REQUEST_KEY",
+                "RESUME_UNATTEMPTED_SUFFIX",
+                "REJECT_BLIND_RETRY",
+                "INVALID_HISTORY"
+              ]
+            },
+            "known_attempt_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "family",
+        "operation",
+        "history",
+        "attempts",
+        "evidence",
+        "retry_basis",
+        "prior_frontier",
+        "expected_next_step",
+        "hard_gate_violations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^ITOPS-AH-[0-9]{3}$"
+        },
+        "family": {
+          "enum": [
+            "initial_no_attempt",
+            "verified_effect",
+            "unknown_effect_incomplete_history",
+            "provider_ack_is_not_effect",
+            "qualified_no_effect_retry",
+            "no_effect_without_idempotency_contract",
+            "shared_dependency_is_not_independent",
+            "blind_retry_after_unknown",
+            "resume_unattempted_suffix",
+            "empty_but_incomplete_history",
+            "broken_attempt_chain",
+            "late_event_preserves_prior_frontier",
+            "request_digest_drift",
+            "idempotency_key_drift",
+            "conflicting_effect_observations",
+            "partial_multi_action_unknown_suffix"
+          ]
+        },
+        "operation": {
+          "$ref": "#/$defs/operation"
+        },
+        "history": {
+          "$ref": "#/$defs/history"
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attempt"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "retry_basis": {
+          "$ref": "#/$defs/retryBasis"
+        },
+        "prior_frontier": {
+          "$ref": "#/$defs/priorFrontier"
+        },
+        "expected_next_step": {
+          "enum": [
+            "START_INITIAL_ATTEMPT",
+            "DO_NOT_RETRY",
+            "HOLD_FOR_RECONCILIATION",
+            "RETRY_SAME_REQUEST_KEY",
+            "RESUME_UNATTEMPTED_SUFFIX",
+            "REJECT_BLIND_RETRY",
+            "INVALID_HISTORY"
+          ]
+        },
+        "hard_gate_violations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "blind_retry_after_unknown",
+              "duplicate_effect",
+              "operation_identity_substitution",
+              "history_chain_break"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
