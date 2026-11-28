@@ -439,10 +439,20 @@ pub enum RevocationStatus {
 
 /// Mirror of revocation coordinator::RevocationCheckResult
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum RevocationLookupStatus {
+    RecordObserved,
+    NoRecordObserved,
+}
+
 pub struct RevocationCheckResult {
     pub credential_id: String,
     pub status: RevocationStatus,
+    pub lookup_status: RevocationLookupStatus,
     pub reason: Option<String>,
+    pub effective_from: Option<Timestamp>,
+    pub recorded_at: Option<Timestamp>,
+    pub suspension_end: Option<Timestamp>,
     pub checked_at: Timestamp,
 }
 
