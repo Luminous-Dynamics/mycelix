@@ -1,6 +1,6 @@
 # Mycelix Verifier-Relative Causal Frontier Model
 
-This Rust crate models verifier-specific frontiers over owner-scoped append-only receipt histories. It builds on the timestamp-relative query kernel in `tools/economic/temporal-evidence` and moves the distributed-knowledge selector from a wall-clock cutoff K toward an accepted causal frontier F.
+This document defines the verifier-relative frontier model and its canonical proof contract over owner-scoped append-only receipt histories. In the current public tree, this directory contains the model README and canonical encoding specification; it is not itself a Cargo crate. The separate Rust proof primitive is `mycelix-workspace/crates/mycelix-rfc9162-proof-verifier`. The model builds on the timestamp-relative query kernel in `tools/economic/temporal-evidence` and moves the distributed-knowledge selector from a wall-clock cutoff K toward an accepted causal frontier F.
 
     (subject, valid-time V, verifier X, accepted causal frontier F)
 
@@ -8,14 +8,14 @@ A wall-clock K remains useful for reporting. It is not proof that a verifier's r
 
 ## Cryptographic proof path
 
-The crate depends on `mycelix-rfc9162-proof-verifier`, which uses RustCrypto `sha2 = 0.10.9`. It verifies actual RFC 9162 SHA-256 inclusion and append-only consistency paths:
+The Rust primitive crate at `mycelix-workspace/crates/mycelix-rfc9162-proof-verifier` implements RFC 9162 SHA-256 leaf/node hashing, Merkle Tree Hash construction, inclusion paths and append-only consistency paths:
 
 - Each canonical owner-cut entry is included under the aggregate checkpoint root.
 - Each canonical verifier-acceptance receipt is included under its owner-history root.
 - Changed owner-history roots are comparable only with a valid RFC 9162 consistency proof and matching tree sizes.
 - Receipt digests are recomputed from canonical receipt bytes before their inclusion paths are accepted.
 
-A successful result is named `MerkleInclusionProofValid`: this means the supplied path recomputes to the supplied root. It does **not** mean the root itself is trusted or authenticated.
+A successful result is named `InclusionValidRelativeToSuppliedRoot` or `ConsistencyValidRelativeToSuppliedRoots`: the paths recompute relative to the supplied root(s). They do **not** mean those roots, log identity or tree-head signers are trusted or authenticated. The primitive crate deliberately has no key, witness or authority dependency.
 
 ## Model
 
@@ -24,7 +24,7 @@ A successful result is named `MerkleInclusionProofValid`: this means the supplie
 - `KnowledgeReceiptV1` binds verifier, policy epoch, assertion ID/digest, receipt-acceptance owner, owner-local sequence, causal dependencies, and its canonical receipt digest.
 - `OwnerConsistencyLinkV1` carries old/new tree sizes, roots and an RFC 9162 consistency path.
 - `FrontierRelationV1` distinguishes Equal, Before, After, Concurrent, Unknown and Conflict.
-- `ReceiptVisibilityV1` distinguishes MerkleInclusionProofValid, BeyondCoveredCut and Indeterminate.
+- `ReceiptVisibilityV1` distinguishes inclusion valid relative to the supplied root, BeyondCoveredCut and Indeterminate.
 
 ## Critical semantics
 
@@ -40,18 +40,17 @@ A successful result is named `MerkleInclusionProofValid`: this means the supplie
 
 ## Run
 
-From this directory:
+Run the RFC 9162 proof primitive from the workspace root:
 
 ```sh
-rustup toolchain install 1.96.0 --profile minimal
-cargo +1.96.0 fmt --all -- --check
-cargo +1.96.0 test --locked
-cargo +1.96.0 clippy --locked --all-targets -- -D warnings
-cargo +1.96.0 run --locked --example frontier_scenarios
-cargo +1.96.0 run --locked --example benchmark_frontier_compare
+cd mycelix-workspace
+cargo +1.96.0 fmt --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml -- --check
+cargo +1.96.0 test --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --all-targets
+cargo +1.96.0 clippy --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --all-targets -- -D warnings
+cargo +1.96.0 run --release --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --example benchmark
 ```
 
-The example demonstrates valid receipt inclusion after a declared owner gap, an invalid receipt sequence inside that gap, and concurrent vs ordered frontiers.
+The model scenarios for receipt inclusion after declared gaps and concurrent versus ordered frontiers remain design/contract work until a full temporal-frontier Rust crate is added.
 
 ## Remaining trust boundaries
 
