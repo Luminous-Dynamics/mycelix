@@ -311,6 +311,142 @@ func equalStages(left, right map[StageID]Disposition) bool {
 	return true
 }
 
+
+type CompositionProfile struct {
+	ProfileRef          string                         `json:"profile_ref"`
+	RequiredClaims      []string                       `json:"required_claims"`
+	AllowedNotApplicable []string                      `json:"allowed_not_applicable"`
+	ClaimStages         map[string][]string            `json:"claim_stages"`
+	DependencyClaims   map[string]map[string][]string `json:"dependency_claims"`
+}
+
+type ProfileManifest struct {
+	Schema   string              `json:"schema"`
+	Status   string              `json:"status"`
+	Profiles []CompositionProfile `json:"profiles"`
+}
+
+var canonicalClaimOrder = []string{
+	"authentication",
+	"authority",
+	"completeness",
+	"effect",
+	"truth",
+}
+
+var canonicalStageOrder = []string{
+	"verifier_frontier",
+	"source_trust",
+	"semantic_projection",
+	"query",
+	"policy",
+	"authorization",
+	"execution",
+	"outcome",
+}
+
+func LoadProfileManifest(path string) (ProfileManifest, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ProfileManifest{}, fmt.Errorf("read DJCC profile manifest: %w", err)
+	}
+	var manifest ProfileManifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return ProfileManifest{}, fmt.Errorf("decode DJCC profile manifest: %w", err)
+	}
+	return manifest, nil
+}
+
+func strictlyOrdered(values []string, order []string) bool {
+	rank := make(map[string]int, len(order))
+	for i, value := range order {
+		rank[value] = i
+	}
+	last := -1
+	for _, value := range values {
+		current, ok := rank[value]
+		if !ok || current <= last {
+			return false
+		}
+		last = current
+	}
+	return true
+}
+
+func ValidateProfileManifest(manifest ProfileManifest) error {
+	if manifest.Schema != "mycelix.djcc-composition-profiles.v0.1" {
+		return errors.New("unsupported DJCC composition profile manifest schema")
+	}
+	if manifest.Status != "proposed-structural-profiles-not-yet-authoritative" {
+		return errors.New("unexpected DJCC profile manifest status")
+	}
+	if len(manifest.Profiles) != 2 {
+		return fmt.Errorf("expected two DJCC V0.1 profiles, got %d", len(manifest.Profiles))
+	}
+	seenProfiles := make(map[string]struct{}, len(manifest.Profiles))
+	stageRank := make(map[string]int, len(canonicalStageOrder))
+	for index, stage := range canonicalStageOrder {
+		stageRank[stage] = index
+	}
+	for _, profile := range manifest.Profiles {
+		if strings.TrimSpace(profile.ProfileRef) == "" {
+			return errors.New("DJCC profile reference is empty")
+		}
+		if _, duplicate := seenProfiles[profile.ProfileRef]; duplicate {
+			return fmt.Errorf("duplicate DJCC profile %q", profile.ProfileRef)
+		}
+		seenProfiles[profile.ProfileRef] = struct{}{}
+		if len(profile.RequiredClaims) == 0 || !strictlyOrdered(profile.RequiredClaims, canonicalClaimOrder) {
+			return fmt.Errorf("%s required claims must be non-empty, canonical and unique", profile.ProfileRef)
+		}
+		if !strictlyOrdered(profile.AllowedNotApplicable, canonicalStageOrder) && len(profile.AllowedNotApplicable) != 0 {
+			return fmt.Errorf("%s NotApplicable stages must be canonical and unique", profile.ProfileRef)
+		}
+		if len(profile.ClaimStages) != len(profile.RequiredClaims) {
+			return fmt.Errorf("%s claim-stage map must cover each required claim exactly once", profile.ProfileRef)
+		}
+		for _, claim := range profile.RequiredClaims {
+			stages, ok := profile.ClaimStages[claim]
+			if !ok || len(stages) == 0 {
+				return fmt.Errorf("%s has no producing stages for claim %s", profile.ProfileRef, claim)
+			}
+			if !strictlyOrdered(stages, canonicalStageOrder) {
+				return fmt.Errorf("%s stages for claim %s are not canonical/unique", profile.ProfileRef, claim)
+			}
+			for _, stage := range stages {
+				if contains(profile.AllowedNotApplicable, stage) {
+					return fmt.Errorf("%s marks %s NotApplicable while using it to establish %s", profile.ProfileRef, stage, claim)
+				}
+			}
+		}
+		for consumer, parents := range profile.DependencyClaims {
+			consumerRank, ok := stageRank[consumer]
+			if !ok {
+				return fmt.Errorf("%s has unknown consumer stage %s", profile.ProfileRef, consumer)
+			}
+			for parent, claims := range parents {
+				parentRank, ok := stageRank[parent]
+				if !ok || parentRank >= consumerRank {
+					return fmt.Errorf("%s has invalid dependency edge %s <- %s", profile.ProfileRef, consumer, parent)
+				}
+				if len(claims) == 0 || !strictlyOrdered(claims, canonicalClaimOrder) {
+					return fmt.Errorf("%s edge %s <- %s has empty/non-canonical required claims", profile.ProfileRef, consumer, parent)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func contains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
 func CaseIDs() []string {
 	ids := make([]string, 0, len(expected))
 	for id := range expected {
