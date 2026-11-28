@@ -586,6 +586,96 @@ mod tests {
     }
 
     #[test]
+    fn exhaustive_small_2x2_games_match_independent_pure_equilibrium_oracle() {
+        // Four profiles × two player payoffs, each in {0, 1, 2}: 3^8 = 6,561 games.
+        // The oracle below uses direct matrix inequalities and does not call the
+        // production best-response or payoff-lookup helpers.
+        const GAME_COUNT: usize = 6_561;
+
+        for case_id in 0..GAME_COUNT {
+            let mut digits = case_id;
+            let mut matrix = [[[0.0_f64; 2]; 2]; 2];
+
+            for row_action in 0..2 {
+                for column_action in 0..2 {
+                    for player in 0..2 {
+                        matrix[row_action][column_action][player] = (digits % 3) as f64;
+                        digits /= 3;
+                    }
+                }
+            }
+
+            let payoff_entries = vec![
+                payoff(
+                    "cooperate",
+                    "cooperate",
+                    matrix[0][0][0],
+                    matrix[0][0][1],
+                ),
+                payoff(
+                    "cooperate",
+                    "defect",
+                    matrix[0][1][0],
+                    matrix[0][1][1],
+                ),
+                payoff(
+                    "defect",
+                    "cooperate",
+                    matrix[1][0][0],
+                    matrix[1][0][1],
+                ),
+                payoff(
+                    "defect",
+                    "defect",
+                    matrix[1][1][0],
+                    matrix[1][1][1],
+                ),
+            ];
+            let fixture = game(payoff_entries);
+
+            let mut expected = Vec::new();
+            for row_action in 0..2 {
+                for column_action in 0..2 {
+                    let row_best_response =
+                        matrix[row_action][column_action][0]
+                            >= matrix[1 - row_action][column_action][0];
+                    let column_best_response =
+                        matrix[row_action][column_action][1]
+                            >= matrix[row_action][1 - column_action][1];
+
+                    if row_best_response && column_best_response {
+                        expected.push((row_action, column_action));
+                    }
+                }
+            }
+
+            let result =
+                analyze_pure_nash_equilibria(&fixture, exact_config())
+                    .unwrap_or_else(|error| {
+                        panic!("game {case_id} failed validation: {error:?}")
+                    });
+
+            let mut actual: Vec<(usize, usize)> = result
+                .equilibria
+                .iter()
+                .map(|equilibrium| {
+                    let row_action = usize::from(equilibrium.strategy_profile[0] == "defect");
+                    let column_action =
+                        usize::from(equilibrium.strategy_profile[1] == "defect");
+                    (row_action, column_action)
+                })
+                .collect();
+
+            expected.sort_unstable();
+            actual.sort_unstable();
+            assert_eq!(
+                actual, expected,
+                "pure-equilibrium set mismatch in 2x2 game {case_id}"
+            );
+        }
+    }
+
+    #[test]
     fn invalid_tolerance_is_rejected_before_analysis() {
         let game = game(vec![
             payoff("cooperate", "cooperate", 3.0, 3.0),
