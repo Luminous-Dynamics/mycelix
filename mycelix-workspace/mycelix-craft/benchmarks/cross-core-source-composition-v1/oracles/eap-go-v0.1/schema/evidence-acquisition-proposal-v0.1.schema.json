@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-craft-evidence-acquisition-proposal-v0.1.schema.json",
+  "title": "Mycelix Craft Evidence Acquisition Proposal V0.1",
+  "description": "Advisory-only structural proposal. It references a prior DBC and an EVSI evaluation; it does not authorize or perform field operations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "proposal_id",
+    "capability_boundary",
+    "advisory_only",
+    "authorized_effects",
+    "prior_decision_basis",
+    "evsi_evaluation",
+    "candidate",
+    "disposition",
+    "issued_at",
+    "valid_until",
+    "invalidated_by",
+    "abstention_reason"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "mycelix.craft.evidence-acquisition-proposal.v0.1"
+    },
+    "proposal_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "capability_boundary": {
+      "const": "AdvisoryOnly"
+    },
+    "advisory_only": {
+      "const": true
+    },
+    "authorized_effects": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "prior_decision_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "profile_ref",
+        "disposition",
+        "decision_id",
+        "query_id",
+        "scope_digest",
+        "frontier_digest",
+        "decision_loss_profile_digest",
+        "valid_at"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "profile_ref": {
+          "const": "mycelix.djcc.full-evidence-execution.v0.1"
+        },
+        "disposition": {
+          "enum": [
+            "DecisionJustifiedAtAcceptedFrontier",
+            "DecisionNotJustifiedAtAcceptedFrontier",
+            "Indeterminate"
+          ]
+        },
+        "decision_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "query_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scope_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "frontier_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "decision_loss_profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "valid_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      }
+    },
+    "evsi_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "frontier_digest",
+        "scope_digest",
+        "decision_id",
+        "evaluator_digest",
+        "loss_profile_digest",
+        "candidate_set_digest",
+        "observation_model_digest",
+        "model_status",
+        "evsi",
+        "eig_bits",
+        "costs",
+        "cost_weights",
+        "net_decision_value"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "frontier_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "scope_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "decision_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "evaluator_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "loss_profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "candidate_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "observation_model_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "model_status": {
+          "enum": [
+            "CalibratedWithinDeclaredModel",
+            "Uncalibrated",
+            "OutOfDomain",
+            "NotEvaluated"
+          ]
+        },
+        "evsi": {
+          "type": "number",
+          "minimum": 0
+        },
+        "eig_bits": {
+          "type": "number",
+          "minimum": 0
+        },
+        "costs": {
+          "$ref": "#/$defs/cost"
+        },
+        "cost_weights": {
+          "$ref": "#/$defs/costWeights"
+        },
+        "net_decision_value": {
+          "type": "number"
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "method",
+        "target_claim",
+        "qualified_role",
+        "mandatory",
+        "safe_under_current_policy",
+        "admissible_for_decision",
+        "available",
+        "in_domain",
+        "conditioned_on_current_evidence",
+        "independence_required",
+        "failure_domain_profile_digest",
+        "existing_dependency_graph_digest",
+        "result_impacts"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "method": {
+          "$ref": "#/$defs/identifier"
+        },
+        "target_claim": {
+          "$ref": "#/$defs/identifier"
+        },
+        "qualified_role": {
+          "$ref": "#/$defs/identifier"
+        },
+        "mandatory": {
+          "type": "boolean"
+        },
+        "safe_under_current_policy": {
+          "type": "boolean"
+        },
+        "admissible_for_decision": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "in_domain": {
+          "type": "boolean"
+        },
+        "conditioned_on_current_evidence": {
+          "type": "boolean"
+        },
+        "independence_required": {
+          "type": "boolean"
+        },
+        "failure_domain_profile_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ]
+        },
+        "existing_dependency_graph_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ]
+        },
+        "result_impacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/resultImpact"
+          }
+        }
+      }
+    },
+    "disposition": {
+      "enum": [
+        "RecommendOptionalObservation",
+        "AcquireMandatoryEvidence",
+        "RequestAuthorizedHumanReview",
+        "DoNotAcquireOptionalObservation",
+        "AbstainOrEscalate"
+      ]
+    },
+    "issued_at": {
+      "$ref": "#/$defs/utcSecond"
+    },
+    "valid_until": {
+      "$ref": "#/$defs/utcSecond"
+    },
+    "invalidated_by": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "abstention_reason": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": ".*\\S.*"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "utcSecond": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "receiptRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "schema_id",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "schema_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "money",
+        "delay",
+        "burden",
+        "risk"
+      ],
+      "properties": {
+        "money": {
+          "type": "number",
+          "minimum": 0
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0
+        },
+        "burden": {
+          "type": "number",
+          "minimum": 0
+        },
+        "risk": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "costWeights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "money_weight",
+        "delay_weight",
+        "burden_weight",
+        "risk_weight"
+      ],
+      "properties": {
+        "money_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "delay_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "burden_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "risk_weight": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "resultImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_id",
+        "decision_impact",
+        "explanation"
+      ],
+      "properties": {
+        "result_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "decision_impact": {
+          "enum": [
+            "DecisionCouldChange",
+            "RemainsIndeterminate",
+            "NoDecisionChange"
+          ]
+        },
+        "explanation": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    }
+  }
+}
