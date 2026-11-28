@@ -5,6 +5,7 @@ on:
     paths:
       - "mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/**"
       - "tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+      - "tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt"
       - "tools/economic/temporal-hindsight/reference/rfc9162vectors/**"
       - ".github/workflows/rfc9162-proof-verifier.yml"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - "mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/**"
       - "tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+      - "tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt"
       - "tools/economic/temporal-hindsight/reference/rfc9162vectors/**"
       - ".github/workflows/rfc9162-proof-verifier.yml"
 
@@ -45,6 +47,7 @@ jobs:
           test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/src/lib.rs
           test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/src/tests.rs
           test -f tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt
+          test -f tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt
           test -f tools/economic/temporal-hindsight/reference/rfc9162vectors/go.mod
           test -f tools/economic/temporal-hindsight/reference/rfc9162vectors/vectors_test.go
 
@@ -80,9 +83,11 @@ jobs:
           mkdir -p "$isolated/mycelix-workspace/crates" "$isolated/tools/economic/temporal-frontier-model"
           cp -a mycelix-workspace/crates/mycelix-rfc9162-proof-verifier "$isolated/mycelix-workspace/crates/"
           cp tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt "$isolated/tools/economic/temporal-frontier-model/"
+          cp tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt "$isolated/tools/economic/temporal-frontier-model/"
           test ! -f "$isolated/mycelix-workspace/Cargo.toml"
           test -f "$isolated/mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/Cargo.toml"
           test -f "$isolated/tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+          test -f "$isolated/tools/economic/temporal-frontier-model/XENIA_CHECKPOINT_V1_KAT.txt"
 
       - name: Check formatting
         id: fmt
