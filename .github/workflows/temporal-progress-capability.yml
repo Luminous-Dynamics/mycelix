@@ -81,7 +81,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test -run 'Test(Unknown|Reconciled|CapabilityIDs|DuplicateRelease|InvalidGeneration|ReleaseCannot|EventSequence|Unresolved|DerivedProgress|Incomparable|ScopeOrEpoch|MissingAuthority|DistinctMalformed|Authentication|RevokeConsumes|DerivedProgressEnforces)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-capability/go.log"
+          go test -run 'Test(Unknown|Reconciled|CapabilityIDs|DuplicateRelease|InvalidGeneration|ReleaseCannot|EventSequence|Unresolved|DerivedProgress|Incomparable|ScopeOrEpoch|MissingAuthority|DistinctMalformed|Authentication|RevokeConsumes|DerivedProgressEnforces|DerivedProgressRejects|EarlyCount|InvalidScope|LedgerEncoding)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-capability/go.log"
 
       - name: Benchmark replay smoke
         id: capability_benchmark
