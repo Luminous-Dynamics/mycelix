@@ -118,7 +118,7 @@ type executionActiveState struct {
 }
 
 type executionPendingState struct {
-	event CapabilityEventV1
+	event ExecutionEventV1
 	transition ExecutionTransitionV1
 	digest string
 }
@@ -1034,7 +1034,7 @@ func ReplayOracleExecutionTranscriptV1(
 			stepDigest, _ := executionTransitionDigestV1(scopeDigest, *event.Transition)
 			reservedStepIDs[event.Transition.StepID] = struct{}{}
 			pending = &executionPendingState{
-				event: CapabilityEventV1{EventID: event.EventID},
+				event: ExecutionEventV1{EventID: event.EventID},
 				transition: *event.Transition,
 				digest: stepDigest,
 			}
