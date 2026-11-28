@@ -2566,7 +2566,11 @@ mod tests {
         let check = RevocationCheckResult {
             credential_id: "cred:1".into(),
             status: RevocationStatusMirror::Active,
+            lookup_status: RevocationLookupStatusMirror::RecordObserved,
             reason: None,
+            effective_from: Some(Timestamp::from_micros(0)),
+            recorded_at: Some(Timestamp::from_micros(0)),
+            suspension_end: None,
             checked_at: Timestamp::from_micros(0),
         };
         let mapped = match check.status {
@@ -2585,7 +2589,11 @@ mod tests {
         let check_revoked = RevocationCheckResult {
             credential_id: "cred:2".into(),
             status: RevocationStatusMirror::Revoked,
+            lookup_status: RevocationLookupStatusMirror::RecordObserved,
             reason: Some("Key compromised".into()),
+            effective_from: Some(Timestamp::from_micros(500_000)),
+            recorded_at: Some(Timestamp::from_micros(500_000)),
+            suspension_end: None,
             checked_at: Timestamp::from_micros(1_000_000),
         };
         let mapped_revoked = match check_revoked.status {
@@ -2610,7 +2618,11 @@ mod tests {
         let check_no_reason = RevocationCheckResult {
             credential_id: "cred:3".into(),
             status: RevocationStatusMirror::Revoked,
+            lookup_status: RevocationLookupStatusMirror::RecordObserved,
             reason: None,
+            effective_from: Some(Timestamp::from_micros(0)),
+            recorded_at: Some(Timestamp::from_micros(0)),
+            suspension_end: None,
             checked_at: Timestamp::from_micros(0),
         };
         let mapped_no_reason = match check_no_reason.status {
@@ -2708,7 +2720,11 @@ mod tests {
         let check = RevocationCheckResult {
             credential_id: "urn:uuid:12345".into(),
             status: RevocationStatusMirror::Revoked,
+            lookup_status: RevocationLookupStatusMirror::RecordObserved,
             reason: Some("Key compromise".into()),
+            effective_from: Some(Timestamp::from_micros(1_699_999_000_000_000)),
+            recorded_at: Some(Timestamp::from_micros(1_699_999_100_000_000)),
+            suspension_end: None,
             checked_at: Timestamp::from_micros(1_700_000_000_000_000),
         };
         let json = serde_json::to_string(&check).unwrap();
@@ -2716,6 +2732,24 @@ mod tests {
         assert_eq!(restored.credential_id, "urn:uuid:12345");
         assert_eq!(restored.status, RevocationStatusMirror::Revoked);
         assert_eq!(restored.reason.unwrap(), "Key compromise");
+    }
+
+    #[test]
+    fn no_record_observed_fails_closed_as_unknown() {
+        let check = RevocationCheckResult {
+            credential_id: "cred:not-observed".into(),
+            status: RevocationStatusMirror::Active,
+            lookup_status: RevocationLookupStatusMirror::NoRecordObserved,
+            reason: None,
+            effective_from: None,
+            recorded_at: None,
+            suspension_end: None,
+            checked_at: Timestamp::from_micros(10),
+        };
+        assert!(matches!(
+            map_revocation_check(check),
+            CredentialRevocationStatus::Unknown
+        ));
     }
 
     #[test]
@@ -3007,8 +3041,19 @@ pub enum CredentialRevocationStatus {
 struct RevocationCheckResult {
     pub credential_id: String,
     pub status: RevocationStatusMirror,
+    pub lookup_status: RevocationLookupStatusMirror,
     pub reason: Option<String>,
+    pub effective_from: Option<Timestamp>,
+    pub recorded_at: Option<Timestamp>,
+    pub suspension_end: Option<Timestamp>,
     pub checked_at: Timestamp,
+}
+
+/// Mirror of revocation_integrity::RevocationLookupStatus for cross-zome deserialization
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+enum RevocationLookupStatusMirror {
+    RecordObserved,
+    NoRecordObserved,
 }
 
 /// Mirror of revocation_integrity::RevocationStatus for cross-zome deserialization
@@ -3017,6 +3062,25 @@ enum RevocationStatusMirror {
     Active,
     Suspended,
     Revoked,
+}
+
+fn map_revocation_check(check: RevocationCheckResult) -> CredentialRevocationStatus {
+    if check.lookup_status == RevocationLookupStatusMirror::NoRecordObserved {
+        return CredentialRevocationStatus::Unknown;
+    }
+    match check.status {
+        RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
+        RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
+            check.reason.unwrap_or_else(|| "No reason provided".to_string()),
+        ),
+        RevocationStatusMirror::Suspended => match check.suspension_end {
+            Some(until) => CredentialRevocationStatus::Suspended(
+                check.reason.unwrap_or_else(|| "No reason provided".to_string()),
+                until.to_string(),
+            ),
+            None => CredentialRevocationStatus::Unknown,
+        },
+    }
 }
 
 /// Check credential revocation status via cross-zome call to the revocation coordinator
@@ -3040,20 +3104,7 @@ fn check_credential_revocation_status(
                 )))
             })?;
 
-            match check.status {
-                RevocationStatusMirror::Active => Ok(CredentialRevocationStatus::Active),
-                RevocationStatusMirror::Revoked => Ok(CredentialRevocationStatus::Revoked(
-                    check
-                        .reason
-                        .unwrap_or_else(|| "No reason provided".to_string()),
-                )),
-                RevocationStatusMirror::Suspended => Ok(CredentialRevocationStatus::Suspended(
-                    check
-                        .reason
-                        .unwrap_or_else(|| "No reason provided".to_string()),
-                    check.checked_at.to_string(),
-                )),
-            }
+            Ok(map_revocation_check(check))
         }
         ZomeCallResponse::Unauthorized(_, _, _, _)
         | ZomeCallResponse::AuthenticationFailed(_, _) => {
@@ -3101,23 +3152,7 @@ fn batch_check_credential_revocation_status(
                     e
                 )))
             })?;
-            Ok(checks
-                .into_iter()
-                .map(|check| match check.status {
-                    RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-                    RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                        check
-                            .reason
-                            .unwrap_or_else(|| "No reason provided".to_string()),
-                    ),
-                    RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                        check
-                            .reason
-                            .unwrap_or_else(|| "No reason provided".to_string()),
-                        check.checked_at.to_string(),
-                    ),
-                })
-                .collect())
+            Ok(checks.into_iter().map(map_revocation_check).collect())
         }
         ZomeCallResponse::Unauthorized(_, _, _, _)
         | ZomeCallResponse::AuthenticationFailed(_, _) => {
