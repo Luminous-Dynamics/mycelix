@@ -44,4 +44,7 @@ expect_rejected "event has no supporting observation" \
 expect_rejected "required unauthorized-mutation terminal proposition removed" \
   '(.scenario.terminal_propositions) |= map(select(.proposition_id != "term-unauthorized"))'
 
-echo "PASS: all 9 ITOPS continuous mutation controls were rejected."
+expect_rejected "event is linked to an observation before it starts" \
+  '(.scenario.fault_schedule[] | select(.event_id == "evt-003") | .start_seconds) = 700'
+
+echo "PASS: all 10 ITOPS continuous mutation controls were rejected."
