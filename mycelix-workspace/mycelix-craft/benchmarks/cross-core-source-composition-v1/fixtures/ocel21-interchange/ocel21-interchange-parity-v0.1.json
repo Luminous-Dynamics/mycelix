@@ -1,0 +1,185 @@
+{
+  "schema_id": "mycelix.craft.ocel21-interchange-parity.v0.1",
+  "status": "static_known_answer_fixture; import_export_adapters_and_round_trip_execution_not_implemented",
+  "specification_version": "OCEL_2.1.0pre5_2026-10-01",
+  "canonical_profile": "mycelix.craft.ocel-semantic-projection.v0.1",
+  "fixture_id": "ocel21-water-service-mini-001",
+  "logical_counts": {
+    "events": 2,
+    "objects": 5,
+    "event_types": 2,
+    "object_types": 5,
+    "e2o_relations": 5,
+    "o2o_relations": 2,
+    "object_attribute_assignments": 6
+  },
+  "invariants": [
+    "event_ids_and_types_preserved",
+    "event_timestamps_preserved",
+    "event_attribute_types_and_values_preserved",
+    "object_ids_and_types_preserved",
+    "object_attribute_initial_values_preserved",
+    "object_attribute_change_history_preserved",
+    "e2o_endpoint_qualifier_multiplicity_preserved",
+    "o2o_endpoint_qualifier_multiplicity_preserved",
+    "object_id_must_not_appear_under_multiple_types",
+    "missing_and_null_are_not_conflated",
+    "event_time_is_not_source_ingest_time",
+    "event_to_object_and_object_to_object_edges_are_not_flattened"
+  ],
+  "formats": {
+    "json": {
+      "file": "fixtures/ocel21-interchange/ocel21-mini.json",
+      "present": true
+    },
+    "single_file_csv": {
+      "file": "fixtures/ocel21-interchange/ocel21-mini.ocel.csv",
+      "present": true
+    },
+    "bundled_csv": {
+      "files": [
+        "ocel-meta.json",
+        "events/event_pressure_observed.csv",
+        "events/event_sample_collected.csv",
+        "objects/object_Pump.csv",
+        "object_changes/object_changes_Pump.csv",
+        "objects/object_Zone.csv",
+        "object_changes/object_changes_Zone.csv",
+        "objects/object_Sample.csv",
+        "object_changes/object_changes_Sample.csv",
+        "objects/object_Calibration.csv",
+        "object_changes/object_changes_Calibration.csv",
+        "objects/object_LabBatch.csv",
+        "object_changes/object_changes_LabBatch.csv",
+        "relations/e2o.csv",
+        "relations/o2o.csv"
+      ],
+      "present": true
+    },
+    "bundled_parquet": {
+      "present": false,
+      "status": "adapter_output_not_yet_materialized"
+    }
+  },
+  "expected_semantic_projection": {
+    "events": [
+      {
+        "id": "OCEL-E1",
+        "type": "pressure_observed",
+        "time": "2026-11-28T08:00:00Z",
+        "attributes": {
+          "pressure_kpa": {
+            "type": "integer",
+            "value": 410
+          }
+        }
+      },
+      {
+        "id": "OCEL-E2",
+        "type": "sample_collected",
+        "time": "2026-11-28T08:08:00Z",
+        "attributes": {
+          "sample_kind": {
+            "type": "string",
+            "value": "routine"
+          }
+        }
+      }
+    ],
+    "e2o": [
+      [
+        "OCEL-E1",
+        "P-17",
+        "measured_asset"
+      ],
+      [
+        "OCEL-E1",
+        "Z-3",
+        "served_zone"
+      ],
+      [
+        "OCEL-E1",
+        "CAL-4",
+        "calibration_basis"
+      ],
+      [
+        "OCEL-E2",
+        "S-17",
+        "collected_sample"
+      ],
+      [
+        "OCEL-E2",
+        "Z-3",
+        "sampled_zone"
+      ]
+    ],
+    "o2o": [
+      [
+        "CAL-4",
+        "LB-17",
+        "calibrates"
+      ],
+      [
+        "CAL-4",
+        "P-17",
+        "calibrates"
+      ]
+    ],
+    "object_changes": [
+      [
+        "P-17",
+        "status",
+        "1970-01-01T00:00:00Z",
+        "active"
+      ],
+      [
+        "P-17",
+        "status",
+        "2026-11-28T08:10:00Z",
+        "maintenance_pending"
+      ]
+    ]
+  },
+  "adversarial_mutations": [
+    {
+      "id": "OCEL-MUT-01",
+      "mutation": "drop_e2o_qualifier",
+      "expected": "semantic_parity_failure"
+    },
+    {
+      "id": "OCEL-MUT-02",
+      "mutation": "drop_o2o_edge",
+      "expected": "semantic_parity_failure"
+    },
+    {
+      "id": "OCEL-MUT-03",
+      "mutation": "collapse_object_attribute_history_to_latest",
+      "expected": "semantic_parity_failure"
+    },
+    {
+      "id": "OCEL-MUT-04",
+      "mutation": "relabel_event_time_as_ingest_time",
+      "expected": "temporal_semantics_failure"
+    },
+    {
+      "id": "OCEL-MUT-05",
+      "mutation": "reuse_object_id_under_two_types",
+      "expected": "invalid_ocel"
+    },
+    {
+      "id": "OCEL-MUT-06",
+      "mutation": "coerce_integer_to_string",
+      "expected": "typed_attribute_mismatch"
+    },
+    {
+      "id": "OCEL-MUT-07",
+      "mutation": "drop_empty_object_change_table",
+      "expected": "metadata_layout_failure_if_referenced"
+    },
+    {
+      "id": "OCEL-MUT-08",
+      "mutation": "alter_type_mapping_filename_only",
+      "expected": "metadata_authority_failure"
+    }
+  ]
+}

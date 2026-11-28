@@ -1,0 +1,472 @@
+{
+  "schema_id": "mycelix.craft.end-to-end-assurance-benchmark.v0.1",
+  "status": "research_specification_not_measured",
+  "version": "0.1.0",
+  "lifecycle": [
+    "source_universe_and_admission",
+    "causal_frontier",
+    "ocel_temporal_projection",
+    "authority_and_policy",
+    "decision_basis_capsule",
+    "advisory_eap",
+    "evidence_acquisition_and_admission",
+    "replay_and_new_dbc",
+    "execution_observation_and_outcome_receipts"
+  ],
+  "tracks": [
+    {
+      "id": "semantic_temporal",
+      "metrics": [
+        "ocel_roundtrip_parity",
+        "frontier_correctness",
+        "replay_determinism",
+        "historical_immutability"
+      ],
+      "target": "100% frozen KAT agreement"
+    },
+    {
+      "id": "assurance",
+      "metrics": [
+        "false_safe",
+        "false_authority",
+        "false_completeness",
+        "false_independence",
+        "claim_ceiling_violations",
+        "mandatory_evidence_waivers",
+        "unknown_outcome_barrier_violations",
+        "unauthorized_effects"
+      ],
+      "target": "zero on frozen adversarial suite"
+    },
+    {
+      "id": "acquisition",
+      "metrics": [
+        "EVSI",
+        "EIG",
+        "oracle_regret",
+        "budgeted_hindsight_regret",
+        "mandatory_compliance",
+        "cost_components",
+        "calibration_when_grounded"
+      ],
+      "baselines": [
+        "mandatory_only",
+        "fixed_schedule",
+        "random_safe",
+        "expert_priority",
+        "EIG_greedy",
+        "EVSI_greedy",
+        "budgeted_hindsight_upper_bound"
+      ]
+    },
+    {
+      "id": "adversarial",
+      "scenarios": [
+        "omission_after_commitment",
+        "duplicate_conflicting_events",
+        "reordering",
+        "clock_skew",
+        "late_arrival",
+        "equal_timestamp",
+        "forked_stream",
+        "missing_parent",
+        "source_substitution",
+        "digest_schema_substitution",
+        "stale_policy",
+        "authority_revocation",
+        "common_cause",
+        "out_of_domain",
+        "unknown_execution_outcome",
+        "incomplete_source_universe"
+      ]
+    },
+    {
+      "id": "efficiency",
+      "metrics": [
+        "throughput",
+        "p50_latency",
+        "p95_latency",
+        "p99_latency",
+        "peak_rss",
+        "cpu_time",
+        "bytes_read",
+        "bytes_written",
+        "index_size",
+        "receipt_size",
+        "replay_cost"
+      ],
+      "repetitions_min": 5,
+      "cache_modes": [
+        "cold",
+        "warm"
+      ],
+      "scale_events": [
+        1000,
+        10000,
+        100000,
+        1000000,
+        2400000,
+        7000000,
+        10000000
+      ]
+    },
+    {
+      "id": "interoperability",
+      "metrics": [
+        "ocel_2x_interchange",
+        "scitt_receipt_reference",
+        "offline_verification",
+        "verifier_portability",
+        "unsupported_semantics_reporting"
+      ]
+    },
+    {
+      "id": "epistemic_debt_and_observability",
+      "metrics": [
+        "unknown_detection_recall",
+        "unsupported_certainty_rate",
+        "time_to_detect_gap",
+        "stale_gap_persistence",
+        "duplicate_gap_rate",
+        "claim_ceiling_constraint_accuracy",
+        "mandatory_gap_block_rate",
+        "budgeted_observability_regret"
+      ],
+      "scenarios": [
+        "missing_not_at_random",
+        "selective_adverse_event_omission",
+        "late_evidence_after_frontier",
+        "source_identifier_rotation",
+        "signed_but_incomplete_feed",
+        "disputed_source",
+        "stale_source",
+        "unavailable_required_source"
+      ],
+      "baselines": [
+        "fixed_schedule",
+        "random_safe",
+        "expert_priority",
+        "EIG_greedy",
+        "EVSI_greedy",
+        "constrained_portfolio",
+        "budgeted_hindsight_upper_bound"
+      ]
+    },
+    {
+      "id": "meta_audit_of_inspection_policy",
+      "metrics": [
+        "policy_action_replay_completeness",
+        "selection_bias_analysis",
+        "off_policy_estimation_error",
+        "support_positivity_violation_rate",
+        "propensity_calibration",
+        "importance_weight_effective_sample_size",
+        "rare_region_inspection_coverage",
+        "uninspected_residual_risk",
+        "utility_per_review_hour",
+        "policy_drift_detection_delay",
+        "human_override_rate",
+        "rollback_latency",
+        "policy_version_change_traceability"
+      ],
+      "scenarios": [
+        "historical_high_risk_only_selection",
+        "rare_high_severity_reward_abandonment",
+        "reviewer_outcomes_missing_not_at_random",
+        "zero_propensity_critical_region",
+        "unversioned_selection_policy_change",
+        "adversarial_feature_manipulation_to_avoid_review",
+        "feedback_loop_reinforces_visible_risk"
+      ],
+      "hard_rules": [
+        "unsupported_off_policy_strata_must_be_NotEvaluated",
+        "no_clipped_weight_estimate_may_hide_positivity_failure",
+        "every_selection_and_override_must_be_reconstructable"
+      ],
+      "baselines": [
+        "fixed_threshold",
+        "random_safe_with_exploration",
+        "expert_review_policy",
+        "active_learning",
+        "contextual_bandit",
+        "constrained_EVSI_policy",
+        "budgeted_hindsight_upper_bound"
+      ]
+    },
+    {
+      "id": "causal_temporal_adversarial",
+      "metrics": [
+        "historical_frontier_immutability",
+        "late_arrival_recovery",
+        "fork_detection",
+        "parent_closure",
+        "event_time_ingest_time_divergence",
+        "equal_timestamp_noncausality",
+        "source_cut_reproducibility",
+        "cross_object_relation_preservation"
+      ],
+      "scenarios": [
+        "SYN-002",
+        "SYN-003",
+        "SYN-004",
+        "SYN-005",
+        "SYN-009",
+        "SYN-010"
+      ],
+      "target": "zero invalid frontier acceptance and zero historical receipt mutation"
+    },
+    {
+      "id": "ocel21_cross_format_semantic_interoperability",
+      "metrics": [
+        "json_csv_bundle_semantic_projection_equivalence",
+        "e2o_edge_preservation",
+        "o2o_edge_preservation",
+        "qualifier_preservation",
+        "object_attribute_history_preservation",
+        "primitive_type_preservation",
+        "object_identity_type_consistency",
+        "metadata_mapping_integrity",
+        "round_trip_projection_digest"
+      ],
+      "scenarios": [
+        "ocel_multi_object_event",
+        "qualified_e2o",
+        "qualified_o2o_without_shared_event",
+        "timed_object_attribute_change",
+        "multiple_same_type_objects",
+        "missing_object_change_table",
+        "bad_type_filename_mapping",
+        "id_reused_across_object_types",
+        "event_object_relation_qualifier_loss",
+        "object_object_relation_loss"
+      ],
+      "formats": [
+        "OCEL_2.0_JSON",
+        "OCEL_2.1_single_file_CSV",
+        "OCEL_2.1_bundled_CSV",
+        "OCEL_2.1_bundled_Parquet"
+      ],
+      "fixture": "fixtures/ocel21-interchange/ocel21-interchange-parity-v0.1.json",
+      "target": "100% frozen semantic KAT agreement for each implemented format; unsupported formats NotComparable/NotImplemented, never silently accepted"
+    },
+    {
+      "id": "sequential_complementary_evidence_acquisition",
+      "metrics": [
+        "finite_horizon_net_decision_value",
+        "adaptive_policy_tree_regret",
+        "complementarity_detection_recall",
+        "branch_specific_followup_accuracy",
+        "expected_terminal_loss",
+        "expected_acquisition_cost",
+        "budget_violation_rate",
+        "mandatory_evidence_compliance",
+        "unknown_dependency_abstention_rate",
+        "DP_vs_bruteforce_agreement"
+      ],
+      "baselines": [
+        "mandatory_only",
+        "fixed_schedule",
+        "random_safe",
+        "expert_priority",
+        "one_step_EIG_greedy",
+        "one_step_EVSI_greedy",
+        "bounded_sequential_DP",
+        "clairvoyant_hindsight_upper_bound"
+      ],
+      "counterexamples": [
+        "xor_two_observations_each_zero_one_step_EVSI_joint_EVSI_positive",
+        "first_observation_selects_different_optimal_followup_by_result"
+      ],
+      "hard_rules": [
+        "unknown_cross_observation_dependence_abstains_without_declared_joint_or_factorization_model",
+        "mandatory_evidence_preempts_optional_value",
+        "budget_is_enforced_per_realized_policy_branch",
+        "EVSI_and_EIG_remain_distinct"
+      ],
+      "reference_oracle": "PR #6857",
+      "target": "exact agreement with exhaustive policy-tree enumeration on frozen small domains"
+    }
+  ],
+  "comparators": [
+    {
+      "name": "PM4Py",
+      "task": "process_discovery_conformance_ocel"
+    },
+    {
+      "name": "Ocelescope",
+      "task": "ocel_analysis_object_centric_queries"
+    },
+    {
+      "name": "OC-DCR",
+      "task": "object_centric_discovery_conformance"
+    },
+    {
+      "name": "XTDB",
+      "task": "bitemporal_queries"
+    },
+    {
+      "name": "TGB2",
+      "task": "temporal_graph_scale"
+    },
+    {
+      "name": "SCITT",
+      "task": "signed_statements_transparency_receipts"
+    }
+  ],
+  "zero_tolerance": [
+    "false_safe",
+    "false_authority",
+    "false_completeness",
+    "false_independence",
+    "unauthorized_effects",
+    "mandatory_evidence_waivers",
+    "unknown_outcome_barrier_violations"
+  ],
+  "non_goals": [
+    "field_calibration",
+    "sensor_accuracy",
+    "legal_authority",
+    "human_legitimacy",
+    "source_truth",
+    "physical_outcome",
+    "autonomous_real_world_action"
+  ],
+  "result_classes": [
+    "implemented",
+    "structural",
+    "local_test",
+    "hosted_exact_head_pass",
+    "pending",
+    "field_physical_not_evaluated"
+  ],
+  "scoring_rule": "No composite score may compensate for a zero-tolerance assurance failure.",
+  "source_context": [
+    {
+      "id": "selective_monitoring_survey_2026",
+      "citation": "Becerril Villamil et al., 2026, DOI 10.3390/make8080234",
+      "url": "https://www.mdpi.com/2504-4990/8/8/234"
+    },
+    {
+      "id": "ocel_2_1_pre5",
+      "citation": "Berti et al., OCEL 2.1 Specification v2.1.0pre5, 2026-10-01",
+      "url": "https://www.ocel-standard.org/2.1/ocel20_specification.pdf"
+    },
+    {
+      "id": "scitt_rfc_9943",
+      "citation": "IETF RFC 9943, 2026-06",
+      "url": "https://www.rfc-editor.org/rfc/rfc9943.html"
+    }
+  ],
+  "synthetic_fixture_registry": {
+    "seed": 20261128,
+    "base_episode": "fixtures/craft-synthetic-multi-source-episode-v0.1.json",
+    "mutation_registry": "fixtures/craft-synthetic-scenario-mutations-v0.1.json",
+    "specification": "CRAFT-SYNTHETIC-MULTI-SOURCE-EPISODE-V0.1.md",
+    "current_cases": [
+      "SYN-001",
+      "SYN-002",
+      "SYN-003",
+      "SYN-004",
+      "SYN-005",
+      "SYN-006",
+      "SYN-007",
+      "SYN-008",
+      "SYN-009",
+      "SYN-010"
+    ],
+    "status": "frozen_static_fixture_and_mutation_registry; deterministic_generator_not_yet_implemented",
+    "generator_requirements": [
+      "no_ambient_clock",
+      "no_network",
+      "stable_ids",
+      "source_universe_separate_from_received_sources",
+      "event_time_distinct_from_ingest_time",
+      "named_missingness_mechanism",
+      "canonical_digests",
+      "mutation_provenance"
+    ],
+    "generator": {
+      "module": "oracles/synthetic-episode-go-v0.1/",
+      "entrypoint": "cmd/craft-synth-generate",
+      "source_digest_binding": [
+        "raw_base_fixture_sha256",
+        "raw_scenario_registry_sha256",
+        "canonical_transformed_episode_sha256"
+      ],
+      "output_order": "lexicographic_scenario_id",
+      "local_validation": {
+        "go": "1.23.2",
+        "unit_tests": "passed",
+        "race": "passed",
+        "vet": "passed",
+        "statement_coverage_percent": 78.5,
+        "fixture_scope": "inline_minimal_unit_test_fixture"
+      },
+      "hosted_validation": "pending",
+      "note": "The local module tests validate deterministic operators on an inline minimal fixture. Exact-host workflow is configured to generate the committed ten-scenario fixture twice and byte-compare outputs.",
+      "strict_json_tests": [
+        "duplicate_object_keys_rejected",
+        "trailing_registry_data_rejected",
+        "unknown_registry_fields_rejected"
+      ],
+      "digest_domains": [
+        "MYCELIX-CRAFT-SYNTHETIC-EPISODE-V0.1",
+        "MYCELIX-CRAFT-SYNTHETIC-REGISTRY-V0.1"
+      ],
+      "mutations": [
+        "SYN-001",
+        "SYN-002",
+        "SYN-003",
+        "SYN-004",
+        "SYN-005",
+        "SYN-006",
+        "SYN-007",
+        "SYN-008",
+        "SYN-009",
+        "SYN-010"
+      ],
+      "selective_omission": "SYN-010 removes EV-008 while retaining fixture_valid signature attestation; coverage remains Indeterminate"
+    }
+  },
+  "ocel21_fixture_registry": {
+    "specification": "OCEL 2.1.0pre5 (2026-10-01)",
+    "spec_url": "https://www.ocel-standard.org/2.1/ocel20_specification.pdf",
+    "profile": "CRAFT-OCEL21-INTERCHANGE-PARITY-V0.1.md",
+    "fixture_root": "fixtures/ocel21-interchange/",
+    "fixture_cases": [
+      "ocel21-mini.json",
+      "ocel21-mini.ocel.csv",
+      "bundled-csv/ocel-meta.json",
+      "ocel21-interchange-parity-v0.1.json"
+    ],
+    "bundled_csv_files": "bundled-csv/**/*.csv",
+    "reference_oracle": "oracles/ocel21-interchange-go-v0.1/",
+    "reference_oracle_scope": [
+      "OCEL_JSON",
+      "OCEL21_single_file_CSV",
+      "OCEL21_bundled_CSV"
+    ],
+    "local_validation": {
+      "go": "1.23.2",
+      "tests": "passed",
+      "race": "passed",
+      "vet": "passed",
+      "statement_coverage_percent": 72.6
+    },
+    "hosted_exact_head": "pending",
+    "bundled_parquet": "NotImplemented",
+    "production_craft_integration": "NotEvaluated",
+    "status": "independent_test_only_reference_added; local tests passed; hosted_exact_head_pending; bundled_parquet_not_implemented"
+  },
+  "sequential_evsi_registry": {
+    "pr": 6857,
+    "branch": "research/craft-sequential-evsi-go-oracle-v0.1-20261128",
+    "fixture_root": "oracles/sequential-evsi-go-v0.1/fixtures/",
+    "fixtures": [
+      "sequential-evsi-complementarity-v0.1.json",
+      "sequential-evsi-adaptive-followup-v0.1.json"
+    ],
+    "status": "local_tests_race_vet_passed; hosted_exact_head_pending",
+    "claim_limit": "finite-state declared likelihood model only; not calibrated or production planning"
+  }
+}

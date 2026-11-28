@@ -1,0 +1,81 @@
+{
+  "ocelVersion": "2.0",
+  "bundleFormatVersion": "1.0",
+  "storageFormat": "csv",
+  "eventTypes": {
+    "pressure_observed": {
+      "file": "events/event_pressure_observed.csv",
+      "attributes": [
+        {
+          "name": "pressure_kpa",
+          "type": "integer"
+        }
+      ]
+    },
+    "sample_collected": {
+      "file": "events/event_sample_collected.csv",
+      "attributes": [
+        {
+          "name": "sample_kind",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "objectTypes": {
+    "Pump": {
+      "file": "objects/object_Pump.csv",
+      "changesFile": "object_changes/object_changes_Pump.csv",
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    },
+    "Zone": {
+      "file": "objects/object_Zone.csv",
+      "changesFile": "object_changes/object_changes_Zone.csv",
+      "attributes": [
+        {
+          "name": "zone_class",
+          "type": "string"
+        }
+      ]
+    },
+    "Sample": {
+      "file": "objects/object_Sample.csv",
+      "changesFile": "object_changes/object_changes_Sample.csv",
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    },
+    "Calibration": {
+      "file": "objects/object_Calibration.csv",
+      "changesFile": "object_changes/object_changes_Calibration.csv",
+      "attributes": [
+        {
+          "name": "certificate_state",
+          "type": "string"
+        }
+      ]
+    },
+    "LabBatch": {
+      "file": "objects/object_LabBatch.csv",
+      "changesFile": "object_changes/object_changes_LabBatch.csv",
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "relations": {
+    "e2o": "relations/e2o.csv",
+    "o2o": "relations/o2o.csv"
+  }
+}

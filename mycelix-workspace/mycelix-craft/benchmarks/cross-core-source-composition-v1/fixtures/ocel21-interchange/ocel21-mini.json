@@ -1,0 +1,189 @@
+{
+  "eventTypes": [
+    {
+      "name": "pressure_observed",
+      "attributes": [
+        {
+          "name": "pressure_kpa",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "sample_collected",
+      "attributes": [
+        {
+          "name": "sample_kind",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "objectTypes": [
+    {
+      "name": "Pump",
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Zone",
+      "attributes": [
+        {
+          "name": "zone_class",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Sample",
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Calibration",
+      "attributes": [
+        {
+          "name": "certificate_state",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "LabBatch",
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "OCEL-E1",
+      "type": "pressure_observed",
+      "time": "2026-11-28T08:00:00Z",
+      "attributes": [
+        {
+          "name": "pressure_kpa",
+          "value": 410
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "P-17",
+          "qualifier": "measured_asset"
+        },
+        {
+          "objectId": "Z-3",
+          "qualifier": "served_zone"
+        },
+        {
+          "objectId": "CAL-4",
+          "qualifier": "calibration_basis"
+        }
+      ]
+    },
+    {
+      "id": "OCEL-E2",
+      "type": "sample_collected",
+      "time": "2026-11-28T08:08:00Z",
+      "attributes": [
+        {
+          "name": "sample_kind",
+          "value": "routine"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "S-17",
+          "qualifier": "collected_sample"
+        },
+        {
+          "objectId": "Z-3",
+          "qualifier": "sampled_zone"
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "P-17",
+      "type": "Pump",
+      "attributes": [
+        {
+          "name": "status",
+          "time": "1970-01-01T00:00:00Z",
+          "value": "active"
+        },
+        {
+          "name": "status",
+          "time": "2026-11-28T08:10:00Z",
+          "value": "maintenance_pending"
+        }
+      ]
+    },
+    {
+      "id": "Z-3",
+      "type": "Zone",
+      "attributes": [
+        {
+          "name": "zone_class",
+          "time": "1970-01-01T00:00:00Z",
+          "value": "distribution"
+        }
+      ]
+    },
+    {
+      "id": "S-17",
+      "type": "Sample",
+      "attributes": [
+        {
+          "name": "status",
+          "time": "1970-01-01T00:00:00Z",
+          "value": "collected"
+        }
+      ]
+    },
+    {
+      "id": "CAL-4",
+      "type": "Calibration",
+      "attributes": [
+        {
+          "name": "certificate_state",
+          "time": "1970-01-01T00:00:00Z",
+          "value": "valid_within_fixture"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "P-17",
+          "qualifier": "calibrates"
+        },
+        {
+          "objectId": "LB-17",
+          "qualifier": "calibrates"
+        }
+      ]
+    },
+    {
+      "id": "LB-17",
+      "type": "LabBatch",
+      "attributes": [
+        {
+          "name": "status",
+          "time": "1970-01-01T00:00:00Z",
+          "value": "received"
+        }
+      ]
+    }
+  ]
+}

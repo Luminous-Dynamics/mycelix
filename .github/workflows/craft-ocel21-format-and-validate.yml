@@ -1,0 +1,209 @@
+name: Craft OCEL 2.1 format and validate exact source head
+
+on:
+  push:
+    branches:
+      - research/craft-end-to-end-assurance-benchmark-v0.1-20261128
+    paths:
+      - ".github/workflows/craft-ocel21-format-and-validate.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/synthetic-episode-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/craft-synthetic-*-v0.1.json"
+  pull_request:
+    branches:
+      - research/craft-temporal-evidence-qualification-v0.1-20261128-r1
+    paths:
+      - ".github/workflows/craft-ocel21-format-and-validate.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/synthetic-episode-go-v0.1/**"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/craft-synthetic-*-v0.1.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: craft-ocel21-format-validate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  format-and-validate:
+    name: Format, then validate immutable post-format head
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      ORACLE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/ocel21-interchange-go-v0.1
+      FIXTURE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/ocel21-interchange
+      SYNTH_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/synthetic-episode-go-v0.1
+      SYNTH_EPISODE: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/craft-synthetic-multi-source-episode-v0.1.json
+      SYNTH_SCENARIOS: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/fixtures/craft-synthetic-scenario-mutations-v0.1.json
+    steps:
+      - name: Checkout triggering source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Install pinned Go 1.23.2
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: 1.23.2
+          cache: false
+          check-latest: false
+
+      - name: Format and commit Go source if needed
+        id: format
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t gofiles < <(find "$ORACLE_DIR/oracle" "$SYNTH_DIR/oracle" "$SYNTH_DIR/cmd" -type f -name '*.go' -print | sort)
+          test "${#gofiles[@]}" -gt 0
+          gofmt -w "${gofiles[@]}"
+          if ! git diff --quiet -- "${gofiles[@]}"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- "${gofiles[@]}"
+            git commit -m "style(craft): format OCEL 2.1 oracle sources"
+            git push origin "HEAD:${TARGET_BRANCH}"
+          fi
+          echo "qualified_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Assert post-format exact source head and fixture presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.format.outputs.qualified_head }}"
+          test -s "$ORACLE_DIR/go.mod"
+          test -s "$ORACLE_DIR/oracle/types.go"
+          test -s "$ORACLE_DIR/oracle/single_csv.go"
+          test -s "$ORACLE_DIR/oracle/bundled_csv.go"
+          test -s "$ORACLE_DIR/oracle/ocel_test.go"
+          test -s "$FIXTURE_DIR/ocel21-mini.json"
+          test -s "$FIXTURE_DIR/ocel21-mini.ocel.csv"
+          test -s "$FIXTURE_DIR/bundled-csv/ocel-meta.json"
+          test -s "$SYNTH_DIR/go.mod"
+          test -s "$SYNTH_DIR/oracle/generator.go"
+          test -s "$SYNTH_DIR/oracle/generator_test.go"
+          test -s "$SYNTH_DIR/cmd/craft-synth-generate/main.go"
+          test -s "$SYNTH_EPISODE"
+          test -s "$SYNTH_SCENARIOS"
+
+      - name: Run semantic parity known-answer suite
+        id: tests
+        working-directory: ${{ env.ORACLE_DIR }}
+        env:
+          CRAFT_OCEL_FIXTURE_ROOT: ${{ github.workspace }}/${{ env.FIXTURE_DIR }}
+        run: |
+          set -euo pipefail
+          go test ./...
+
+      - name: Run race detector
+        id: race
+        working-directory: ${{ env.ORACLE_DIR }}
+        env:
+          CRAFT_OCEL_FIXTURE_ROOT: ${{ github.workspace }}/${{ env.FIXTURE_DIR }}
+        run: |
+          set -euo pipefail
+          go test -race ./...
+
+      - name: Run go vet
+        id: vet
+        working-directory: ${{ env.ORACLE_DIR }}
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Measure statement coverage
+        id: coverage
+        working-directory: ${{ env.ORACLE_DIR }}
+        env:
+          CRAFT_OCEL_FIXTURE_ROOT: ${{ github.workspace }}/${{ env.FIXTURE_DIR }}
+        run: |
+          set -euo pipefail
+          go test -cover ./...
+
+
+      - name: Run synthetic episode generator unit suite
+        id: synthetic_tests
+        working-directory: ${{ env.SYNTH_DIR }}
+        run: |
+          set -euo pipefail
+          go test ./...
+
+      - name: Run synthetic generator race detector
+        id: synthetic_race
+        working-directory: ${{ env.SYNTH_DIR }}
+        run: |
+          set -euo pipefail
+          go test -race ./...
+
+      - name: Run synthetic generator vet
+        id: synthetic_vet
+        working-directory: ${{ env.SYNTH_DIR }}
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Generate committed adversarial registry twice
+        id: synthetic_replay
+        working-directory: ${{ env.SYNTH_DIR }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/craft-synth-generate \
+            -episode "$GITHUB_WORKSPACE/$SYNTH_EPISODE" \
+            -scenarios "$GITHUB_WORKSPACE/$SYNTH_SCENARIOS" \
+            -out "$RUNNER_TEMP/synthetic-a.json"
+          go run ./cmd/craft-synth-generate \
+            -episode "$GITHUB_WORKSPACE/$SYNTH_EPISODE" \
+            -scenarios "$GITHUB_WORKSPACE/$SYNTH_SCENARIOS" \
+            -out "$RUNNER_TEMP/synthetic-b.json"
+          cmp "$RUNNER_TEMP/synthetic-a.json" "$RUNNER_TEMP/synthetic-b.json"
+          count="$(grep -c '"scenario_id"' "$RUNNER_TEMP/synthetic-a.json")"
+          test "$count" -eq 10
+
+      - name: Assemble exact-head qualification receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/craft-ocel21-format-validate"
+          mkdir -p "$out"
+          {
+            printf 'trigger_head\t%s\n' "$SOURCE_HEAD"
+            printf 'qualified_head\t%s\n' "$(git rev-parse HEAD)"
+            printf 'go_version\t%s\n' "$(go version 2>&1 || printf UNAVAILABLE)"
+            printf 'format_commit_or_clean\t%s\n' "${{ steps.format.outcome }}"
+            printf 'semantic_kats\t%s\n' "${{ steps.tests.outcome }}"
+            printf 'race\t%s\n' "${{ steps.race.outcome }}"
+            printf 'vet\t%s\n' "${{ steps.vet.outcome }}"
+            printf 'coverage\t%s\n' "${{ steps.coverage.outcome }}"
+            printf 'synthetic_tests\t%s\n' "${{ steps.synthetic_tests.outcome }}"
+            printf 'synthetic_race\t%s\n' "${{ steps.synthetic_race.outcome }}"
+            printf 'synthetic_vet\t%s\n' "${{ steps.synthetic_vet.outcome }}"
+            printf 'synthetic_actual_fixture_replay\t%s\n' "${{ steps.synthetic_replay.outcome }}"
+            printf 'bundled_parquet\tNotImplemented\n'
+            printf 'production_parser_integration\tNotEvaluated\n'
+            printf 'large_scale_performance\tNotEvaluated\n'
+            printf 'field_calibration_and_physical_outcomes\tNotEvaluated\n'
+          } > "$out/qualification.tsv"
+          find "$ORACLE_DIR" "$FIXTURE_DIR" "$SYNTH_DIR" -type f -print0 | sort -z | xargs -0 sha256sum > "$out/source-and-fixture-sha256.txt"
+          sha256sum "$SYNTH_EPISODE" "$SYNTH_SCENARIOS" >> "$out/source-and-fixture-sha256.txt"
+          (
+            cd "$out"
+            sha256sum qualification.tsv source-and-fixture-sha256.txt > SHA256SUMS
+          )
+          cat "$out/qualification.tsv"
+          sha256sum "$out/SHA256SUMS"
+
+      - name: Upload exact-head qualification receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: craft-ocel21-exact-head-${{ github.sha }}
+          path: ${{ runner.temp }}/craft-ocel21-format-validate/
+          if-no-files-found: error
+          retention-days: 30

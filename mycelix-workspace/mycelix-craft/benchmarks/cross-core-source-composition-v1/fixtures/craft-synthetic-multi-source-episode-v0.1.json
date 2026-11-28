@@ -1,0 +1,526 @@
+{
+  "schema_id": "mycelix.craft.synthetic-decision-episode.v0.1",
+  "fixture_id": "water-service-multi-source-001",
+  "synthetic": true,
+  "seed": 20261128,
+  "generator_contract": {
+    "version": "0.1.0-spec",
+    "deterministic": true,
+    "uses_ambient_clock": false,
+    "network_access": false
+  },
+  "valid_at": "2026-11-28T09:05:00Z",
+  "source_universe": [
+    {
+      "source_id": "utility-telemetry",
+      "owner_id": "owner-utility",
+      "source_type": "telemetry",
+      "stream_id": "pump-pressure",
+      "epoch": "UT-2026-11-28-A",
+      "expected_offset_range": [
+        1,
+        2
+      ],
+      "partitions": [
+        "pump:P-17"
+      ],
+      "signature_status": "fixture_valid"
+    },
+    {
+      "source_id": "maintenance-cmms",
+      "owner_id": "owner-maintenance",
+      "source_type": "maintenance",
+      "stream_id": "work-orders",
+      "epoch": "CMMS-2026-11-28-A",
+      "expected_offset_range": [
+        1,
+        1
+      ],
+      "partitions": [
+        "work-order:WO-9"
+      ],
+      "signature_status": "fixture_valid"
+    },
+    {
+      "source_id": "field-sampling",
+      "owner_id": "owner-field",
+      "source_type": "field_sampling",
+      "stream_id": "samples",
+      "epoch": "FIELD-2026-11-28-A",
+      "expected_offset_range": [
+        1,
+        2
+      ],
+      "partitions": [
+        "zone:Z-3"
+      ],
+      "signature_status": "fixture_valid"
+    },
+    {
+      "source_id": "laboratory-lims",
+      "owner_id": "owner-lab",
+      "source_type": "laboratory",
+      "stream_id": "lab-results",
+      "epoch": "LIMS-2026-11-28-A",
+      "expected_offset_range": [
+        1,
+        2
+      ],
+      "partitions": [
+        "sample:S-17"
+      ],
+      "signature_status": "fixture_valid"
+    },
+    {
+      "source_id": "authority-registry",
+      "owner_id": "owner-authority",
+      "source_type": "authority",
+      "stream_id": "permits",
+      "epoch": "AUTH-2026-11-28-A",
+      "expected_offset_range": [
+        1,
+        1
+      ],
+      "partitions": [
+        "permit:PERMIT-12"
+      ],
+      "signature_status": "fixture_valid"
+    },
+    {
+      "source_id": "calibration-registry",
+      "owner_id": "owner-calibration",
+      "source_type": "calibration",
+      "stream_id": "certificates",
+      "epoch": "CAL-2026-11-28-A",
+      "expected_offset_range": [
+        1,
+        1
+      ],
+      "partitions": [
+        "calibration:CAL-4"
+      ],
+      "signature_status": "fixture_valid"
+    }
+  ],
+  "objects": [
+    {
+      "id": "P-17",
+      "type": "pump",
+      "attributes": {
+        "asset_class": "booster_pump",
+        "synthetic_state": "observed"
+      }
+    },
+    {
+      "id": "Z-3",
+      "type": "supply_zone",
+      "attributes": {
+        "zone_class": "distribution_zone"
+      }
+    },
+    {
+      "id": "WO-9",
+      "type": "work_order",
+      "attributes": {
+        "status": "open"
+      }
+    },
+    {
+      "id": "S-17",
+      "type": "water_sample",
+      "attributes": {
+        "status": "collected"
+      }
+    },
+    {
+      "id": "LB-17",
+      "type": "laboratory_batch",
+      "attributes": {
+        "status": "received"
+      }
+    },
+    {
+      "id": "PERMIT-12",
+      "type": "permit",
+      "attributes": {
+        "status": "expired"
+      }
+    },
+    {
+      "id": "CAL-4",
+      "type": "calibration_certificate",
+      "attributes": {
+        "status": "valid_within_fixture_interval"
+      }
+    }
+  ],
+  "object_relationships": [
+    {
+      "source": "P-17",
+      "target": "Z-3",
+      "qualifier": "supplies"
+    },
+    {
+      "source": "P-17",
+      "target": "WO-9",
+      "qualifier": "subject_of"
+    },
+    {
+      "source": "S-17",
+      "target": "Z-3",
+      "qualifier": "sampled_from"
+    },
+    {
+      "source": "S-17",
+      "target": "LB-17",
+      "qualifier": "processed_in"
+    },
+    {
+      "source": "PERMIT-12",
+      "target": "Z-3",
+      "qualifier": "governs"
+    },
+    {
+      "source": "CAL-4",
+      "target": "P-17",
+      "qualifier": "calibrates"
+    },
+    {
+      "source": "CAL-4",
+      "target": "LB-17",
+      "qualifier": "calibrates"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "EV-001",
+      "source_id": "calibration-registry",
+      "stream_id": "certificates",
+      "epoch": "CAL-2026-11-28-A",
+      "offset": 1,
+      "event_time": "2026-11-28T07:55:00Z",
+      "ingest_time": "2026-11-28T07:55:02Z",
+      "activity": "calibration_certificate_validated",
+      "parents": [],
+      "objects": [
+        {
+          "id": "CAL-4",
+          "qualifier": "calibration"
+        }
+      ]
+    },
+    {
+      "event_id": "EV-002",
+      "source_id": "utility-telemetry",
+      "stream_id": "pump-pressure",
+      "epoch": "UT-2026-11-28-A",
+      "offset": 1,
+      "event_time": "2026-11-28T08:00:00Z",
+      "ingest_time": "2026-11-28T08:00:02Z",
+      "activity": "pressure_observed",
+      "parents": [
+        "EV-001"
+      ],
+      "objects": [
+        {
+          "id": "P-17",
+          "qualifier": "measured_asset"
+        },
+        {
+          "id": "Z-3",
+          "qualifier": "served_zone"
+        },
+        {
+          "id": "CAL-4",
+          "qualifier": "calibration_basis"
+        }
+      ],
+      "attributes": {
+        "pressure_kpa": 410,
+        "units": "synthetic_kpa",
+        "measurement_status": "fixture_value"
+      }
+    },
+    {
+      "event_id": "EV-003",
+      "source_id": "utility-telemetry",
+      "stream_id": "pump-pressure",
+      "epoch": "UT-2026-11-28-A",
+      "offset": 2,
+      "event_time": "2026-11-28T08:03:00Z",
+      "ingest_time": "2026-11-28T08:03:02Z",
+      "activity": "pressure_alarm_raised",
+      "parents": [
+        "EV-002"
+      ],
+      "objects": [
+        {
+          "id": "P-17",
+          "qualifier": "affected_asset"
+        },
+        {
+          "id": "Z-3",
+          "qualifier": "affected_zone"
+        }
+      ],
+      "attributes": {
+        "alarm_code": "LOW_PRESSURE_SYNTHETIC"
+      }
+    },
+    {
+      "event_id": "EV-004",
+      "source_id": "maintenance-cmms",
+      "stream_id": "work-orders",
+      "epoch": "CMMS-2026-11-28-A",
+      "offset": 1,
+      "event_time": "2026-11-28T08:05:00Z",
+      "ingest_time": "2026-11-28T08:05:01Z",
+      "activity": "maintenance_work_order_opened",
+      "parents": [
+        "EV-003"
+      ],
+      "objects": [
+        {
+          "id": "P-17",
+          "qualifier": "asset"
+        },
+        {
+          "id": "WO-9",
+          "qualifier": "work_order"
+        }
+      ]
+    },
+    {
+      "event_id": "EV-005",
+      "source_id": "authority-registry",
+      "stream_id": "permits",
+      "epoch": "AUTH-2026-11-28-A",
+      "offset": 1,
+      "event_time": "2026-11-28T08:06:00Z",
+      "ingest_time": "2026-11-28T08:06:01Z",
+      "activity": "permit_expiry_recorded",
+      "parents": [],
+      "objects": [
+        {
+          "id": "PERMIT-12",
+          "qualifier": "permit"
+        },
+        {
+          "id": "Z-3",
+          "qualifier": "governed_zone"
+        }
+      ],
+      "attributes": {
+        "permit_state": "expired",
+        "allowed_action_scope": [
+          "inspection_only"
+        ]
+      }
+    },
+    {
+      "event_id": "EV-006",
+      "source_id": "field-sampling",
+      "stream_id": "samples",
+      "epoch": "FIELD-2026-11-28-A",
+      "offset": 1,
+      "event_time": "2026-11-28T08:08:00Z",
+      "ingest_time": "2026-11-28T08:08:03Z",
+      "activity": "sample_collected",
+      "parents": [
+        "EV-003"
+      ],
+      "objects": [
+        {
+          "id": "S-17",
+          "qualifier": "sample"
+        },
+        {
+          "id": "Z-3",
+          "qualifier": "sampled_zone"
+        }
+      ],
+      "attributes": {
+        "chain_of_custody": "fixture_chain_001"
+      }
+    },
+    {
+      "event_id": "EV-007",
+      "source_id": "laboratory-lims",
+      "stream_id": "lab-results",
+      "epoch": "LIMS-2026-11-28-A",
+      "offset": 1,
+      "event_time": "2026-11-28T08:14:00Z",
+      "ingest_time": "2026-11-28T08:14:02Z",
+      "activity": "sample_received",
+      "parents": [
+        "EV-006"
+      ],
+      "objects": [
+        {
+          "id": "S-17",
+          "qualifier": "sample"
+        },
+        {
+          "id": "LB-17",
+          "qualifier": "batch"
+        },
+        {
+          "id": "CAL-4",
+          "qualifier": "calibration_basis"
+        }
+      ]
+    },
+    {
+      "event_id": "EV-008",
+      "source_id": "laboratory-lims",
+      "stream_id": "lab-results",
+      "epoch": "LIMS-2026-11-28-A",
+      "offset": 2,
+      "event_time": "2026-11-28T08:30:00Z",
+      "ingest_time": "2026-11-28T08:30:04Z",
+      "activity": "synthetic_test_result_recorded",
+      "parents": [
+        "EV-007"
+      ],
+      "objects": [
+        {
+          "id": "S-17",
+          "qualifier": "sample"
+        },
+        {
+          "id": "LB-17",
+          "qualifier": "batch"
+        },
+        {
+          "id": "Z-3",
+          "qualifier": "sampled_zone"
+        },
+        {
+          "id": "CAL-4",
+          "qualifier": "calibration_basis"
+        }
+      ],
+      "attributes": {
+        "analyte_x": 0.2,
+        "units": "synthetic_units",
+        "interpretation": "fixture_only_not_a_real_water_quality_claim"
+      }
+    },
+    {
+      "event_id": "EV-009",
+      "source_id": "field-sampling",
+      "stream_id": "samples",
+      "epoch": "FIELD-2026-11-28-A",
+      "offset": 2,
+      "event_time": "2026-11-28T08:35:00Z",
+      "ingest_time": "2026-11-28T08:35:01Z",
+      "activity": "decision_review_packet_assembled",
+      "parents": [
+        "EV-004",
+        "EV-005",
+        "EV-008"
+      ],
+      "objects": [
+        {
+          "id": "P-17",
+          "qualifier": "reviewed_asset"
+        },
+        {
+          "id": "Z-3",
+          "qualifier": "reviewed_zone"
+        },
+        {
+          "id": "S-17",
+          "qualifier": "evidence_sample"
+        },
+        {
+          "id": "PERMIT-12",
+          "qualifier": "authority_context"
+        }
+      ],
+      "attributes": {
+        "recommended_disposition": "remain_indeterminate",
+        "operational_effect": "none"
+      }
+    }
+  ],
+  "cuts": [
+    {
+      "stream_id": "pump-pressure",
+      "epoch": "UT-2026-11-28-A",
+      "inclusive_offset": 2
+    },
+    {
+      "stream_id": "work-orders",
+      "epoch": "CMMS-2026-11-28-A",
+      "inclusive_offset": 1
+    },
+    {
+      "stream_id": "samples",
+      "epoch": "FIELD-2026-11-28-A",
+      "inclusive_offset": 2
+    },
+    {
+      "stream_id": "lab-results",
+      "epoch": "LIMS-2026-11-28-A",
+      "inclusive_offset": 2
+    },
+    {
+      "stream_id": "permits",
+      "epoch": "AUTH-2026-11-28-A",
+      "inclusive_offset": 1
+    },
+    {
+      "stream_id": "certificates",
+      "epoch": "CAL-2026-11-28-A",
+      "inclusive_offset": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "component": "utility_pressure_sensor",
+      "calibration_root": "CAL-4"
+    },
+    {
+      "component": "lab_measurement_chain",
+      "calibration_root": "CAL-4"
+    }
+  ],
+  "expected": [
+    {
+      "claim": "frontier_validity",
+      "state": "EstablishedWithinProfile"
+    },
+    {
+      "claim": "source_universe_coverage",
+      "state": "EstablishedWithinSyntheticFixtureOnly"
+    },
+    {
+      "claim": "authority_for_release",
+      "state": "Rejected"
+    },
+    {
+      "claim": "independence_between_telemetry_and_lab",
+      "state": "NotEvaluated"
+    },
+    {
+      "claim": "physical_water_quality_truth",
+      "state": "NotEvaluated"
+    },
+    {
+      "claim": "physical_service_outcome",
+      "state": "NotEvaluated"
+    },
+    {
+      "claim": "decision_disposition",
+      "value": "Indeterminate"
+    }
+  ],
+  "forbidden_effects": [
+    "dispatch",
+    "permit_issue",
+    "water_advisory",
+    "service_closure",
+    "physical_mutation"
+  ]
+}
