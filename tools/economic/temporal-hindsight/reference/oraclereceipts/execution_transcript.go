@@ -537,13 +537,8 @@ func boundedExecutionValueDigest(domain string, eventCount, index uint64, label,
 	return digestBytes(b.Bytes())
 }
 
-func boundedExecutionCollectionDigest(eventCount, index uint64, label string, values []string) string {
-	var b bytes.Buffer
-	writeString(&b, "MYCELIX-EXECUTION-OVERSIZE-COLLECTION-V1")
-	writeUint64(&b, eventCount)
-	writeUint64(&b, index)
-	writeString(&b, label)
-	writeUint64(&b, uint64(len(values)))
+func writeBoundedExecutionStringSamples(b *bytes.Buffer, values []string) {
+	writeUint64(b, uint64(len(values)))
 	positions := make([]int, 0, 16)
 	limit := len(values)
 	if limit > 8 {
@@ -559,16 +554,26 @@ func boundedExecutionCollectionDigest(eventCount, index uint64, label string, va
 		}
 	}
 	for _, position := range positions {
-		writeUint64(&b, uint64(position))
+		writeUint64(b, uint64(position))
 		value := values[position]
-		writeUint64(&b, uint64(len(value)))
+		writeUint64(b, uint64(len(value)))
 		if len(value) <= 128 {
-			writeString(&b, value)
+			writeString(b, value)
 		} else {
-			writeString(&b, value[:64])
-			writeString(&b, value[len(value)-64:])
+			writeString(b, value[:64])
+			writeString(b, value[len(value)-64:])
 		}
 	}
+}
+
+func boundedExecutionCollectionDigest(eventCount, index uint64, label string, first, second []string) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-EXECUTION-OVERSIZE-COLLECTION-V1")
+	writeUint64(&b, eventCount)
+	writeUint64(&b, index)
+	writeString(&b, label)
+	writeBoundedExecutionStringSamples(&b, first)
+	writeBoundedExecutionStringSamples(&b, second)
 	return digestBytes(b.Bytes())
 }
 
@@ -641,8 +646,9 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 			}
 		}
 		if len(transition.ConsumedReceiptDigests) > MaxEvidenceReferences || len(transition.SupersedesStepIDs) > MaxEvidenceReferences {
-			values := append(append([]string(nil), transition.ConsumedReceiptDigests...), transition.SupersedesStepIDs...)
-			return fmt.Sprintf("execution transition %d collection count exceeds configured limit", index), boundedExecutionCollectionDigest(uint64(len(events)), uint64(index), "receipt+superseded-step collections", values)
+			return fmt.Sprintf("execution transition %d collection count exceeds configured limit", index), boundedExecutionCollectionDigest(
+				uint64(len(events)), uint64(index), "receipt+superseded-step collections",
+				transition.ConsumedReceiptDigests, transition.SupersedesStepIDs)
 		}
 		for _, value := range transition.ConsumedReceiptDigests {
 			if !add(value) {
