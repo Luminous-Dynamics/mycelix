@@ -141,8 +141,43 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 		t.Fatal("certificate stages has no property registry")
 	}
 	for _, stage := range requiredStages {
-		if _, exists := stageProperties[string(stage)]; !exists {
+		rawStage, exists := stageProperties[string(stage)]
+		if !exists {
 			t.Errorf("certificate schema is missing stage %q", stage)
+			continue
+		}
+		stageSchema, ok := rawStage.(map[string]any)
+		if !ok {
+			t.Errorf("stage %q is not a schema object", stage)
+			continue
+		}
+		stageSchemaProperties, ok := stageSchema["properties"].(map[string]any)
+		if !ok {
+			t.Errorf("stage %q has no property registry", stage)
+			continue
+		}
+		if _, exists := stageSchemaProperties["output_schema_ref"]; !exists {
+			t.Errorf("stage %q is missing output_schema_ref", stage)
+		}
+		dependenciesSchema, ok := stageSchemaProperties["dependencies"].(map[string]any)
+		if !ok {
+			t.Errorf("stage %q has no dependency schema", stage)
+			continue
+		}
+		dependencyItems, ok := dependenciesSchema["items"].(map[string]any)
+		if !ok {
+			t.Errorf("stage %q dependency items are not an object schema", stage)
+			continue
+		}
+		dependencyProperties, ok := dependencyItems["properties"].(map[string]any)
+		if !ok {
+			t.Errorf("stage %q dependencies have no properties", stage)
+			continue
+		}
+		for _, requiredDependencyField := range []string{"stage_id", "input_name", "output_digest", "schema_ref"} {
+			if _, exists := dependencyProperties[requiredDependencyField]; !exists {
+				t.Errorf("stage %q dependency schema is missing %q", stage, requiredDependencyField)
+			}
 		}
 	}
 	stageRequired, ok := stageEnvelope["required"].([]any)
