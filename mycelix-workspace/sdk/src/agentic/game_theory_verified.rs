@@ -45,8 +45,10 @@ impl PayoffTolerance {
             && self.relative >= 0.0
     }
 
-    fn threshold(self, a: f64, b: f64) -> f64 {
-        self.absolute + self.relative * a.abs().max(b.abs())
+    fn threshold(self, a: f64, b: f64) -> Option<f64> {
+        let scale = a.abs().max(b.abs());
+        let threshold = self.absolute + self.relative * scale;
+        threshold.is_finite().then_some(threshold)
     }
 }
 
@@ -80,6 +82,11 @@ pub enum PureEquilibriumError {
     InvalidTolerance {
         /// The invalid tolerance supplied by the caller.
         tolerance: PayoffTolerance,
+    },
+    /// A finite tolerance configuration overflowed at the observed payoff scale.
+    NonFiniteToleranceThreshold {
+        /// Player whose payoff comparison could not be represented.
+        player_id: String,
     },
 }
 
@@ -222,8 +229,12 @@ pub fn analyze_pure_nash_equilibria(
                 deviation_payoffs.push((strategy_id.clone(), deviation_payoff));
             }
 
-            let comparison_tolerance =
-                config.tolerance.threshold(best_payoff, played_payoff);
+            let comparison_tolerance = config
+                .tolerance
+                .threshold(best_payoff, played_payoff)
+                .ok_or_else(|| PureEquilibriumError::NonFiniteToleranceThreshold {
+                    player_id: player.id.clone(),
+                })?;
             let unilateral_regret = (best_payoff - played_payoff).max(0.0);
             let played_strategy_is_best_response =
                 unilateral_regret <= comparison_tolerance;
@@ -234,14 +245,18 @@ pub fn analyze_pure_nash_equilibria(
             maximum_unilateral_regret =
                 maximum_unilateral_regret.max(unilateral_regret);
 
-            let best_response_strategies = deviation_payoffs
-                .into_iter()
-                .filter_map(|(strategy_id, payoff)| {
-                    let tie_tolerance = config.tolerance.threshold(best_payoff, payoff);
-                    ((best_payoff - payoff).max(0.0) <= tie_tolerance)
-                        .then_some(strategy_id)
-                })
-                .collect();
+            let mut best_response_strategies = Vec::new();
+            for (strategy_id, payoff) in deviation_payoffs {
+                let tie_tolerance = config
+                    .tolerance
+                    .threshold(best_payoff, payoff)
+                    .ok_or_else(|| PureEquilibriumError::NonFiniteToleranceThreshold {
+                        player_id: player.id.clone(),
+                    })?;
+                if (best_payoff - payoff).max(0.0) <= tie_tolerance {
+                    best_response_strategies.push(strategy_id);
+                }
+            }
 
             best_responses.push(BestResponseEvidence {
                 player_id: player.id.clone(),
@@ -702,6 +717,28 @@ mod tests {
         assert!(matches!(
             analyze_pure_nash_equilibria(&game, config),
             Err(PureEquilibriumError::InvalidTolerance { .. })
+        ));
+    }
+
+    #[test]
+    fn finite_relative_tolerance_that_overflows_at_payoff_scale_is_rejected() {
+        let game = game(vec![
+            payoff("cooperate", "cooperate", 1.0, 1.0),
+            payoff("cooperate", "defect", 2.0, 1.0),
+            payoff("defect", "cooperate", 1.0, 2.0),
+            payoff("defect", "defect", 1.0, 1.0),
+        ]);
+        let config = PureEquilibriumConfig {
+            validation: GameValidationConfig::default(),
+            tolerance: PayoffTolerance {
+                absolute: 0.0,
+                relative: f64::MAX,
+            },
+        };
+
+        assert!(matches!(
+            analyze_pure_nash_equilibria(&game, config),
+            Err(PureEquilibriumError::NonFiniteToleranceThreshold { .. })
         ));
     }
 
