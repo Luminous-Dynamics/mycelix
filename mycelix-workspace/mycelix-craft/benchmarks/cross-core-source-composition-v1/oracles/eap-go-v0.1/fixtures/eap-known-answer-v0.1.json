@@ -1,0 +1,98 @@
+{
+  "schema_id": "mycelix.craft.eap-known-answer.v0.1",
+  "status": "independent_advisory_proposal_mutation_known_answers",
+  "capability_boundary": "AdvisoryOnly",
+  "operational_effects": "Prohibited",
+  "cases": [
+    {
+      "id": "EAP-001",
+      "mutation": "none",
+      "expected_code": "",
+      "expected_disposition": "RecommendOptionalObservation"
+    },
+    {
+      "id": "EAP-002",
+      "mutation": "stale_prior_frontier",
+      "expected_code": "EAP-EVSI-DBC-MISMATCH",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-003",
+      "mutation": "altered_loss_profile",
+      "expected_code": "EAP-LOSS-PROFILE-MISMATCH",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-004",
+      "mutation": "high_eig_zero_evsi",
+      "expected_code": "EAP-NONPOSITIVE-NET-VALUE",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-005",
+      "mutation": "low_eig_high_evsi",
+      "expected_code": "",
+      "expected_disposition": "RecommendOptionalObservation"
+    },
+    {
+      "id": "EAP-006",
+      "mutation": "mandatory_evidence",
+      "expected_code": "",
+      "expected_disposition": "AcquireMandatoryEvidence"
+    },
+    {
+      "id": "EAP-007",
+      "mutation": "common_cause_independence_overclaim",
+      "expected_code": "EAP-INDEPENDENCE-CONTEXT",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-008",
+      "mutation": "out_of_domain_model",
+      "expected_code": "EAP-OBSERVATION-NOT-QUALIFIED",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-009",
+      "mutation": "no_result_can_change_decision",
+      "expected_code": "EAP-NO-DECISION-IMPACT",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-010",
+      "mutation": "attempt_operational_effect",
+      "expected_code": "EAP-ADVISORY-ONLY",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-011",
+      "mutation": "expired_proposal_interval",
+      "expected_code": "EAP-EXPIRY",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-012",
+      "mutation": "duplicate_result_id",
+      "expected_code": "EAP-RESULT-ID",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-013",
+      "mutation": "candidate_set_substitution",
+      "expected_code": "EAP-CANDIDATE-SET-MISMATCH",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-014",
+      "mutation": "observation_model_substitution",
+      "expected_code": "EAP-OBSERVATION-MODEL-MISMATCH",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-015",
+      "mutation": "proposal_predates_dbc",
+      "expected_code": "EAP-ISSUED-BEFORE-DBC",
+      "expected_disposition": "AbstainOrEscalate"
+    }
+  ]
+}
