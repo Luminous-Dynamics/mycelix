@@ -1,0 +1,49 @@
+name: Praxis rustfmt normalization artifact (non-qualification)
+
+on:
+  push:
+    branches:
+      - praxis/capability-plan-rustfmt-artifact-20261128
+
+permissions:
+  contents: read
+
+jobs:
+  normalize:
+    name: Format package and capture source artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD: ${{ github.sha }}
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Install Rust 1.96.0
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt
+
+      - name: Format exact praxis-core package
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$EXPECTED_HEAD"
+          cargo +1.96.0 fmt --manifest-path mycelix-workspace/mycelix-praxis/Cargo.toml -p praxis-core
+          mkdir -p "$RUNNER_TEMP/praxis-rustfmt"
+          cp -a mycelix-workspace/mycelix-praxis/crates/praxis-core/src "$RUNNER_TEMP/praxis-rustfmt/"
+          cp -a mycelix-workspace/mycelix-praxis/crates/praxis-core/benches "$RUNNER_TEMP/praxis-rustfmt/"
+          tar -czf "$RUNNER_TEMP/praxis-rustfmt-sources.tar.gz" -C "$RUNNER_TEMP" praxis-rustfmt
+          sha256sum "$RUNNER_TEMP/praxis-rustfmt-sources.tar.gz"
+
+      - name: Upload normalized source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: praxis-rustfmt-normalized-${{ github.sha }}
+          path: ${{ runner.temp }}/praxis-rustfmt-sources.tar.gz
+          if-no-files-found: error
+          retention-days: 3
