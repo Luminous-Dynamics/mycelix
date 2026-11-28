@@ -1,0 +1,117 @@
+{
+  "schema_id": "mycelix.craft.evidence-projection-kat.v0.1",
+  "status": "frozen_specification_seeds_not_executed",
+  "claim_ceiling": {
+    "source_authenticity": "NotEvaluated",
+    "source_universe_completeness": "ExternalOwnerReceiptRequired",
+    "physical_effect": "NotEvaluated",
+    "legal_authority": "NotEvaluated",
+    "field_effectiveness": "NotEvaluated"
+  },
+  "cases": [
+    {
+      "id": "PROJ-001",
+      "family": "reversible_projection",
+      "mutation": "none",
+      "expected": "ExactReversible",
+      "positive_control": "identity fold/unfold and exact source inventory digest"
+    },
+    {
+      "id": "PROJ-002",
+      "family": "lossy_projection",
+      "mutation": "drop_object_history_without_lineage",
+      "expected": "RejectOrDowngradeCompletenessAndTruth",
+      "positive_control": "declared omission list and source lineage for each retained aggregate"
+    },
+    {
+      "id": "PROJ-003",
+      "family": "historical_stability",
+      "mutation": "append_later_correction",
+      "expected": "EarlierReceiptByteIdentical",
+      "positive_control": "new frontier yields new receipt with correction lineage"
+    },
+    {
+      "id": "PROJ-004",
+      "family": "stale_fact_retrieval",
+      "mutation": "current_and_expired_same_subject_predicate",
+      "expected": "OnlyValidAdmittedAssertionRetrieved",
+      "positive_control": "valid assertion inside valid-time and knowledge frontier"
+    },
+    {
+      "id": "PROJ-005",
+      "family": "typed_distractor",
+      "mutation": "wrong_zone_type_or_scope",
+      "expected": "DistractorExcluded",
+      "positive_control": "correct object type, zone, predicate and scope"
+    },
+    {
+      "id": "PROJ-006",
+      "family": "common_cause",
+      "mutation": "two_observations_share_calibration_ancestor",
+      "expected": "DependencyPreserved_NoIndependencePromotion",
+      "positive_control": "independently attested non-shared material lineage"
+    },
+    {
+      "id": "PROJ-007",
+      "family": "source_attribution",
+      "mutation": "fabricate_aggregate_source_edge",
+      "expected": "RejectAttributionMismatch",
+      "positive_control": "every retained fact resolves to exact source claim/artifact digest"
+    },
+    {
+      "id": "PROJ-008",
+      "family": "portfolio_safety",
+      "mutation": "hide_unsafe_episode_in_portfolio_average",
+      "expected": "UnsafeEpisodeRemainsVisible",
+      "positive_control": "episode-level worst-case and distributional measures retained"
+    },
+    {
+      "id": "PROJ-009",
+      "family": "relationship_cardinality",
+      "mutation": "collapse_one_to_one_conflict",
+      "expected": "ConflictPreserved",
+      "positive_control": "compatible cardinality-respecting relations"
+    },
+    {
+      "id": "PROJ-010",
+      "family": "profile_binding",
+      "mutation": "consume_receipt_under_wrong_schema_profile",
+      "expected": "ProfileMismatchRejected",
+      "positive_control": "exact matching source/target profile digests"
+    },
+    {
+      "id": "PROJ-011",
+      "family": "revocation_propagation",
+      "mutation": "revocation_arrives_after_original_frontier",
+      "expected": "OldProjectionStable_NewProjectionDowngraded",
+      "positive_control": "new frontier includes authorized revocation receipt"
+    },
+    {
+      "id": "PROJ-012",
+      "family": "false_absence",
+      "mutation": "omit_unobserved_source_stream",
+      "expected": "CompletenessNotEstablished",
+      "positive_control": "independent owner-universe and source-prefix coverage receipt"
+    }
+  ],
+  "metrics": [
+    "evidence_subgraph_precision",
+    "evidence_subgraph_recall",
+    "temporal_validity",
+    "chain_consistency",
+    "source_attribution_precision",
+    "source_attribution_recall",
+    "stale_fact_rejection",
+    "claim_ceiling_non_widening",
+    "false_absence",
+    "false_completeness",
+    "false_independence",
+    "false_safe",
+    "reviewer_traceability",
+    "p50_latency",
+    "p95_latency",
+    "p99_latency",
+    "peak_rss_bytes",
+    "input_output_bytes"
+  ]
+}
