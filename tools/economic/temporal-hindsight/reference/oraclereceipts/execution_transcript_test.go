@@ -108,7 +108,7 @@ func appendExecutionEvent(t testing.TB, scope OracleScopeV1, events []ExecutionE
 	return append(events, sealExecutionEvent(t, scope, uint64(len(events)+1), id, previous, outcome, transition, reconciles))
 }
 
-func executionReceipts(t *testing.T, scope OracleScopeV1, n int) []OracleReceiptV1 {
+func executionReceipts(t testing.TB, scope OracleScopeV1, n int) []OracleReceiptV1 {
 	t.Helper()
 	var receipts []OracleReceiptV1
 	for i := 0; i < n; i++ {
@@ -897,3 +897,67 @@ func BenchmarkReplayOracleExecutionTranscript(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkValidateCorrectionImpactCone(b *testing.B) {
+	for _, count := range []int{1, 10, 100, 1000, 10000, 100000} {
+		b.Run(fmt.Sprintf("active_steps=%d", count), func(b *testing.B) {
+			scope := executionFixtureScope()
+			receipts := executionReceipts(b, scope, 2)
+			third := receipts[1]
+			third.Sequence = 3
+			third.ReceiptID = "receipt:independent-third"
+			third.PreviousReceiptDigest = receipts[1].ReceiptDigest
+			third.SupersedesReceiptID = ""
+			third.AnswerPayload = []byte("independent later answer")
+			third.AnswerDigest = AnswerDigestV1(third.AnswerPayload)
+			third.RecordedAtUnixNanos += 100
+			third.SignedMessageDigest, _ = SignableDigestV1(scope, third)
+			third.ReceiptDigest, _ = ReceiptDigestV1(scope, third)
+			receipts = append(receipts, third)
+
+			receiptsByDigest := make(map[string]OracleReceiptV1, len(receipts))
+			receiptsByID := make(map[string]OracleReceiptV1, len(receipts))
+			for _, receipt := range receipts {
+				receiptsByDigest[receipt.ReceiptDigest] = receipt
+				receiptsByID[receipt.ReceiptID] = receipt
+			}
+
+			earliest := count / 2
+			order := make([]string, count)
+			receiptDeps := make(map[string][]string, count)
+			inputStates := make(map[string]string, count)
+			for i := 0; i < count; i++ {
+				stepID := fmt.Sprintf("step:%06d", i+1)
+				order[i] = stepID
+				inputStates[stepID] = testDigestA
+				if i < earliest {
+					receiptDeps[stepID] = []string{receipts[2].ReceiptDigest}
+				} else {
+					receiptDeps[stepID] = []string{receipts[0].ReceiptDigest}
+				}
+			}
+			supersededStepIDs := append([]string(nil), order[earliest:]...)
+			transition := ExecutionTransitionV1{
+				Kind: StepRecomputeAfterCorrection,
+				StepID: "step:correction",
+				ConsumedReceiptDigests: []string{receipts[1].ReceiptDigest},
+				SupersedesStepIDs: supersededStepIDs,
+			}
+			b.ReportMetric(float64(count), "active_steps/op")
+			b.ReportMetric(float64(len(supersededStepIDs)), "cone_steps/op")
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				cone, err := validateCorrectionImpactConeV1(
+					transition, receiptsByDigest, receiptsByID, order, receiptDeps, inputStates)
+				if err != nil {
+					b.Fatalf("correction impact cone failed: %v", err)
+				}
+				if cone.EarliestAffected != earliest || len(cone.ExpectedStepIDs) != len(supersededStepIDs) {
+					b.Fatalf("correction impact cone differs from fixture: %+v", cone)
+				}
+			}
+		})
+	}
+}
+
