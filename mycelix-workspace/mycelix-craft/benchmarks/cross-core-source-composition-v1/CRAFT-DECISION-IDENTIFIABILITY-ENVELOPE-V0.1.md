@@ -61,11 +61,11 @@ A correct calculation over an incomplete possibility set can still produce a fal
 
 | Basis | Permitted interpretation |
 |---|---|
-| `fixture_exhaustive` | Exhaustive only for the frozen synthetic fixture whose generator/ground truth is separately checked |
+| `fixture_exhaustive` | Accepted only for exact content digests pinned in the reference oracle's allowlisted frozen fixture registry; exhaustive only for those synthetic fixtures |
 | `declared_set` | Conditional result within a named assumption set; no global real-world identification |
 | `not_evaluated` | Numerical within-set envelopes may be shown, but no global identification claim is emitted |
 
-A finite list supplied by a caller does not prove that it contains every world compatible with real evidence. Source-universe completeness, observation-model coverage, and world-generation coverage must be qualified upstream. This oracle never upgrades them.
+A finite list supplied by a caller does not prove that it contains every world compatible with real evidence. The v0.1 oracle therefore rejects the `fixture_exhaustive` label unless the exact canonical Go-JSON digest matches one of three pinned fixture cases. These hashes prevent casual relabelling or fixture mutation; they are not signed attestations and do not establish production source-universe completeness. Source-universe completeness, observation-model coverage, and world-generation coverage must be qualified upstream. This oracle never upgrades them.
 
 The fallback action is mandatory and must be hard-safe in every listed world. If not, input validation fails closed.
 
@@ -90,7 +90,7 @@ Unknown, unavailable, disputed, stale, out-of-domain or selectively omitted evid
 3. **CDIE-003 hard-safety veto:** release has low nominal loss but is unsafe in one world; hold remains the only robust-safe action.
 4. **CDIE-004 unqualified world set:** repair is best in every listed world, but coverage is NotEvaluated and no global claim is emitted.
 
-The oracle also tests action/world permutation invariance, world-set expansion monotonicity, malformed/duplicate inputs, strict JSON parsing and an independently written exhaustive small-domain reference.
+The oracle emits a deterministic decision-flip witness when two listed worlds have disjoint optimal-action sets. The witness identifies the pair, each world's optimal actions, and declared dimensions whose values differ. This makes ambiguity actionable for subsequent acquisition/refinement, but does not assert that an observation can resolve it. The oracle also tests action/world permutation invariance, world-set expansion monotonicity, fixture digest tampering, malformed/duplicate inputs, strict JSON parsing and an independently written exhaustive small-domain reference.
 
 ## 7. Metrics and proposed targets
 
