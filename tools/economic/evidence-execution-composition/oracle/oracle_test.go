@@ -119,7 +119,7 @@ func TestProviderCompletionIsNotIndependentOutcome(t *testing.T) {
 		t.Fatalf("provider completion was promoted to an observed outcome: %+v", result)
 	}
 }
- 
+
 func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 	raw, err := os.ReadFile("../../../../schemas/economic/decision-justification-composition-certificate-v0.1.schema.json")
 	if err != nil {
@@ -203,7 +203,21 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 		claimSchema, ok := dependencyProperties["required_claims"].(map[string]any)
 		if !ok || claimSchema["type"] != "array" || claimSchema["minItems"] != float64(1) || claimSchema["uniqueItems"] != true {
 			t.Errorf("stage %q required_claims schema is not a non-empty unique array", stage)
+			continue
 		}
+		claimItems, ok := claimSchema["items"].(map[string]any)
+		if !ok {
+			t.Errorf("stage %q required_claims schema has no item vocabulary", stage)
+			continue
+		}
+		claimEnum, ok := claimItems["enum"].([]any)
+		includesIndependence := false
+		if ok {
+			for _, claim := range claimEnum {
+				if claim == "independence" { includesIndependence = true; break }
+			}
+		}
+		if !includesIndependence { t.Errorf("stage %q required_claims schema omits independence", stage) }
 	}
 	stageRequired, ok := stageEnvelope["required"].([]any)
 	if !ok || len(stageRequired) != len(requiredStages) {
@@ -242,8 +256,8 @@ func TestSharedDJCCStageEdgeCanonicalizationVectors(t *testing.T) {
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if seen != 3 {
-		t.Fatalf("expected 3 shared stage-edge vectors, evaluated %d", seen)
+	if seen != 4 {
+		t.Fatalf("expected 4 shared stage-edge vectors, evaluated %d", seen)
 	}
 }
 
@@ -289,10 +303,10 @@ func TestProfileManifestRejectsClaimMappedToNotApplicableStage(t *testing.T) {
 func TestStageEdgeRejectsUnsortedOrUnknownRequiredClaims(t *testing.T) {
 	var digest [32]byte
 	edge := StageEdgeV1{
-		ProducerStage: "policy", ConsumerStage: "authorization",
-		InputName: "decision", OutputSchemaRef: "policy:v1",
+		ProducerStage : "policy", ConsumerStage: "authorization",
+		InputName     : "decision", OutputSchemaRef: "policy:v1",
 		RequiredClaims: []string{"truth", "authentication"},
-		OutputDigest: digest,
+		OutputDigest  : digest,
 	}
 	if _, err := CanonicalStageEdgeBytesV1(edge); err == nil {
 		t.Fatal("unsorted required claims accepted")
@@ -328,3 +342,29 @@ func TestProfileManifestDecisionOnlyDoesNotClaimOutcome(t *testing.T) {
 	}
 }
 
+func TestIndependentCorroborationProfileRequiresIndependentEvidence(t *testing.T) {
+    manifest, err := LoadProfileManifest("../DJCC_PROFILES_V0_1.json")
+    if err != nil { t.Fatal(err) }
+    if err := ValidateProfileManifest(manifest); err != nil {
+        t.Fatalf("DJCC profiles failed independent validation: %v", err)
+    }
+    var profile *CompositionProfile
+    for i := range manifest.Profiles {
+        if manifest.Profiles[i].ProfileRef == "mycelix.djcc.independent-corroboration.v0.1" {
+            profile = &manifest.Profiles[i]
+            break
+        }
+    }
+    if profile == nil { t.Fatal("independent-corroboration profile is missing") }
+    if !contains(profile.RequiredClaims, "independence") {
+        t.Fatal("independent-corroboration profile does not require independence")
+    }
+    if contains(profile.ClaimStages["independence"], "outcome") {
+        t.Fatal("independence profile cannot claim an unverified physical outcome")
+    }
+    for _, stage := range []string{"execution", "outcome"} {
+        if !contains(profile.AllowedNotApplicable, stage) {
+            t.Errorf("independence profile must explicitly allow %s as NotApplicable", stage)
+        }
+    }
+}
