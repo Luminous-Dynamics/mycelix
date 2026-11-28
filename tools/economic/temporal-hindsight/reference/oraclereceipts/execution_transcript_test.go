@@ -1,7 +1,10 @@
 package oraclereceipts
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -160,6 +163,65 @@ func buildExecutionChain(t testing.TB, scope OracleScopeV1, receipts []OracleRec
 		proofHead = nextProof
 	}
 	return events
+}
+
+func TestExecutionOracleAdviceSharedVectorsV1(t *testing.T) {
+	file, err := os.Open("ORACLE_IVC_ADVICE_VECTORS_V1.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	line := 0
+	for scanner.Scan() {
+		line++
+		fields := strings.Fields(scanner.Text())
+		if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		switch fields[0] {
+		case "GENESIS":
+			if len(fields) != 3 {
+				t.Fatalf("invalid GENESIS vector at line %d", line)
+			}
+			if got := executionGenesisAdviceCommitmentDigest(fields[1]); got != fields[2] {
+				t.Fatalf("GENESIS vector mismatch at line %d: %s != %s", line, got, fields[2])
+			}
+		case "DELTA":
+			if len(fields) < 6 {
+				t.Fatalf("invalid DELTA vector at line %d", line)
+			}
+			sequence, err := strconv.ParseUint(fields[2], 10, 64)
+			if err != nil {
+				t.Fatalf("invalid DELTA sequence at line %d: %v", line, err)
+			}
+			receiptDigests := fields[4 : len(fields)-1]
+			got, err := executionAdviceDeltaCommitmentDigestV1(fields[1], sequence, fields[3], receiptDigests)
+			if err != nil {
+				t.Fatalf("DELTA vector failed at line %d: %v", line, err)
+			}
+			if got != fields[len(fields)-1] {
+				t.Fatalf("DELTA vector mismatch at line %d: %s != %s", line, got, fields[len(fields)-1])
+			}
+		case "NEXT":
+			if len(fields) != 5 {
+				t.Fatalf("invalid NEXT vector at line %d", line)
+			}
+			got, err := executionNextAdviceCommitmentDigestV1(fields[1], fields[2], fields[3])
+			if err != nil {
+				t.Fatalf("NEXT vector failed at line %d: %v", line, err)
+			}
+			if got != fields[4] {
+				t.Fatalf("NEXT vector mismatch at line %d: %s != %s", line, got, fields[4])
+			}
+		default:
+			t.Fatalf("unknown advice vector kind at line %d: %s", line, fields[0])
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestExecutionTranscriptBindsStateAndIVCProofHeads(t *testing.T) {
