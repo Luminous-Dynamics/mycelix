@@ -1,0 +1,159 @@
+{
+  "schema_id": "mycelix.craft.dbc-known-answer.v0.1",
+  "status": "independent_structural_composition_known_answers",
+  "source_status": "specification_and_mutation_manifest; implementation executes structural mutation controls",
+  "claim_ceiling": {
+    "source_authentication": "NotEvaluated",
+    "progress_antichain_source_universe_completeness": "NotEvaluated",
+    "owner_universe_completeness": "Requires an independent owner-universe receipt",
+    "legal_authority": "NotEvaluated by this structural oracle",
+    "real_world_independence": "NotEvaluated by full-evidence profile; authenticated lineage required",
+    "physical_outcome": "NotEvaluated by this structural oracle"
+  },
+  "cases": [
+    {
+      "id": "DBC-001",
+      "mutation": "none",
+      "expected_code": "",
+      "expected_disposition": "DecisionJustifiedAtAcceptedFrontier"
+    },
+    {
+      "id": "DBC-002",
+      "mutation": "conflate_frontier_and_progress",
+      "expected_code": "FRONTIER_PROGRESS_CONFLATED",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-003",
+      "mutation": "incomplete_frontier",
+      "expected_code": "FINAL_COMPLETENESS_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-004",
+      "mutation": "provisional_progress",
+      "expected_code": "FINAL_COMPLETENESS_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-005",
+      "mutation": "owner_universe_unknown",
+      "expected_code": "FINAL_COMPLETENESS_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-006",
+      "mutation": "independence_without_profile",
+      "expected_code": "INDEPENDENCE_PROFILE_UNSUPPORTED",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-007",
+      "mutation": "expired_authority",
+      "expected_code": "FINAL_AUTHORITY_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-008",
+      "mutation": "policy_schema_substitution",
+      "expected_code": "EXTERNAL_BINDING_INVALID",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-009",
+      "mutation": "action_denominator_drift",
+      "expected_code": "ACTION_DENOMINATOR_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-010",
+      "mutation": "outcome_unknown_with_effect",
+      "expected_code": "FINAL_EFFECT_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-011",
+      "mutation": "duplicate_stage",
+      "expected_code": "DUPLICATE_STAGE",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-012",
+      "mutation": "duplicate_receipt_id",
+      "expected_code": "DUPLICATE_RECEIPT_ID",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-013",
+      "mutation": "producer_digest_substitution",
+      "expected_code": "PRODUCER_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-014",
+      "mutation": "producer_schema_substitution",
+      "expected_code": "PRODUCER_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-015",
+      "mutation": "claim_ceiling_widening",
+      "expected_code": "CLAIM_CEILING_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-016",
+      "mutation": "partial_action_coverage",
+      "expected_code": "JUSTIFIED_WITH_UNRESOLVED_BASIS",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-017",
+      "mutation": "unresolved_outcome",
+      "expected_code": "FINAL_EFFECT_WIDENING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-018",
+      "mutation": "external_schema_substitution",
+      "expected_code": "EXTERNAL_BINDING_INVALID",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-019",
+      "mutation": "progress_universe_overclaim",
+      "expected_code": "PROGRESS_UNIVERSE_OVERCLAIM",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-020",
+      "mutation": "producer_receipt_id_substitution",
+      "expected_code": "PRODUCER_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-021",
+      "mutation": "missing_owner_universe",
+      "expected_code": "EXTERNAL_BINDINGS_INCOMPLETE",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-022",
+      "mutation": "dependency_slot_substitution",
+      "expected_code": "DEPENDENCY_EDGE_MISSING",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-023",
+      "mutation": "duplicate_unknown",
+      "expected_code": "REASON_DUPLICATE",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-024",
+      "mutation": "invalid_valid_at",
+      "expected_code": "VALID_TIME_INVALID",
+      "expected_disposition": "Indeterminate"
+    }
+  ]
+}
