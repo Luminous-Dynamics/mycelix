@@ -36,7 +36,8 @@ jobs:
           cargo generate-lockfile --manifest-path "$workspace/Cargo.toml"
           cargo +1.96.0 fmt --manifest-path "$workspace/Cargo.toml" -p praxis-core
           git diff --check
-          git add "$workspace/Cargo.lock" "$workspace/crates/praxis-core/src" "$workspace/crates/praxis-core/benches"
+          git add "$workspace/crates/praxis-core/src" "$workspace/crates/praxis-core/benches"
+          git add -f "$workspace/Cargo.lock"
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
