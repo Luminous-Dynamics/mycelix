@@ -638,6 +638,63 @@ mod tests {
     }
 
     #[test]
+    fn asymmetric_legal_strategy_sets_can_be_complete() {
+        let mut game = complete_two_player_game();
+        game.players[1].player_type = PlayerType::Malicious;
+        let malicious_only = Strategy {
+            id: "malicious_only".to_string(),
+            name: "Malicious-only action".to_string(),
+            description: "A strategy restricted to Malicious players".to_string(),
+            actions: vec![StrategyAction {
+                action_type: ActionType::Defect,
+                probability: 1.0,
+                conditions: vec![ActionCondition::Always],
+            }],
+            applicable_types: vec![PlayerType::Malicious],
+        };
+        game.strategies.push(malicious_only);
+        game.payoffs = vec![
+            PayoffEntry {
+                strategy_profile: vec!["cooperate".into(), "malicious_only".into()],
+                payoffs: vec![2.0, 3.0],
+            },
+            PayoffEntry {
+                strategy_profile: vec!["defect".into(), "malicious_only".into()],
+                payoffs: vec![1.0, 4.0],
+            },
+        ];
+
+        let report = validate_game_definition(&game, GameValidationConfig::default());
+
+        assert!(report.is_valid, "{:?}", report.issues);
+        assert_eq!(report.expected_profile_count, Some(2));
+        assert_eq!(report.observed_valid_profile_count, 2);
+    }
+
+    #[test]
+    fn legal_profile_count_overflow_is_rejected_without_enumeration() {
+        let mut game = complete_two_player_game();
+        game.players = (0..70)
+            .map(|index| Player {
+                id: format!("player-{index}"),
+                player_type: PlayerType::Rational,
+                initial_trust: 0.5,
+                initial_kredit: 100,
+            })
+            .collect();
+        game.payoffs.clear();
+
+        let report = validate_game_definition(&game, GameValidationConfig::default());
+
+        assert!(!report.is_valid);
+        assert_eq!(report.expected_profile_count, None);
+        assert!(!report.profile_enumeration_complete);
+        assert!(report
+            .issues
+            .contains(&GameValidationIssue::ProfileCountOverflow));
+    }
+
+    #[test]
     fn non_finite_payoffs_are_rejected() {
         let mut game = complete_two_player_game();
         game.payoffs[0].payoffs[0] = f64::NAN;
