@@ -134,6 +134,7 @@ pub struct InputBinding {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Dependency {
     pub stage_id: StageId,
+    pub input_name: String,
     pub output_digest: Digest,
     pub schema_ref: String,
 }
@@ -166,6 +167,7 @@ pub struct StageEvidence {
     pub producer: Producer,
     pub input_bindings: Vec<InputBinding>,
     pub output_digest: Option<Digest>,
+    pub output_schema_ref: String,
     pub claim_ceiling: ClaimCeiling,
     pub dependencies: Vec<Dependency>,
     pub reason_codes: Vec<String>,
@@ -174,6 +176,9 @@ pub struct StageEvidence {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompositionInput {
     pub certificate_id: String,
+    pub profile_ref: String,
+    pub profile_digest: Digest,
+    pub scope_digest: Digest,
     pub stages: BTreeMap<StageId, StageEvidence>,
     pub declared_disposition: CompositionDisposition,
     pub declared_claim_ceiling: ClaimCeiling,
@@ -183,6 +188,7 @@ pub struct CompositionInput {
 pub struct CompositionProfile {
     pub profile_ref: String,
     pub profile_digest: Digest,
+    pub scope_schema_ref: String,
     pub allowed_not_applicable: BTreeSet<StageId>,
 }
 
@@ -301,30 +307,49 @@ fn validate_stage_dependencies(
     }
 
     for dependency in &stage.dependencies {
-        if dependency.schema_ref.trim().is_empty() {
+        if dependency.input_name.trim().is_empty() || dependency.schema_ref.trim().is_empty() {
             out.push(violation(
                 "DJCC-DEPENDENCY-SCHEMA",
-                format!("{stage_id}: dependency {} has an empty schema_ref", dependency.stage_id),
+                format!("{stage_id}: dependency {} has an empty input_name/schema_ref", dependency.stage_id),
+            ));
+        }
+        let matching_input = stage.input_bindings.iter().filter(|binding| {
+            binding.name == dependency.input_name
+                && binding.digest == dependency.output_digest
+                && binding.schema_ref == dependency.schema_ref
+        }).count();
+        if matching_input != 1 {
+            out.push(violation(
+                "DJCC-DEPENDENCY-INPUT-BINDING",
+                format!("{stage_id}: dependency {} is not bound to exactly one matching input binding", dependency.stage_id),
             ));
         }
         match stages.get(&dependency.stage_id) {
-            Some(parent) => match parent.output_digest {
-                Some(parent_digest) if parent_digest == dependency.output_digest => {}
-                Some(_) => out.push(violation(
-                    "DJCC-EDGE-DIGEST-MISMATCH",
-                    format!(
-                        "{stage_id}: consumed digest for {} differs from producer output",
-                        dependency.stage_id
-                    ),
-                )),
-                None => out.push(violation(
-                    "DJCC-DEPENDENCY-WITHOUT-OUTPUT",
-                    format!(
-                        "{stage_id}: dependency {} has no producer output digest",
-                        dependency.stage_id
-                    ),
-                )),
-            },
+            Some(parent) => {
+                if parent.output_schema_ref != dependency.schema_ref {
+                    out.push(violation(
+                        "DJCC-EDGE-SCHEMA-MISMATCH",
+                        format!("{stage_id}: consumed schema for {} differs from producer output schema", dependency.stage_id),
+                    ));
+                }
+                match parent.output_digest {
+                    Some(parent_digest) if parent_digest == dependency.output_digest => {}
+                    Some(_) => out.push(violation(
+                        "DJCC-EDGE-DIGEST-MISMATCH",
+                        format!(
+                            "{stage_id}: consumed digest for {} differs from producer output",
+                            dependency.stage_id
+                        ),
+                    )),
+                    None => out.push(violation(
+                        "DJCC-DEPENDENCY-WITHOUT-OUTPUT",
+                        format!(
+                            "{stage_id}: dependency {} has no producer output digest",
+                            dependency.stage_id
+                        ),
+                    )),
+                }
+            }
             None => out.push(violation(
                 "DJCC-DEPENDENCY-MISSING",
                 format!("{stage_id}: dependency {} is absent", dependency.stage_id),
@@ -348,7 +373,7 @@ fn validate_claim_ceiling(
     out: &mut Vec<Violation>,
 ) {
     let declared = dimension_values(input.declared_claim_ceiling);
-    for (index, stage_id) in ALL_STAGE_IDS.iter().enumerate() {
+    for stage_id in ALL_STAGE_IDS.iter() {
         let Some(stage) = input.stages.get(stage_id) else {
             continue;
         };
@@ -369,7 +394,34 @@ fn validate_claim_ceiling(
                 ));
             }
         }
-        let _ = index;
+    }
+}
+
+fn validate_scope_binding(
+    stage_id: StageId,
+    stage: &StageEvidence,
+    scope_digest: Digest,
+    scope_schema_ref: &str,
+    out: &mut Vec<Violation>,
+) {
+    let matches: Vec<_> = stage
+        .input_bindings
+        .iter()
+        .filter(|binding| binding.name == "scope")
+        .collect();
+    if matches.len() != 1 {
+        out.push(violation(
+            "DJCC-SCOPE-BINDING-COUNT",
+            format!("{stage_id}: exactly one scope input binding is required"),
+        ));
+        return;
+    }
+    let binding = matches[0];
+    if binding.digest != scope_digest || binding.schema_ref != scope_schema_ref {
+        out.push(violation(
+            "DJCC-SCOPE-DIGEST-MISMATCH",
+            format!("{stage_id}: scope binding differs from the certificate scope/profile"),
+        ));
     }
 }
 
@@ -430,10 +482,22 @@ pub fn verify_composition(
             "certificate_id is empty",
         ));
     }
-    if profile.profile_ref.trim().is_empty() {
+    if profile.profile_ref.trim().is_empty() || input.profile_ref.trim().is_empty() {
         violations.push(violation(
             "DJCC-PROFILE-REF",
             "composition profile_ref is empty",
+        ));
+    }
+    if input.profile_ref != profile.profile_ref || input.profile_digest != profile.profile_digest {
+        violations.push(violation(
+            "DJCC-PROFILE-BINDING-MISMATCH",
+            "certificate profile reference/digest differs from selected composition profile",
+        ));
+    }
+    if profile.scope_schema_ref.trim().is_empty() {
+        violations.push(violation(
+            "DJCC-SCOPE-SCHEMA",
+            "composition profile scope schema reference is empty",
         ));
     }
 
@@ -456,12 +520,19 @@ pub fn verify_composition(
 
     for (stage_id, stage) in &input.stages {
         validate_producer(*stage_id, &stage.producer, &mut violations);
-        if stage.profile_ref.trim().is_empty() {
+        if stage.profile_ref.trim().is_empty() || stage.output_schema_ref.trim().is_empty() {
             violations.push(violation(
                 "DJCC-STAGE-PROFILE",
-                format!("{stage_id}: profile_ref is empty"),
+                format!("{stage_id}: profile_ref/output_schema_ref is empty"),
             ));
         }
+        validate_scope_binding(
+            *stage_id,
+            stage,
+            input.scope_digest,
+            &profile.scope_schema_ref,
+            &mut violations,
+        );
 
         if requires_output(stage.disposition) != stage.output_digest.is_some() {
             violations.push(violation(
@@ -554,13 +625,23 @@ mod tests {
             disposition,
             profile_ref: "profile:test:v1".to_owned(),
             producer: producer(),
-            input_bindings: vec![InputBinding {
-                name: "scope".to_owned(),
-                digest: digest(1),
-                schema_ref: "scope:v1".to_owned(),
-            }],
+            input_bindings: {
+                let mut bindings = vec![InputBinding {
+                    name: "scope".to_owned(),
+                    digest: digest(1),
+                    schema_ref: "scope:v1".to_owned(),
+                }];
+                bindings.extend(dependencies.iter().map(|dependency| InputBinding {
+                    name: dependency.input_name.clone(),
+                    digest: dependency.output_digest,
+                    schema_ref: dependency.schema_ref.clone(),
+                }));
+                bindings.sort_by(|left, right| left.name.cmp(&right.name));
+                bindings
+            },
             output_digest,
             claim_ceiling: claim_ceiling(),
+            output_schema_ref: "stage-output:v1".to_owned(),
             dependencies,
             reason_codes: Vec::new(),
         }
@@ -569,6 +650,7 @@ mod tests {
     fn dependency(stage_id: StageId, output_digest: Digest) -> Dependency {
         Dependency {
             stage_id,
+            input_name: format!("stage:{}", stage_id.as_str()),
             output_digest,
             schema_ref: "stage-output:v1".to_owned(),
         }
@@ -578,6 +660,7 @@ mod tests {
         CompositionProfile {
             profile_ref: "profile:test:v1".to_owned(),
             profile_digest: digest(99),
+            scope_schema_ref: "scope:v1".to_owned(),
             allowed_not_applicable: BTreeSet::from([
                 StageId::Execution,
                 StageId::Outcome,
@@ -677,6 +760,9 @@ mod tests {
         );
         CompositionInput {
             certificate_id: "djcc:test:positive".to_owned(),
+            profile_ref: "profile:test:v1".to_owned(),
+            profile_digest: digest(99),
+            scope_digest: digest(1),
             stages,
             declared_disposition: CompositionDisposition::DecisionJustifiedAtAcceptedFrontier,
             declared_claim_ceiling: ClaimCeiling::established(),
