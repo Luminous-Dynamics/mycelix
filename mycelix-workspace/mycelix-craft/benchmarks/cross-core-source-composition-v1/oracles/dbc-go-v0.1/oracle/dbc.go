@@ -17,6 +17,7 @@ const (
  Indeterminate State = "Indeterminate"
  NotEvaluated State = "NotEvaluated"
  Unsupported State = "UnsupportedByProfile"
+ NotApplicable State = "NotApplicable"
 )
 type Disposition string
 const (
@@ -47,15 +48,15 @@ type StageReceipt struct {
 }
 type ExternalBinding struct { Consumer Stage; Slot, ReceiptID, Schema, Digest string }
 type FrontierBinding struct { Kind string; Receipt Ref; Status string; Prefix State }
-type ProgressBinding struct { Kind string; Receipt Ref; Status string; Universe State }
-type OwnerBinding struct { Receipt Ref; Completeness State }
+type ProgressBinding struct { Kind string; Receipt Ref; Status string; Universe State; OwnerInventoryDigest string }
+type OwnerBinding struct { Receipt Ref; Authentication, Completeness State; FrontierDigest string }
 type AuthorityBinding struct { Receipt Ref; Principal, Scope string; Validity State }
-type ActionBinding struct { Receipt Ref; Digest, Revision string; Count, Covered uint64; CoverageDigest string; Coverage Ref }
-type OutcomeBinding struct { Receipt Ref; Status, Reconciliation string }
+type ActionBinding struct { Receipt Ref; Digest, Revision, CoverageRevision string; Count, Covered uint64; CoverageDigest string; Coverage Ref }
+type OutcomeBinding struct { Receipt Ref; Status, Reconciliation, ExecutionDigest, ActionPlanDigest, MutationScope string; SameScopeMutationAttempt bool }
 type Capsule struct {
  SchemaID, ProfileRef, ProfileDigest, DecisionID, QueryID, QueryDigest, QuerySchema, ScopeDigest, ValidAt string
  Policy Ref
- Temporal struct { OCELProfile, SourceCorpus, Projection, Replay Ref }
+ Temporal struct { OCELProfile, SourceCorpus, Projection, Replay Ref; FrontierDigest, SourceCorpusDigest string }
  Frontier FrontierBinding
  Progress ProgressBinding
  Owner OwnerBinding
@@ -111,6 +112,20 @@ var externalSlots = map[string]Stage{
 }
 func same(a,b []string) bool { if len(a)!=len(b){return false}; x:=append([]string{},a...); y:=append([]string{},b...); sort.Strings(x); sort.Strings(y); return strings.Join(x,"|")==strings.Join(y,"|") }
 func established(c map[string]State, d string) bool { return c[d]==Established }
+func validState(s State) bool {
+ switch s { case Established,Rejected,Indeterminate,NotEvaluated,Unsupported,NotApplicable: return true }
+ return false
+}
+func validateClaimMap(claims map[string]State) bool {
+ if len(claims)!=len(dimensions) { return false }
+ for _,d:=range dimensions { if !validState(claims[d]) { return false } }
+ return true
+}
+func duplicateStrings(values []string) bool {
+ seen:=map[string]bool{}
+ for _,v:=range values { if seen[v] { return true }; seen[v]=true }
+ return false
+}
 
 func externalRefs(c Capsule) map[string]Ref {
  return map[string]Ref{
@@ -133,27 +148,46 @@ func Validate(c Capsule) error {
  if c.SchemaID!="mycelix.craft.decision-basis-capsule.v0.1" || c.ProfileRef!="mycelix.djcc.full-evidence-execution.v0.1" || c.ProfileDigest!=supportedProfileDigest { return fail("PROFILE_MISMATCH","unsupported DBC schema/profile or pinned DJCC profile digest") }
  for _,d:=range []string{c.ProfileDigest,c.QueryDigest,c.ScopeDigest} { if !digestOK(d) { return fail("DIGEST_INVALID","malformed profile/query/scope digest") } }
  if c.DecisionID=="" || c.QueryID=="" || c.QuerySchema=="" { return fail("IDENTITY_MISSING","decision/query identity missing") }
- if _,err:=time.Parse("2006-01-02T15:04:05Z",c.ValidAt); err!=nil { return fail("VALID_TIME_INVALID","valid_at must be canonical UTC seconds") }
+ parsedTime,err:=time.Parse("2006-01-02T15:04:05Z",c.ValidAt)
+ if err!=nil || parsedTime.UTC().Format("2006-01-02T15:04:05Z")!=c.ValidAt { return fail("VALID_TIME_INVALID","valid_at must be canonical UTC seconds") }
  for _,r:=range []Ref{c.Policy,c.Frontier.Receipt,c.Progress.Receipt,c.Owner.Receipt,c.Authority.Receipt,c.Action.Receipt,c.Action.Coverage,c.Outcome.Receipt,c.Execution} {
   if !refOK(r) { return fail("RECEIPT_INVALID","required receipt ID/schema/digest malformed") }
  }
  if c.Frontier.Kind!="CausalEventFrontier" || c.Progress.Kind!="ProgressAntichain" { return fail("FRONTIER_PROGRESS_CONFLATED","event frontier and progress antichain must be distinct") }
  if c.Progress.Universe!=NotEvaluated { return fail("PROGRESS_UNIVERSE_OVERCLAIM","progress antichain source universe must remain NotEvaluated") }
+ if c.Progress.OwnerInventoryDigest!=c.Owner.Receipt.Digest { return fail("PROGRESS_OWNER_BINDING_MISMATCH","progress antichain is bound to a different owner inventory") }
+ if c.Owner.FrontierDigest!=c.Frontier.Receipt.Digest { return fail("OWNER_FRONTIER_BINDING_MISMATCH","owner inventory completeness is bound to a different event frontier") }
+ if c.Owner.Authentication!=Established || c.Owner.Completeness!=Established {
+  // A negative/incomplete owner inventory may still be represented for an
+  // indeterminate certificate, but cannot support a positive completeness claim.
+ }
  if c.Frontier.Status!="Valid" && c.Frontier.Status!="Incomplete" && c.Frontier.Status!="Invalid" { return fail("FRONTIER_STATUS_INVALID","unknown causal frontier status") }
  if c.Progress.Status!="StableRelativeToDeclaredProgress" && c.Progress.Status!="Provisional" { return fail("PROGRESS_STATUS_INVALID","unknown progress status") }
  if c.Authority.Principal=="" || c.Authority.Scope=="" { return fail("AUTHORITY_SCOPE_MISSING","principal and action scope are required") }
- if c.Action.Digest!=c.Action.CoverageDigest || c.Action.Revision=="" || c.Action.Count==0 || c.Action.Covered>c.Action.Count { return fail("ACTION_DENOMINATOR_MISMATCH","coverage does not bind the exact plan revision") }
+ if c.Action.Digest!=c.Action.CoverageDigest || c.Action.Revision=="" || c.Action.CoverageRevision!=c.Action.Revision || c.Action.Count==0 || c.Action.Covered>c.Action.Count { return fail("ACTION_DENOMINATOR_MISMATCH","coverage does not bind the exact plan digest and revision") }
+ if c.Temporal.FrontierDigest!=c.Frontier.Receipt.Digest || c.Temporal.SourceCorpusDigest!=c.Temporal.SourceCorpus.Digest {
+  return fail("TEMPORAL_INPUT_BINDING_MISMATCH","temporal projection/replay do not bind the selected frontier and source-corpus receipt")
+ }
  if c.Outcome.Status!="Qualified" && c.Outcome.Status!="Unknown" && c.Outcome.Status!="NotEvaluated" { return fail("OUTCOME_STATUS_INVALID","unknown outcome status") }
+ if c.Outcome.ExecutionDigest!=c.Execution.Digest || c.Outcome.ActionPlanDigest!=c.Action.Digest {
+  return fail("OUTCOME_BINDING_MISMATCH","outcome must bind the exact execution transcript and action-plan digest")
+ }
+ if c.Outcome.Status=="Unknown" && c.Outcome.SameScopeMutationAttempt {
+  return fail("OUTCOME_UNKNOWN_MUTATION_BARRIER","same-scope mutation attempted before exact outcome reconciliation")
+ }
  if c.Claims["independence"]==Established || c.Claims["independence"]==Rejected { return fail("INDEPENDENCE_PROFILE_UNSUPPORTED","full evidence profile does not qualify independence") }
  byStage:=map[Stage]StageReceipt{}; ids:=map[string]bool{}
  for _,s:=range c.Stages {
   if s.ID=="" || ids[s.ID] { return fail("DUPLICATE_RECEIPT_ID",s.ID) }; ids[s.ID]=true
+  if !validateClaimMap(s.Claims) { return fail("STAGE_CLAIMS_INVALID",string(s.Stage)) }
   if _,ok:=byStage[s.Stage]; ok { return fail("DUPLICATE_STAGE",string(s.Stage)) }
   if s.Schema=="" || s.OutputSchema=="" || !digestOK(s.Digest) || !digestOK(s.OutputDigest) || !digestOK(s.ProfileDigest) || !digestOK(s.ScopeDigest) || !digestOK(s.BuildDigest) || !commitOK(s.SourceCommit) || s.ProfileDigest!=c.ProfileDigest || s.ScopeDigest!=c.ScopeDigest { return fail("STAGE_RECEIPT_INVALID",string(s.Stage)) }
   byStage[s.Stage]=s
  }
  if len(byStage)!=len(stageOrder) { return fail("STAGE_SET_INCOMPLETE","exactly eight DJCC stages are required") }
  for _,st:=range stageOrder { if _,ok:=byStage[st]; !ok { return fail("STAGE_SET_INCOMPLETE",string(st)) } }
+ if !validateClaimMap(c.Claims) { return fail("FINAL_CLAIMS_INVALID","all six claim dimensions must have valid states") }
+ if duplicateStrings(c.Unknowns) || duplicateStrings(c.Conflicts) { return fail("REASON_DUPLICATE","unknown/conflict reason references must be unique") }
  matchesStageOutput:=func(r Ref,s StageReceipt) bool { return r.ID==s.ID && r.Schema==s.OutputSchema && r.Digest==s.OutputDigest }
  if !matchesStageOutput(c.Frontier.Receipt,byStage[Frontier]) { return fail("FRONTIER_STAGE_BINDING_MISMATCH","frontier receipt differs from verifier_frontier stage output") }
  if !matchesStageOutput(c.Policy,byStage[Policy]) { return fail("POLICY_STAGE_BINDING_MISMATCH","policy receipt differs from policy stage output") }
@@ -200,9 +234,10 @@ func Validate(c Capsule) error {
  }
  if established(c.Claims,"authentication") && (!established(byStage[Frontier].Claims,"authentication") || !established(byStage[SourceTrust].Claims,"authentication")) { return fail("FINAL_AUTHENTICATION_WIDENING","frontier and source trust must establish authentication") }
  if established(c.Claims,"authority") && (!established(byStage[Authorization].Claims,"authority") || c.Authority.Validity!=Established) { return fail("FINAL_AUTHORITY_WIDENING","authorization and authority receipt must establish authority") }
- if established(c.Claims,"completeness") && (!established(byStage[Frontier].Claims,"completeness") || !established(byStage[SourceTrust].Claims,"completeness") || !established(byStage[Semantic].Claims,"completeness") || !established(byStage[Query].Claims,"completeness") || c.Frontier.Status!="Valid" || c.Frontier.Prefix!=Established || c.Progress.Status!="StableRelativeToDeclaredProgress" || c.Owner.Completeness!=Established) { return fail("FINAL_COMPLETENESS_WIDENING","frontier, progress and owner-universe receipt are separately required") }
+ if established(c.Claims,"completeness") && (!established(byStage[Frontier].Claims,"completeness") || !established(byStage[SourceTrust].Claims,"completeness") || !established(byStage[Semantic].Claims,"completeness") || !established(byStage[Query].Claims,"completeness") || c.Frontier.Status!="Valid" || c.Frontier.Prefix!=Established || c.Progress.Status!="StableRelativeToDeclaredProgress" || c.Owner.Authentication!=Established || c.Owner.Completeness!=Established) { return fail("FINAL_COMPLETENESS_WIDENING","frontier, stable progress and authenticated owner-universe receipt are separately required") }
  if established(c.Claims,"effect") && (!established(byStage[Execution].Claims,"effect") || !established(byStage[Outcome].Claims,"effect") || c.Outcome.Status!="Qualified" || (c.Outcome.Reconciliation!="Resolved" && c.Outcome.Reconciliation!="NotRequired")) { return fail("FINAL_EFFECT_WIDENING","qualified execution and reconciled outcome required") }
  if established(c.Claims,"truth") && (!established(byStage[Query].Claims,"truth") || !established(byStage[Policy].Claims,"truth") || !established(byStage[Outcome].Claims,"truth")) { return fail("FINAL_TRUTH_WIDENING","query, policy and outcome truth required") }
+ if c.Disposition!=Justified && c.Disposition!=NotJustified && c.Disposition!=Undecided { return fail("DISPOSITION_INVALID","unknown composition disposition") }
  if c.Disposition==Justified {
   for _,d:=range []string{"authentication","authority","completeness","effect","truth"} { if !established(c.Claims,d) { return fail("JUSTIFIED_WITHOUT_REQUIRED_CLAIMS",d) } }
   if c.Action.Covered!=c.Action.Count || len(c.Unknowns)>0 || len(c.Conflicts)>0 || c.Abstention!="" || c.Frontier.Status!="Valid" || c.Progress.Status!="StableRelativeToDeclaredProgress" { return fail("JUSTIFIED_WITH_UNRESOLVED_BASIS","unresolved evidence, frontier or action basis") }
