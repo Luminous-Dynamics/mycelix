@@ -46,3 +46,11 @@ The fixture is synthetic. Pressure values, assets, zones, calibration IDs and sa
 - Canonical semantic projection digest stable across format-specific encodings.
 
 These are proposed targets. No serializer or importer result is claimed by adding fixtures alone.
+
+## Reference implementation status (2026-11-28)
+
+A test-only independent Go reference module is now present at `oracles/ocel21-interchange-go-v0.1/`. It includes parsers for OCEL JSON, OCEL 2.1 single-file CSV, and OCEL 2.1 bundled CSV, plus a canonical semantic projection and adversarial known-answer tests.
+
+Local Go 1.23.2 validation completed successfully: package tests, race detector, vet, and statement-coverage run all passed; coverage was 72.6%. This is local reference-module validation only. The hosted exact-head workflow has been added and must run against the current PR head before an exact-head pass can be claimed. The module is not the production Craft parser. Bundled Parquet remains NotImplemented.
+
+The independent parser specifically tests the actual bundled metadata attribute declaration shape (arrays of `{name,type}` records), column-name lookup regardless of column position, safe bundle-relative paths, object-reference escaping, cross-type ID reuse, O2O timestamped target attributes, and single-file scope type unification.
