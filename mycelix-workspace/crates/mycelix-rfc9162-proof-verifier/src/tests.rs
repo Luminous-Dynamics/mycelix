@@ -89,10 +89,10 @@ fn all_leaf_inclusions_verify_for_tree_sizes_one_through_sixty_four() {
         let values = entries(size);
         let leaves = leaf_hashes(&values);
         let root = merkle_tree_hash_from_leaf_hashes(&leaves);
-        for index in 0..size {
+        for (index, value) in values.iter().enumerate() {
             let path = inclusion_path(&leaves, index);
             let result =
-                verify_entry_inclusion(&values[index], index as u64, size as u64, &root, &path);
+                verify_entry_inclusion(value, index as u64, size as u64, &root, &path);
             assert_eq!(
                 result,
                 Ok(InclusionDisposition::InclusionValidRelativeToSuppliedRoot),
