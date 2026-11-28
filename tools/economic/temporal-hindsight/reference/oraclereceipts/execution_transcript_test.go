@@ -465,6 +465,67 @@ func TestForgedOrMutatedExecutionReplayResultRejected(t *testing.T) {
 	}
 }
 
+func TestOversizedExecutionFieldFailureDigestBindsBoundedValueSamples(t *testing.T) {
+	scope := executionFixtureScope()
+	receipts := executionReceipts(t, scope, 1)
+	_, _, state := executionGenesis(t, scope)
+	scopeDigest, _, _ := executionGenesis(t, scope)
+	proof := executionGenesisProofDigest(scopeDigest)
+	makeSubmission := func(prefix string) ExecutionEventV1 {
+		transition := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+			state, proof, "step:oversized", StepApply, testDigestB, testDigestC)
+		return ExecutionEventV1{
+			LogSequence: 1,
+			EventID: prefix + strings.Repeat("x", MaxIdentifierBytes),
+			PreviousEventDigest: executionGenesisEventDigest(scopeDigest),
+			Outcome: ExecutionCommitted,
+			Transition: &transition,
+		}
+	}
+	first := ReplayOracleExecutionTranscriptV1(scope, receipts, 1, receipts[0].ReceiptDigest,
+		[]ExecutionEventV1{makeSubmission("a")}, 1, testDigestA)
+	second := ReplayOracleExecutionTranscriptV1(scope, receipts, 1, receipts[0].ReceiptDigest,
+		[]ExecutionEventV1{makeSubmission("b")}, 1, testDigestA)
+	if first.Disposition != ExecutionChainIndeterminate || second.Disposition != ExecutionChainIndeterminate ||
+		first.SubmittedEventsDigest == second.SubmittedEventsDigest ||
+		first.CertificateDigest == second.CertificateDigest {
+		t.Fatalf("distinct oversized event submissions collapsed: first=%+v second=%+v", first, second)
+	}
+}
+
+func TestOversizedExecutionCollectionFailureDigestBindsSamples(t *testing.T) {
+	scope := executionFixtureScope()
+	receipts := executionReceipts(t, scope, 1)
+	scopeDigest, _, state := executionGenesis(t, scope)
+	proof := executionGenesisProofDigest(scopeDigest)
+	makeSubmission := func(last string) ExecutionEventV1 {
+		transition := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+			state, proof, "step:collections", StepApply, testDigestB, testDigestC)
+		transition.ConsumedReceiptDigests = make([]string, MaxEvidenceReferences+1)
+		for i := range transition.ConsumedReceiptDigests {
+			transition.ConsumedReceiptDigests[i] = testDigestA
+		}
+		transition.ConsumedReceiptDigests[len(transition.ConsumedReceiptDigests)-1] = last
+		transition.IVCUpdate.PublicInputDigest = testDigestB
+		return ExecutionEventV1{
+			LogSequence: 1,
+			EventID: "event:collections",
+			PreviousEventDigest: executionGenesisEventDigest(scopeDigest),
+			Outcome: ExecutionCommitted,
+			Transition: &transition,
+		}
+	}
+	first := ReplayOracleExecutionTranscriptV1(scope, receipts, 1, receipts[0].ReceiptDigest,
+		[]ExecutionEventV1{makeSubmission(testDigestB)}, 1, testDigestA)
+	second := ReplayOracleExecutionTranscriptV1(scope, receipts, 1, receipts[0].ReceiptDigest,
+		[]ExecutionEventV1{makeSubmission(testDigestC)}, 1, testDigestA)
+	if first.Disposition != ExecutionChainIndeterminate || second.Disposition != ExecutionChainIndeterminate ||
+		first.SubmittedEventsDigest == second.SubmittedEventsDigest ||
+		first.CertificateDigest == second.CertificateDigest {
+		t.Fatalf("distinct oversized collection submissions collapsed: first=%+v second=%+v", first, second)
+	}
+}
+
 func TestExecutionFailureReceiptBindsSubmittedEvents(t *testing.T) {
 	scope := executionFixtureScope()
 	receipts := executionReceipts(t, scope, 1)
