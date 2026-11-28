@@ -341,7 +341,8 @@
         "stage_id",
         "input_name",
         "output_digest",
-        "schema_ref"
+        "schema_ref",
+        "required_claims"
       ],
       "properties": {
         "stage_id": {
@@ -364,6 +365,21 @@
         },
         "input_name": {
           "$ref": "#/$defs/identifier"
+        },
+        "required_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "authentication",
+              "completeness",
+              "truth",
+              "authority",
+              "effect"
+            ]
+          },
+          "description": "Exact upstream claim dimensions this consumer stage requires to be EstablishedWithinProfile. Semantic verifier also requires canonical sorted order."
         }
       }
     },
