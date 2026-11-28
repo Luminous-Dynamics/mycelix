@@ -75,6 +75,24 @@
       "mutation": "duplicate_result_id",
       "expected_code": "EAP-RESULT-ID",
       "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-013",
+      "mutation": "candidate_set_substitution",
+      "expected_code": "EAP-CANDIDATE-SET-MISMATCH",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-014",
+      "mutation": "observation_model_substitution",
+      "expected_code": "EAP-OBSERVATION-MODEL-MISMATCH",
+      "expected_disposition": "AbstainOrEscalate"
+    },
+    {
+      "id": "EAP-015",
+      "mutation": "proposal_predates_dbc",
+      "expected_code": "EAP-ISSUED-BEFORE-DBC",
+      "expected_disposition": "AbstainOrEscalate"
     }
   ]
 }
