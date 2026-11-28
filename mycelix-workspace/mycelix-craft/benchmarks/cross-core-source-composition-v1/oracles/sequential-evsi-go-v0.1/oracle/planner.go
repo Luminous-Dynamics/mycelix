@@ -11,9 +11,9 @@ import (
 
 const eps=1e-12
 
-type State struct { ID string ``json:"id"``; Probability float64 ``json:"probability"`` }
-type Action struct { ID string ``json:"id"``; LossByState map[string]float64 ``json:"loss_by_state"`` }
-type Likelihood struct { ResultID string ``json:"result_id"``; Probability float64 ``json:"probability"`` }
+type State struct { ID string `json:"id"`; Probability float64 `json:"probability"` }
+type Action struct { ID string `json:"id"`; LossByState map[string]float64 `json:"loss_by_state"` }
+type Likelihood struct { ResultID string `json:"result_id"`; Probability float64 `json:"probability"` }
 type Observation struct {
  ID string `json:"id"`
  Cost float64 `json:"cost"`
@@ -99,20 +99,51 @@ func(p *planner)solve(b []float64,available []string,budget float64,h int)result
  p.memo[key]=best;return best
 }
 func scoreOne(c Case,o Observation,b []float64,base float64)(OneStepScore,bool){s:=OneStepScore{ObservationID:o.ID,Cost:o.Cost};if !o.Available||!o.InDomain||!o.Admissible||!o.ConditionedOnLatentState||o.Mandatory{return s,false};mass:=map[string]float64{};joint:=map[string][]float64{};for i,st:=range c.States{for _,l:=range o.LikelihoodByState[st.ID]{mass[l.ResultID]+=b[i]*l.Probability;if joint[l.ResultID]==nil{joint[l.ResultID]=make([]float64,len(b))};joint[l.ResultID][i]=l.Probability}};acts:=map[string]Action{};for _,a:=range c.Actions{acts[a.ID]=a};for r,m:=range mass{if m<=eps{continue};post:=make([]float64,len(b));for i:=range b{post[i]=b[i]*joint[r][i]/m};best:=math.Inf(1);for _,id:=range c.SafeActions{v:=0.0;for i,st:=range c.States{v+=post[i]*acts[id].LossByState[st.ID]};if v<best{best=v}};s.EVSI+=m*(base-best)};s.NetValue=s.EVSI-s.Cost;return s,true}
-func Solve(c Case)(Report,error){
- if err:=validate(c);err!=nil{return Report{},err}
- r:=Report{CaseID:c.ID}
- if c.MandatoryEvidenceOpen{r.Status=AcquireMandatory;return r,nil}
- for _,o:=range c.Observations{if o.Mandatory{r.Status=AcquireMandatory;return r,nil}}
- p:=planner{c:c,obs:map[string]Observation{},actions:map[string]Action{},memo:map[string]result{}}
- b:=make([]float64,len(c.States));for i,s:=range c.States{b[i]=s.Probability};for _,a:=range c.Actions{p.actions[a.ID]=a}
- for _,o:=range c.Observations{p.obs[o.ID]=o}
- base,_:=p.terminal(b);r.BaselineExpectedLoss=base;;if len(c.Observations)>1&&c.FactorizationProfile!="conditional_independence_given_complete_latent_state_v0.1"{r.Status=Abstain;r.ExpectedTotalLoss=base;r.ExpectedTerminalLoss=base;r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base};return r,nil};r.BaselineExpectedLoss=base
- if len(c.Observations)>1&&c.FactorizationProfile!="conditional_independence_given_complete_latent_state_v0.1"{r.Status=Abstain;r.ExpectedTotalLoss=base;r.ExpectedTerminalLoss=base;r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base};return r,nil}
- valid:=[]string{};invalid:=0;for _,o:=range c.Observations{if o.Available&&o.InDomain&&o.Admissible&&o.ConditionedOnLatentState{valid=append(valid,o.ID)}else{invalid++}};sort.Strings(valid)
- for _,o:=range c.Observations{if s,ok:=scoreOne(c,o,b,base);ok{r.OneStepScores=append(r.OneStepScores,s)}};sort.Slice(r.OneStepScores,func(i,j int)bool{return r.OneStepScores[i].ObservationID<r.OneStepScores[j].ObservationID})
- if len(valid)==0&&len(c.Observations)>0&&invalid>0{r.Status=Abstain;r.ExpectedTotalLoss=base;r.ExpectedTerminalLoss=base;r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base};return r,nil}
- best:=p.solve(b,valid,c.Budget,c.Horizon);r.ExpectedTotalLoss=best.total;r.ExpectedTerminalLoss=best.terminal;r.ExpectedAcquisitionCost=best.cost;r.GrossEVSI=base-best.terminal;r.NetDecisionValue=base-best.total;r.Plan=best.node;if r.NetDecisionValue>eps{r.Status=Recommend}else{r.Status=DoNotAcquire};return r,nil
+func Solve(c Case) (Report, error) {
+	if err := validate(c); err != nil { return Report{}, err }
+	r := Report{CaseID:c.ID}
+	if c.MandatoryEvidenceOpen { r.Status=AcquireMandatory; return r,nil }
+	for _,o := range c.Observations { if o.Mandatory { r.Status=AcquireMandatory; return r,nil } }
+	p := planner{c:c,obs:map[string]Observation{},actions:map[string]Action{},memo:map[string]result{}}
+	b := make([]float64,len(c.States))
+	for i,s := range c.States { b[i]=s.Probability }
+	for _,a := range c.Actions { p.actions[a.ID]=a }
+	for _,o := range c.Observations { p.obs[o.ID]=o }
+	base,_ := p.terminal(b)
+	r.BaselineExpectedLoss=base
+	if len(c.Observations)>1 && c.FactorizationProfile!="conditional_independence_given_complete_latent_state_v0.1" {
+		r.Status=Abstain
+		r.ExpectedTotalLoss=base
+		r.ExpectedTerminalLoss=base
+		r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base}
+		return r,nil
+	}
+	valid:=[]string{}
+	invalid:=0
+	for _,o:=range c.Observations {
+		if o.Available&&o.InDomain&&o.Admissible&&o.ConditionedOnLatentState { valid=append(valid,o.ID) } else { invalid++ }
+	}
+	sort.Strings(valid)
+	for _,o:=range c.Observations {
+		if s,ok:=scoreOne(c,o,b,base);ok { r.OneStepScores=append(r.OneStepScores,s) }
+	}
+	sort.Slice(r.OneStepScores,func(i,j int)bool{return r.OneStepScores[i].ObservationID<r.OneStepScores[j].ObservationID})
+	if len(valid)==0 && len(c.Observations)>0 && invalid>0 {
+		r.Status=Abstain
+		r.ExpectedTotalLoss=base
+		r.ExpectedTerminalLoss=base
+		r.Plan=&Node{Stop:true,ExpectedTotalLoss:base,ExpectedTerminalLoss:base}
+		return r,nil
+	}
+	best:=p.solve(b,valid,c.Budget,c.Horizon)
+	r.ExpectedTotalLoss=best.total
+	r.ExpectedTerminalLoss=best.terminal
+	r.ExpectedAcquisitionCost=best.cost
+	r.GrossEVSI=base-best.terminal
+	r.NetDecisionValue=base-best.total
+	r.Plan=best.node
+	if r.NetDecisionValue>eps { r.Status=Recommend } else { r.Status=DoNotAcquire }
+	return r,nil
 }
 func GreedyOneStep(c Case)(string,float64,error){if err:=validate(c);err!=nil{return "",0,err};p:=planner{c:c,actions:map[string]Action{}};for _,a:=range c.Actions{p.actions[a.ID]=a};b:=make([]float64,len(c.States));for i,s:=range c.States{b[i]=s.Probability};base,_:=p.terminal(b);id:="";best:=0.0;for _,o:=range c.Observations{s,ok:=scoreOne(c,o,b,base);if ok&&s.NetValue>best+eps{id,best=o.ID,s.NetValue}};return id,best,nil
 }
