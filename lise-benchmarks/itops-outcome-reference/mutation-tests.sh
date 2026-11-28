@@ -40,9 +40,6 @@ expect_rejected "unsafe mutation relabelled as success" \
   '(.cases[] | select(.case_id == "ITOPS-OR-010") | .expected_disposition) = "AcceptedRecovery"'
 
 # A coordinated scope shrink must not make per-operation checks vacuously true.
-expect_rejected "accepted recovery with an empty work denominator" \\
-  '(.cases[] | select(.case_id == "ITOPS-OR-002") | .expected_operation_ids) = []
-   | (.cases[] | select(.case_id == "ITOPS-OR-002") | .actions) = []
-   | (.cases[] | select(.case_id == "ITOPS-OR-002") | .evidence[].operation_ids) = []'
+expect_rejected "accepted recovery with an empty work denominator" '(.cases[] | select(.case_id == "ITOPS-OR-002") | .expected_operation_ids) = [] | (.cases[] | select(.case_id == "ITOPS-OR-002") | .actions) = [] | (.cases[] | select(.case_id == "ITOPS-OR-002") | .evidence[].operation_ids) = []'
 
 echo "PASS: all 6 mutation controls were rejected."
