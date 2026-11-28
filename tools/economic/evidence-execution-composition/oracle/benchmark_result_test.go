@@ -171,7 +171,7 @@ func encodeBenchmarkResult(t *testing.T, value map[string]any) []byte {
 	return raw
 }
 
-func TestValidateBenchmarkResultV01AcceptsCompleteQualification(t *testing.T) {
+func TestValidateBenchmarkResultV01AcceptsStructurallyCompleteQualificationRecord(t *testing.T) {
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, syntheticBenchmarkResultV01())); err != nil {
 		t.Fatalf("valid benchmark result rejected: %v", err)
 	}
