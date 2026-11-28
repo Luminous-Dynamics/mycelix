@@ -38,7 +38,7 @@ go test -cover ./...
 
 ## Canonicalization
 
-Canonical bytes sort stage receipts by DJCC stage order; sort input bindings by consumer slot, producer stage and producer receipt; and sort reason/unknown/conflict codes. The capsule commitment is domain-separated SHA-256 over those bytes. Any change to a bound receipt, schema, policy, scope, frontier, plan revision or outcome changes the commitment.
+Canonical bytes sort stage receipts by DJCC stage order, input bindings by consumer slot, external bindings by consumer/slot, and reason/unknown/conflict codes. The capsule commitment is domain-separated SHA-256 over that typed internal representation. The Go reference currently validates an in-memory typed model; a wire adapter mapping the JSON Schema's snake_case fields into these Go types is not yet implemented, and no JSON round-trip equivalence is claimed. Any change to a bound receipt, schema, policy, scope, frontier, plan revision or outcome changes the typed-model commitment.
 
 ## Claim ceiling
 
@@ -61,3 +61,8 @@ The supported DJCC profile is deliberately limited to `mycelix.djcc.full-evidenc
 The stage graph and root-claim ownership in this oracle mirror the proposed `mycelix.djcc.full-evidence-execution.v0.1` profile from DJCC PR #6822, pinned for review to source commit `bf80359e9eb564a246da7cedb7d1476fb968d8f0`, file `tools/economic/evidence-execution-composition/DJCC_PROFILES_V0_1.json`, Git blob `36945535470677ef9ec8f06b9f68ff8bc457b7d3` (profile file SHA-256 `f05c2d0f280b60c75240f9933f89ba5376ac9a7250f36a3832c14c679bafe902`). That profile's manifest status is `proposed-structural-profiles-not-yet-authoritative`; this oracle mirrors its proposed contract but does not promote it to an authoritative policy or standard.
 
 The full-evidence profile requires authentication, authority, completeness, effect and truth. Its root claim owners are verifier frontier/source trust for authentication; authorization for authority; verifier frontier/source trust/semantic projection/query for completeness; execution/outcome for effect; and query/policy/outcome for truth. The profile does not define independence as a required root claim, so this DBC profile deliberately leaves independence `NotEvaluated`. A positive independence claim belongs to the separate DJCC independent-corroboration profile and still requires #6826's authenticated failure-domain lineage, not merely a structurally disjoint graph.
+
+
+## Current implementation boundary
+
+The supported Go implementation is a structural in-memory model and validator. Its profile, edge and claim-owner maps are pinned in this branch and documented above. The schema file is a separate JSON interchange contract; the adapter and generic JSON-to-typed-model round-trip are future work. The 24 fixture seeds are frozen expected-result design inputs, not 24 hosted test passes.
