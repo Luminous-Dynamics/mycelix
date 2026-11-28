@@ -211,3 +211,55 @@ func TestSingleCSVUnifiesAttributeTypeAcrossScope(t *testing.T) {
 	if len(got) != 2 { t.Fatalf("expected two values in same attribute scope: %#v", got) }
 	for _, attr := range got { if attr.Type != "string" { t.Fatalf("scope should unify to string, got %#v", got) } }
 }
+
+func TestCanonicalizesEquivalentTimezoneOffsets(t *testing.T) {
+	base := read(t, "ocel21-mini.json")
+	want, err := ParseJSON(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alt := strings.ReplaceAll(string(base), "2026-11-28T08:00:00Z", "2026-11-28T09:00:00+01:00")
+	alt = strings.ReplaceAll(alt, "2026-11-28T08:10:00Z", "2026-11-28T09:10:00+01:00")
+	got, err := ParseJSON([]byte(alt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("equivalent timezone offsets produced different semantic projections\n got: %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestRejectBundledCSVMetadataSymlinkEscape(t *testing.T) {
+	dst := copyFixtureTree(t)
+	bundle := filepath.Join(dst, "bundled-csv")
+	outside := filepath.Join(t.TempDir(), "outside.csv")
+	if err := os.WriteFile(outside, []byte("ocel_id,ocel_time,pressure_kpa\nX,2026-11-28T08:00:00Z,1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(bundle, "events", "external.csv")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	metaPath := filepath.Join(bundle, "ocel-meta.json")
+	b, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(b, &meta); err != nil {
+		t.Fatal(err)
+	}
+	events := meta["eventTypes"].(map[string]any)
+	def := events["pressure_observed"].(map[string]any)
+	def["file"] = "events/external.csv"
+	b, err = json.Marshal(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(metaPath, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseBundledCSV(bundle); err == nil {
+		t.Fatal("bundle metadata symlink escape accepted")
+	}
+}
