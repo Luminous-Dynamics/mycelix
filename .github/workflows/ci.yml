@@ -86,6 +86,7 @@ jobs:
               - 'schemas/economic/decision-justification-composition-certificate-v0.1.schema.json'
               - 'tools/economic/evidence-execution-composition/**'
               - '.github/workflows/djcc-seed-oracle.yml'
+              - 'mycelix-workspace/crates/mycelix-djcc-verifier/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -169,6 +170,15 @@ jobs:
       - name: Run DJCC oracle vet
         working-directory: tools/economic/evidence-execution-composition
         run: go vet ./...
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Check DJCC Rust verifier formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml -- --check
+      - name: Test DJCC Rust verifier
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets
+      - name: Clippy DJCC Rust verifier with warnings denied
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets -- -D warnings
 
   test-cos-conformance:
     needs: changes
