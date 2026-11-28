@@ -394,6 +394,7 @@ func TestReceiptChainFailureStillBindsBothSubmissions(t *testing.T) {
 	receiptsA := executionReceipts(t, scope, 1)
 	receiptsB := executionReceipts(t, scope, 1)
 	receiptsB[0].AnswerPayload = []byte("different malformed payload")
+	receiptsB[0].AnswerDigest = AnswerDigestV1(receiptsB[0].AnswerPayload)
 	_, _, state := executionGenesis(t, scope)
 	scopeDigest, _, _ := executionGenesis(t, scope)
 	proof := executionGenesisProofDigest(scopeDigest)
