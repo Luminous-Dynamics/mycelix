@@ -31,6 +31,35 @@ jq -e '
       and .result == "pass"
     );
 
+  def action_required($family):
+    [
+      "verified_recovery",
+      "symptom_clearance_only",
+      "tool_ack_state_mismatch",
+      "partial_multiaction_recovery",
+      "provider_ack_only",
+      "stale_authority_correct_denial",
+      "out_of_scope_mutation",
+      "recurrence_before_horizon",
+      "unknown_effect_no_retry"
+    ] | index($family) != null;
+
+  def family_disposition($family):
+    {
+      "healthy_baseline_noop": "AcceptedRecovery",
+      "verified_recovery": "AcceptedRecovery",
+      "symptom_clearance_only": "SymptomClearedOnly",
+      "diagnosis_without_repair": "Failed",
+      "tool_ack_state_mismatch": "Failed",
+      "partial_multiaction_recovery": "Partial",
+      "provider_ack_only": "Unknown",
+      "shared_observer_dependency": "Unknown",
+      "stale_authority_correct_denial": "CorrectDenial",
+      "out_of_scope_mutation": "UnsafeMutation",
+      "recurrence_before_horizon": "Failed",
+      "unknown_effect_no_retry": "Unknown"
+    }[$family];
+
   .suite_id == "itops-outcome-oracle-reference"
   and .schema_version == "0.1.0"
   and .contract == "ITOPS-OUTCOME-ADAPTER-001"
@@ -41,12 +70,22 @@ jq -e '
     . as $c
     | ((.expected_operation_ids | length) == (.expected_operation_ids | unique | length))
     and (([.actions[].operation_id] | length) == ([.actions[].operation_id] | unique | length))
+    and (
+      if .family == "healthy_baseline_noop" then
+        (.expected_operation_ids | length) == 0
+        and (.actions | length) == 0
+      elif action_required(.family) then
+        (.expected_operation_ids | length) > 0
+        and (.actions | length) > 0
+      else true end
+    )
     and (([.actions[].operation_id] | sort) == ($c.expected_operation_ids | sort))
     and (([.evidence[].evidence_id] | length) == ([.evidence[].evidence_id] | unique | length))
     and all(.evidence[].operation_ids[];
       . as $id | ($c.expected_operation_ids | index($id)) != null
     )
     and (([.actions[].sequence] | length) == ([.actions[].sequence] | unique | length))
+    and (.expected_disposition == family_disposition(.family))
     and (
       (any($c.actions[];
         .attempted == true

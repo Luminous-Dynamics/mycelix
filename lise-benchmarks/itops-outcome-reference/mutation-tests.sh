@@ -39,4 +39,13 @@ expect_rejected "evidence detached from operation" \
 expect_rejected "unsafe mutation relabelled as success" \
   '(.cases[] | select(.case_id == "ITOPS-OR-010") | .expected_disposition) = "AcceptedRecovery"'
 
-echo "PASS: all 5 mutation controls were rejected."
+# A coordinated scope shrink must not make per-operation checks vacuously true.
+expect_rejected "accepted recovery with an empty work denominator" '(.cases[] | select(.case_id == "ITOPS-OR-002") | .expected_operation_ids) = [] | (.cases[] | select(.case_id == "ITOPS-OR-002") | .actions) = [] | (.cases[] | select(.case_id == "ITOPS-OR-002") | .evidence[].operation_ids) = []'
+
+# A known-answer case cannot be relabelled to a disposition inconsistent with its family.
+expect_rejected "family disposition relabelled" '(.cases[] | select(.case_id == "ITOPS-OR-004") | .expected_disposition) = "Unknown"'
+
+# CorrectDenial requires an explicit proposed operation and a matching denied action.
+expect_rejected "correct denial with erased work denominator" '(.cases[] | select(.case_id == "ITOPS-OR-009") | .expected_operation_ids) = [] | (.cases[] | select(.case_id == "ITOPS-OR-009") | .actions) = []'
+
+echo "PASS: all 8 mutation controls were rejected."
