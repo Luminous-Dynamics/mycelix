@@ -4,6 +4,8 @@ package oracle
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,12 @@ import (
 )
 
 const SchemaID = "mycelix.craft.decision-identifiability.v0.1"
+
+var frozenFixtureDigests = map[string]string{
+	"CDIE-001-invariant-action": "aa85d2b017e1985cce707dcb97517b277fe196c550b8442ce0a84fde6e54967b",
+	"CDIE-002-no-invariant-optimum": "8b89a70900c5333258aee59820a7fbb497216d205b3d3239a27c1371c52eb7ab",
+	"CDIE-003-hard-safety-veto": "d18e647c1d14e95edade175f38595274b2ff73b33e0e1860c826e137922bb07d",
+}
 
 type CoverageBasis string
 
@@ -25,6 +33,7 @@ type Problem struct {
 	SchemaID       string        `json:"schema_id"`
 	CaseID         string        `json:"case_id"`
 	CoverageBasis  CoverageBasis `json:"coverage_basis"`
+	FixtureDigest string `json:"fixture_digest,omitempty"`
 	Actions        []string      `json:"actions"`
 	FallbackAction string        `json:"fallback_action"`
 	Worlds         []World       `json:"worlds"`
@@ -34,6 +43,7 @@ type World struct {
 	ID             string           `json:"id"`
 	Losses         map[string]int64 `json:"losses"`
 	HardViolations []string         `json:"hard_violations,omitempty"`
+	Attributes     map[string]string `json:"attributes,omitempty"`
 }
 
 type Disposition string
@@ -61,13 +71,22 @@ type WorldOptimum struct {
 	BestLoss int64    `json:"best_loss"`
 }
 
+type DecisionFlipWitness struct {
+	WorldA              string   `json:"world_a"`
+	OptimalActionsA     []string `json:"optimal_actions_a"`
+	WorldB              string   `json:"world_b"`
+	OptimalActionsB     []string `json:"optimal_actions_b"`
+	DifferingDimensions []string `json:"differing_dimensions"`
+}
+
 type Result struct {
 	CaseID               string         `json:"case_id"`
 	CoverageBasis        CoverageBasis  `json:"coverage_basis"`
 	Disposition          Disposition    `json:"disposition"`
 	WorldCount           int            `json:"world_count"`
 	RobustSafeActions    []string       `json:"robust_safe_actions"`
-	OptimalInEveryWorld  []string       `json:"optimal_in_every_world"`
+	OptimalInEveryListedWorld []string       `json:"optimal_in_every_listed_world"`
+	DecisionFlipWitness       *DecisionFlipWitness `json:"decision_flip_witness,omitempty"`
 	MinimaxLossActions   []string       `json:"minimax_loss_actions"`
 	MinimaxRegretActions []string       `json:"minimax_regret_actions"`
 	ActionBounds         []ActionBounds `json:"action_bounds"`
@@ -176,7 +195,22 @@ func Validate(p Problem) error {
 		return errors.New("case_id is required")
 	}
 	switch p.CoverageBasis {
-	case CoverageFixtureExhaustive, CoverageDeclaredSet, CoverageNotEvaluated:
+	case CoverageFixtureExhaustive:
+		expected, ok := frozenFixtureDigests[p.CaseID]
+		if !ok {
+			return fmt.Errorf("fixture %q is not in the frozen exhaustive allowlist", p.CaseID)
+		}
+		actual, err := problemDigest(p)
+		if err != nil {
+			return fmt.Errorf("cannot digest fixture: %w", err)
+		}
+		if p.FixtureDigest == "" || p.FixtureDigest != expected || actual != expected {
+			return errors.New("fixture digest does not match the frozen exhaustive fixture registry")
+		}
+	case CoverageDeclaredSet, CoverageNotEvaluated:
+		if p.FixtureDigest != "" {
+			return errors.New("fixture_digest is only valid for a pinned exhaustive fixture")
+		}
 	default:
 		return fmt.Errorf("unsupported coverage_basis %q", p.CoverageBasis)
 	}
@@ -295,7 +329,8 @@ func Evaluate(p Problem) (Result, error) {
 		}
 	}
 
-	optimalEverywhere := keys(identified)
+	optimalEveryListedWorld := keys(identified)
+	decisionFlipWitness := findDecisionFlipWitness(worlds, worldOptima)
 	worstLoss := make(map[string]int64, len(robustSafe))
 	worstRegret := make(map[string]int64, len(robustSafe))
 	for _, action := range robustSafe {
@@ -319,19 +354,83 @@ func Evaluate(p Problem) (Result, error) {
 	orderedBounds := make([]ActionBounds, 0, len(actions))
 	for _, action := range actions { orderedBounds = append(orderedBounds, bounds[action]) }
 
-	disposition := dispositionFor(p.CoverageBasis, len(optimalEverywhere) > 0)
+	disposition := dispositionFor(p.CoverageBasis, len(optimalEveryListedWorld) > 0)
 	return Result{
 		CaseID: p.CaseID,
 		CoverageBasis: p.CoverageBasis,
 		Disposition: disposition,
 		WorldCount: len(worlds),
 		RobustSafeActions: robustSafe,
-		OptimalInEveryWorld: optimalEverywhere,
+		OptimalInEveryListedWorld: optimalEveryListedWorld,
+		DecisionFlipWitness: decisionFlipWitness,
 		MinimaxLossActions: minimaxLoss,
 		MinimaxRegretActions: minimaxRegret,
 		ActionBounds: orderedBounds,
 		WorldOptima: worldOptima,
 	}, nil
+}
+
+
+func problemDigest(p Problem) (string, error) {
+	p.FixtureDigest = ""
+	encoded, err := json.Marshal(p)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func findDecisionFlipWitness(worlds []World, optima []WorldOptimum) *DecisionFlipWitness {
+	var best *DecisionFlipWitness
+	for i := 0; i < len(worlds); i++ {
+		for j := i + 1; j < len(worlds); j++ {
+			if intersects(optima[i].Actions, optima[j].Actions) {
+				continue
+			}
+			dimensions := differingDimensions(worlds[i].Attributes, worlds[j].Attributes)
+			candidate := &DecisionFlipWitness{
+				WorldA: worlds[i].ID,
+				OptimalActionsA: append([]string(nil), optima[i].Actions...),
+				WorldB: worlds[j].ID,
+				OptimalActionsB: append([]string(nil), optima[j].Actions...),
+				DifferingDimensions: dimensions,
+			}
+			if best == nil ||
+				len(candidate.DifferingDimensions) < len(best.DifferingDimensions) ||
+				(len(candidate.DifferingDimensions) == len(best.DifferingDimensions) &&
+					(candidate.WorldA < best.WorldA ||
+						(candidate.WorldA == best.WorldA && candidate.WorldB < best.WorldB))) {
+				best = candidate
+			}
+		}
+	}
+	return best
+}
+
+func intersects(a, b []string) bool {
+	for _, left := range a {
+		if contains(b, left) {
+			return true
+		}
+	}
+	return false
+}
+
+func differingDimensions(a, b map[string]string) []string {
+	keys := make(map[string]struct{}, len(a)+len(b))
+	for key := range a { keys[key] = struct{}{} }
+	for key := range b { keys[key] = struct{}{} }
+	out := make([]string, 0)
+	for key := range keys {
+		left, leftOK := a[key]
+		right, rightOK := b[key]
+		if !leftOK || !rightOK || left != right {
+			out = append(out, key)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func dispositionFor(basis CoverageBasis, identified bool) Disposition {
