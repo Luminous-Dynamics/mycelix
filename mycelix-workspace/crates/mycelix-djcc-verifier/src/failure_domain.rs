@@ -1076,6 +1076,90 @@ mod tests {
         );
     }
 
+    fn decode_attestation_hex(value: &str) -> Vec<u8> {
+        assert_eq!(value.len() % 2, 0, "hex input has odd length");
+        value
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let high = char::from(pair[0]).to_digit(16).expect("hex digit");
+                let low = char::from(pair[1]).to_digit(16).expect("hex digit");
+                ((high << 4) | low) as u8
+            })
+            .collect()
+    }
+
+    fn digest_from_hex(value: &str) -> [u8; 32] {
+        decode_attestation_hex(value)
+            .try_into()
+            .expect("lineage attestation digest must be 32 bytes")
+    }
+
+    #[test]
+    fn shared_go_rust_lineage_attestation_v1_known_answer_vector_matches() {
+        const VECTORS: &str = include_str!(
+            "../../../../tools/economic/evidence-execution-composition/LINEAGE_ATTESTATION_V1_KAT.tsv"
+        );
+        let mut seen = 0;
+        for (line_index, line) in VECTORS.lines().enumerate() {
+            let line = line.trim_end_matches('\r');
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let fields: Vec<_> = line.split('\t').collect();
+            assert_eq!(fields.len(), 22, "lineage KAT line {}", line_index + 1);
+            let parse_u64 = |index: usize| -> u64 {
+                fields[index]
+                    .parse()
+                    .expect("lineage attestation integer must be u64")
+            };
+            let disclosure_status = match fields[19] {
+                "complete" => LineageDisclosureStatus::CompleteForDeclaredModel,
+                "incomplete" => LineageDisclosureStatus::Incomplete,
+                "withheld" => LineageDisclosureStatus::Withheld,
+                other => panic!("unknown lineage disclosure status {other}"),
+            };
+            let assurance_basis = match fields[20] {
+                "issuer-declared" => LineageAttestationBasis::IssuerDeclared,
+                "independently-audited" => LineageAttestationBasis::IndependentlyAudited,
+                other => panic!("unknown lineage assurance basis {other}"),
+            };
+            let attestation = LineageAttestationV1 {
+                attestation_ref: fields[1].to_owned(),
+                issuer_ref: fields[2].to_owned(),
+                issuer_key_ref: fields[3].to_owned(),
+                issuer_key_epoch: parse_u64(4),
+                evidence_ref: fields[5].to_owned(),
+                scope_digest: digest_from_hex(fields[6]),
+                graph_digest: digest_from_hex(fields[7]),
+                profile_ref: fields[8].to_owned(),
+                profile_digest: digest_from_hex(fields[9]),
+                verifier_frontier_digest: digest_from_hex(fields[10]),
+                trust_policy_ref: fields[11].to_owned(),
+                trust_policy_digest: digest_from_hex(fields[12]),
+                identity_registry_digest: digest_from_hex(fields[13]),
+                assurance_basis_ref: fields[14].to_owned(),
+                statement_digest: digest_from_hex(fields[15]),
+                issued_at_unix_seconds: parse_u64(16),
+                valid_from_unix_seconds: parse_u64(17),
+                valid_until_unix_seconds: parse_u64(18),
+                disclosure_status,
+                assurance_basis,
+            };
+            let actual = canonical_lineage_attestation_bytes_v1(&attestation)
+                .expect("known-answer lineage attestation is valid");
+            let expected = decode_attestation_hex(fields[21]);
+            assert_eq!(
+                actual,
+                expected,
+                "lineage attestation V1 canonical bytes differ for {}",
+                fields[0]
+            );
+            seen += 1;
+        }
+        assert_eq!(seen, 1, "all shared lineage attestation KATs must execute");
+    }
+
     fn lineage_attestation_fixture() -> (LineageAttestationV1, LineageAttestationContextV1) {
         let attestation = LineageAttestationV1 {
             attestation_ref: "attestation:lineage:42".to_owned(),
