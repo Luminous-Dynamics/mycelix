@@ -15,21 +15,25 @@ type State struct { ID string `+"`"+`json:"id"`+"`"+`; Probability float64 `+"`"
 type Action struct { ID string `+"`"+`json:"id"`+"`"+`; LossByState map[string]float64 `+"`"+`json:"loss_by_state"`+"`"+` }
 type Likelihood struct { ResultID string `+"`"+`json:"result_id"`+"`"+`; Probability float64 `+"`"+`json:"probability"`+"`"+` }
 type Observation struct {
- ID string
- Cost float64
- Available, InDomain, Admissible, ConditionedOnLatentState, Mandatory bool
- LikelihoodByState map[string][]Likelihood
+ ID string `json:"id"`
+ Cost float64 `json:"cost"`
+ Available bool `json:"available"`
+ InDomain bool `json:"in_domain"`
+ Admissible bool `json:"admissible"`
+ ConditionedOnLatentState bool `json:"conditioned_on_latent_state"`
+ Mandatory bool `json:"mandatory"`
+ LikelihoodByState map[string][]Likelihood `json:"likelihood_by_state"`
 }
 type Case struct {
- ID string
- FactorizationProfile string
- States []State
- Actions []Action
- SafeActions []string
- Observations []Observation
- Budget float64
- Horizon int
- MandatoryEvidenceOpen bool
+ ID string `json:"id"`
+ FactorizationProfile string `json:"factorization_profile"`
+ States []State `json:"states"`
+ Actions []Action `json:"actions"`
+ SafeActions []string `json:"safe_actions"`
+ Observations []Observation `json:"observations"`
+ Budget float64 `json:"budget"`
+ Horizon int `json:"horizon"`
+ MandatoryEvidenceOpen bool `json:"mandatory_evidence_open"`
 }
 type Status string
 const (
