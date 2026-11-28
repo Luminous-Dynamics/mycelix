@@ -371,7 +371,7 @@ def main() -> int:
             source_inventory = normalize_inventory(args.source)
         except Exception as exc:
             raise ValueError(f"source normalization failed: {exc}") from exc
-        ocel = pm4py.read_ocel2_json(str(args.source))
+        ocel = pm4py.read_ocel2_json(str(args.source), variant_str="standard")
         args.roundtrip.parent.mkdir(parents=True, exist_ok=True)
         pm4py.write_ocel2_json(ocel, str(args.roundtrip))
         try:
