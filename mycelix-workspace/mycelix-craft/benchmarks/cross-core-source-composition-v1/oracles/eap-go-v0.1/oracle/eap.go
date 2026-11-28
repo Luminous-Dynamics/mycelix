@@ -39,11 +39,15 @@ type DecisionBasis struct {
 	QueryID string `json:"query_id"`
 	ScopeDigest string `json:"scope_digest"`
 	FrontierDigest string `json:"frontier_digest"`
+	DecisionLossProfileDigest string `json:"decision_loss_profile_digest"`
 	ValidAt string `json:"valid_at"`
 }
 
 type EVSIEvaluation struct {
 	Receipt Ref `json:"receipt"`
+	FrontierDigest string `json:"frontier_digest"`
+	ScopeDigest string `json:"scope_digest"`
+	DecisionID string `json:"decision_id"`
 	EvaluatorDigest string `json:"evaluator_digest"`
 	LossProfileDigest string `json:"loss_profile_digest"`
 	CandidateSetDigest string `json:"candidate_set_digest"`
@@ -119,11 +123,11 @@ const (
 )
 
 var requiredInvalidators = []string{
+	"candidate_catalogue_changed",
 	"dbc_frontier_changed",
 	"decision_scope_changed",
-	"policy_or_loss_profile_changed",
-	"candidate_catalogue_changed",
 	"observation_model_changed",
+	"policy_or_loss_profile_changed",
 }
 
 func validDigest(value string) bool {
@@ -181,7 +185,7 @@ func Validate(p Proposal) Report {
 	}
 	if p.PriorDecisionBasis.ProfileRef != DBCProfile || strings.TrimSpace(p.PriorDecisionBasis.DecisionID) == "" ||
 		strings.TrimSpace(p.PriorDecisionBasis.QueryID) == "" || !validDigest(p.PriorDecisionBasis.ScopeDigest) ||
-		!validDigest(p.PriorDecisionBasis.FrontierDigest) {
+		!validDigest(p.PriorDecisionBasis.FrontierDigest) || !validDigest(p.PriorDecisionBasis.DecisionLossProfileDigest) {
 		add(&violations, "EAP-DBC-BINDING", "prior_decision_basis", "prior DBC identity, profile, scope and frontier bindings are incomplete")
 	}
 	if _, ok := parseCanonicalUTC(p.PriorDecisionBasis.ValidAt); !ok {
@@ -191,6 +195,13 @@ func Validate(p Proposal) Report {
 		!validDigest(p.EVSI.LossProfileDigest) || !validDigest(p.EVSI.CandidateSetDigest) ||
 		!validDigest(p.EVSI.ObservationModelDigest) {
 		add(&violations, "EAP-EVSI-BINDING", "evsi_evaluation", "EVSI receipt, evaluator, loss, candidate-set and observation-model digests are required")
+	}
+	if p.EVSI.FrontierDigest != p.PriorDecisionBasis.FrontierDigest || p.EVSI.ScopeDigest != p.PriorDecisionBasis.ScopeDigest ||
+		p.EVSI.DecisionID != p.PriorDecisionBasis.DecisionID {
+		add(&violations, "EAP-EVSI-DBC-MISMATCH", "evsi_evaluation", "EVSI result must bind the exact prior DBC frontier, scope and decision")
+	}
+	if p.EVSI.LossProfileDigest != p.PriorDecisionBasis.DecisionLossProfileDigest {
+		add(&violations, "EAP-LOSS-PROFILE-MISMATCH", "evsi_evaluation.loss_profile_digest", "EVSI result uses a different loss profile from the prior decision basis")
 	}
 	if !finiteNonNegative(p.EVSI.EVSI) || !finiteNonNegative(p.EVSI.EIGBits) {
 		add(&violations, "EAP-EVSI-VALUE", "evsi_evaluation", "EVSI and EIG must be finite and non-negative")
