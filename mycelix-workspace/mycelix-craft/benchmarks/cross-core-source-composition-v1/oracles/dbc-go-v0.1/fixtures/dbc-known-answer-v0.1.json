@@ -56,7 +56,7 @@
     {
       "id": "DBC-008",
       "mutation": "policy_schema_substitution",
-      "expected_code": "EXTERNAL_BINDING_INVALID",
+      "expected_code": "EXTERNAL_BINDING_MISMATCH",
       "expected_disposition": "Indeterminate"
     },
     {
@@ -116,7 +116,7 @@
     {
       "id": "DBC-018",
       "mutation": "external_schema_substitution",
-      "expected_code": "EXTERNAL_BINDING_INVALID",
+      "expected_code": "EXTERNAL_BINDING_MISMATCH",
       "expected_disposition": "Indeterminate"
     },
     {
@@ -153,6 +153,42 @@
       "id": "DBC-024",
       "mutation": "invalid_valid_at",
       "expected_code": "VALID_TIME_INVALID",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-025",
+      "mutation": "outcome_unknown_same_scope_mutation",
+      "expected_code": "OUTCOME_UNKNOWN_MUTATION_BARRIER",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-026",
+      "mutation": "owner_frontier_substitution",
+      "expected_code": "OWNER_FRONTIER_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-027",
+      "mutation": "progress_inventory_substitution",
+      "expected_code": "PROGRESS_OWNER_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-028",
+      "mutation": "temporal_frontier_substitution",
+      "expected_code": "TEMPORAL_INPUT_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-029",
+      "mutation": "outcome_execution_substitution",
+      "expected_code": "OUTCOME_BINDING_MISMATCH",
+      "expected_disposition": "Indeterminate"
+    },
+    {
+      "id": "DBC-030",
+      "mutation": "coverage_revision_drift",
+      "expected_code": "ACTION_DENOMINATOR_MISMATCH",
       "expected_disposition": "Indeterminate"
     }
   ]
