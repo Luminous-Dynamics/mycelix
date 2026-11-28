@@ -74,7 +74,7 @@ pub fn validate_bkt_integrity(
         };
     }
 
-    if claimed_p_mastery < 0.0 || claimed_p_mastery > 1.0 {
+    if !(0.0..=1.0).contains(&claimed_p_mastery) {
         return BktValidationResult {
             valid: false,
             expected_p_mastery: 0.0,
