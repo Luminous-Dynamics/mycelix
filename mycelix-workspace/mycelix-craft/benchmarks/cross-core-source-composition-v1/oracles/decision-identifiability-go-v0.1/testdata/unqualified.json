@@ -1,0 +1,11 @@
+{
+  "schema_id": "mycelix.craft.decision-identifiability.v0.1",
+  "case_id": "CDIE-004-unqualified-world-set",
+  "coverage_basis": "not_evaluated",
+  "actions": ["repair", "hold"],
+  "fallback_action": "hold",
+  "worlds": [
+    {"id": "w1", "losses": {"repair": 0, "hold": 5}},
+    {"id": "w2", "losses": {"repair": 0, "hold": 4}}
+  ]
+}
