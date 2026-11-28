@@ -280,15 +280,11 @@ fn select_revocation_entry_as_of<'a>(
     entries
         .iter()
         .filter(|(_, entry)| entry.effective_from <= at)
-        .max_by_key(|(link_time, entry)| {
-            (entry.effective_from, entry.recorded_at, *link_time)
-        })
+        .max_by_key(|(link_time, entry)| (entry.effective_from, entry.recorded_at, *link_time))
         .or_else(|| {
-            entries
-                .iter()
-                .min_by_key(|(link_time, entry)| {
-                    (entry.effective_from, entry.recorded_at, *link_time)
-                })
+            entries.iter().min_by_key(|(link_time, entry)| {
+                (entry.effective_from, entry.recorded_at, *link_time)
+            })
         })
         .map(|(_, entry)| entry)
 }
@@ -326,11 +322,11 @@ pub fn check_revocation_status(credential_id: String) -> ExternResult<Revocation
         let link_timestamp = link.timestamp;
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-            WasmErrorInner::Guest(
-                "A linked revocation record is unavailable; as-of status cannot be established".into()
-            )
-        ))?;
+        let record =
+            get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+                "A linked revocation record is unavailable; as-of status cannot be established"
+                    .into()
+            )))?;
         let entry: RevocationEntry = record
             .entry()
             .to_app_option()
@@ -341,11 +337,9 @@ pub fn check_revocation_status(credential_id: String) -> ExternResult<Revocation
         observed_entries.push((link_timestamp, entry));
     }
 
-    let entry = select_revocation_entry_as_of(&observed_entries, now).ok_or(
-        wasm_error!(WasmErrorInner::Guest(
-            "Revocation link set contained no usable state transition".into()
-        )),
-    )?;
+    let entry = select_revocation_entry_as_of(&observed_entries, now).ok_or(wasm_error!(
+        WasmErrorInner::Guest("Revocation link set contained no usable state transition".into())
+    ))?;
     let status = revocation_status_at(entry, now);
     Ok(RevocationCheckResult {
         credential_id,
@@ -854,16 +848,14 @@ mod tests {
             (Timestamp::from_micros(150), reinstated),
         ];
 
-        let before = select_revocation_entry_as_of(&entries, Timestamp::from_micros(199))
-            .unwrap();
+        let before = select_revocation_entry_as_of(&entries, Timestamp::from_micros(199)).unwrap();
         assert_eq!(before.reason, "revoked");
         assert_eq!(
             revocation_status_at(before, Timestamp::from_micros(199)),
             RevocationStatus::Revoked
         );
 
-        let at = select_revocation_entry_as_of(&entries, Timestamp::from_micros(200))
-            .unwrap();
+        let at = select_revocation_entry_as_of(&entries, Timestamp::from_micros(200)).unwrap();
         assert_eq!(at.reason, "reinstated");
         assert_eq!(
             revocation_status_at(at, Timestamp::from_micros(200)),
@@ -875,15 +867,13 @@ mod tests {
     fn future_revocation_is_selected_as_pending_when_no_prior_transition_exists() {
         let future = entry_for_timeline(RevocationStatus::Revoked, 200, 150, "future revoke");
         let entries = vec![(Timestamp::from_micros(150), future)];
-        let before = select_revocation_entry_as_of(&entries, Timestamp::from_micros(199))
-            .unwrap();
+        let before = select_revocation_entry_as_of(&entries, Timestamp::from_micros(199)).unwrap();
         assert_eq!(before.reason, "future revoke");
         assert_eq!(
             revocation_status_at(before, Timestamp::from_micros(199)),
             RevocationStatus::Active
         );
-        let at = select_revocation_entry_as_of(&entries, Timestamp::from_micros(200))
-            .unwrap();
+        let at = select_revocation_entry_as_of(&entries, Timestamp::from_micros(200)).unwrap();
         assert_eq!(
             revocation_status_at(at, Timestamp::from_micros(200)),
             RevocationStatus::Revoked
