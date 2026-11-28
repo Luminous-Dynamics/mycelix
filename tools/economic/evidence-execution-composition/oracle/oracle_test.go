@@ -1,8 +1,12 @@
 package oracle
 
 import (
+	"bytes"
+	"bufio"
+	"encoding/hex"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -185,3 +189,40 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 		t.Fatalf("certificate schema must require all %d stages", len(requiredStages))
 	}
 }
+func TestSharedDJCCStageEdgeCanonicalizationVectors(t *testing.T) {
+	file, err := os.Open("../DJCC_STAGE_EDGE_V1_KAT.tsv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	seen := 0
+	for line := 1; scanner.Scan(); line++ {
+		raw := scanner.Text()
+		if raw == "" || strings.HasPrefix(raw, "#") {
+			continue
+		}
+		fields := strings.Split(raw, "\t")
+		edge, expected, err := parseStageEdgeVectorV1(fields)
+		if err != nil {
+			t.Fatalf("line %d: %v", line, err)
+		}
+		actual, err := CanonicalStageEdgeBytesV1(edge)
+		if err != nil {
+			t.Fatalf("line %d (%s): %v", line, fields[0], err)
+		}
+		if !bytes.Equal(actual, expected) {
+			t.Errorf("line %d (%s): preimage mismatch\n got %s\nwant %s",
+				line, fields[0], hex.EncodeToString(actual), hex.EncodeToString(expected))
+		}
+		seen++
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if seen != 3 {
+		t.Fatalf("expected 3 shared stage-edge vectors, evaluated %d", seen)
+	}
+}
+
