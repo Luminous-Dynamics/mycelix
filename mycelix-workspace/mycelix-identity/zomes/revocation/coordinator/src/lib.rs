@@ -282,55 +282,47 @@ pub fn check_revocation_status(credential_id: String) -> ExternResult<Revocation
     if links.is_empty() {
         return Ok(RevocationCheckResult {
             credential_id,
+            // No linked record was observed; this is not proof of global DHT completeness.
             status: RevocationStatus::Active,
+            lookup_status: RevocationLookupStatus::NoRecordObserved,
             reason: None,
+            effective_from: None,
+            recorded_at: None,
+            suspension_end: None,
             checked_at: now,
         });
     }
 
-    // Get the most recent revocation entry
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    // A non-empty link set with an unavailable latest record is indeterminate;
+    // never convert missing source data into an Active result.
+    let latest_link = links.into_iter().max_by_key(|link| link.timestamp)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Revocation link set was non-empty but no latest link was available".into()
+        )))?;
+    let action_hash = ActionHash::try_from(latest_link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Latest revocation record is unavailable; status cannot be established".into()
+        )
+    ))?;
+    let entry: RevocationEntry = record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid revocation entry".into()
+        )))?;
 
-        if let Some(record) = get(action_hash, GetOptions::default())? {
-            let entry: RevocationEntry = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Invalid revocation entry".into()
-                )))?;
-
-            // Check if suspension has expired
-            let status = if entry.status == RevocationStatus::Suspended {
-                if let Some(end) = entry.suspension_end {
-                    if now >= end {
-                        RevocationStatus::Active
-                    } else {
-                        RevocationStatus::Suspended
-                    }
-                } else {
-                    RevocationStatus::Suspended
-                }
-            } else {
-                entry.status.clone()
-            };
-
-            return Ok(RevocationCheckResult {
-                credential_id,
-                status,
-                reason: Some(entry.reason),
-                checked_at: now,
-            });
-        }
-    }
-
+    let status = revocation_status_at(&entry, now);
     Ok(RevocationCheckResult {
         credential_id,
-        status: RevocationStatus::Active,
-        reason: None,
+        status,
+        lookup_status: RevocationLookupStatus::RecordObserved,
+        reason: Some(entry.reason.clone()),
+        effective_from: Some(entry.effective_from),
+        recorded_at: Some(entry.recorded_at),
+        suspension_end: entry.suspension_end,
         checked_at: now,
     })
 }
