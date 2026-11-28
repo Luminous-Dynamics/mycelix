@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	stageEdgeDomainV1 = "MYCELIX-DJCC-STAGE-EDGE-V1"
+	stageEdgeDomainV1      = "MYCELIX-DJCC-STAGE-EDGE-V1"
 	maxDJCCIdentifierBytes = 4096
 )
 
@@ -136,8 +136,8 @@ func parseStageEdgeVectorV1(fields []string) (StageEdgeV1, []byte, error) {
 		}
 	}
 	return StageEdgeV1{
-		ProducerStage: fields[1], ConsumerStage: fields[2],
-		InputName: fields[3], OutputSchemaRef: fields[4],
+		ProducerStage : fields[1], ConsumerStage: fields[2],
+		InputName     : fields[3], OutputSchemaRef: fields[4],
 		RequiredClaims: claims, OutputDigest: digest,
 	}, expected, nil
 }
