@@ -599,6 +599,13 @@ fn validate_claim_ceiling(
                 format!("profile maps claim {} that is not required", dimension.as_str()),
             ));
         }
+        if claim_state(declared, *dimension) != ClaimState::EstablishedWithinProfile {
+            // A conservative root disposition may remain Indeterminate,
+            // Rejected, Unsupported or NotEvaluated even when some owner
+            // stages have stronger partial claims. Never force a wider root
+            // conclusion merely because a producing stage is green.
+            continue;
+        }
         for stage_id in required_stages {
             match input.stages.get(stage_id) {
                 Some(stage)
@@ -1739,6 +1746,38 @@ mod tests {
             .violations
             .iter()
             .any(|item| item.code == "DJCC-EDGE-CLAIMS-WEAKENED"));
+    }
+
+
+    #[test]
+    fn indeterminate_root_claim_does_not_require_all_producers_to_be_green() {
+        let mut input = positive_input();
+        let source = input.stages.get_mut(&StageId::SourceTrust).unwrap();
+        source.claim_ceiling.completeness = ClaimState::Indeterminate;
+        source.disposition = StageDisposition::Indeterminate;
+        input.declared_claim_ceiling.completeness = ClaimState::Indeterminate;
+        input.declared_disposition = CompositionDisposition::Indeterminate;
+        let report = verify_composition(&input, &valid_profile());
+        assert!(!report.violations.iter().any(|item| {
+            item.code == "DJCC-CLAIM-CEILING-WIDENED"
+                && item.message.contains("completeness")
+        }));
+        assert!(report.is_valid(), "{:?}", report.violations);
+    }
+
+    #[test]
+    fn established_root_claim_requires_every_profile_owner_stage() {
+        let mut input = positive_input();
+        input.stages.get_mut(&StageId::SourceTrust).unwrap().claim_ceiling.completeness =
+            ClaimState::Indeterminate;
+        input.stages.get_mut(&StageId::SourceTrust).unwrap().disposition =
+            StageDisposition::Indeterminate;
+        // Leave the certificate claiming that Completeness is established.
+        let report = verify_composition(&input, &valid_profile());
+        assert!(report.violations.iter().any(|item| {
+            item.code == "DJCC-CLAIM-CEILING-WIDENED"
+                && item.message.contains("completeness")
+        }));
     }
 
 
