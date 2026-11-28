@@ -33,6 +33,8 @@ It is not an agent task set, a hidden holdout, a production SRE harness, or evid
 
 The adapter mapping in #6851 is the ITOPS-specific layer. This directory is only its public reference oracle corpus.
 
+Do not invent a second hidden-set escrow protocol. For later blind/confirmatory tasks, compose [DeSci challenge-set escrow #6031](https://github.com/Luminous-Dynamics/mycelix/issues/6031) for purpose-bound access grants, artifact commitments and access attestations. These public fixtures are intentionally not escrowed and must never be treated as a hidden holdout.
+
 ## Required evaluator rules
 
 - Enforce unique case IDs and exact expected-operation coverage in addition to JSON Schema validation.
