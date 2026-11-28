@@ -305,6 +305,7 @@ func validateExecutionTransition(
 	receiptSequence map[string]uint64,
 	receiptFrontiers []string,
 	appliedStepIDs map[string]struct{},
+	appliedStepFrontier map[string]uint64,
 	reservedStepIDs map[string]struct{},
 	checkHeads bool,
 ) error {
@@ -395,6 +396,9 @@ func validateExecutionTransition(
 	for _, stepID := range supersedes {
 		if _, exists := appliedStepIDs[stepID]; !exists {
 			return errors.New("execution step supersedes an unknown or unapplied prior step")
+		}
+		if transition.Kind == StepRecomputeAfterCorrection && transition.ReceiptFrontierSequence <= appliedStepFrontier[stepID] {
+			return errors.New("correction recomputation must consume a later oracle receipt frontier than the superseded step")
 		}
 	}
 	if checkHeads {
@@ -650,6 +654,7 @@ func ReplayOracleExecutionTranscriptV1(
 	seenEventIDs := make(map[string]struct{}, len(events))
 	reservedStepIDs := make(map[string]struct{}, len(events))
 	appliedStepIDs := make(map[string]struct{}, len(events))
+	appliedStepFrontier := make(map[string]uint64, len(events))
 	var pending *executionPendingState
 	stepDigests := make([]string, 0, len(events))
 
@@ -691,13 +696,14 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, reservedStepIDs, true); err != nil {
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
 			stepDigest, _ := executionTransitionDigestV1(scopeDigest, *event.Transition)
 			reservedStepIDs[event.Transition.StepID] = struct{}{}
 			appliedStepIDs[event.Transition.StepID] = struct{}{}
+			appliedStepFrontier[event.Transition.StepID] = event.Transition.ReceiptFrontierSequence
 			applyExecutionTransition(&state, *event.Transition, stepDigest)
 			result.AppliedStepIDs = append(result.AppliedStepIDs, event.Transition.StepID)
 			stepDigests = append(stepDigests, stepDigest)
@@ -711,7 +717,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, reservedStepIDs, true); err != nil {
 				result.Reason = "unknown execution intent is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -730,12 +736,13 @@ func ReplayOracleExecutionTranscriptV1(
 				return finalizeExecutionReplay(result)
 			}
 			if event.Outcome == ExecutionReconciledApplied {
-				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, reservedStepIDs, true); err != nil {
+				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, reservedStepIDs, true); err != nil {
 					result.Reason = "reconciled execution transition is no longer valid: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
 				applyExecutionTransition(&state, pending.transition, pending.digest)
 				appliedStepIDs[pending.transition.StepID] = struct{}{}
+				appliedStepFrontier[pending.transition.StepID] = pending.transition.ReceiptFrontierSequence
 				result.AppliedStepIDs = append(result.AppliedStepIDs, pending.transition.StepID)
 			}
 			pending = nil
