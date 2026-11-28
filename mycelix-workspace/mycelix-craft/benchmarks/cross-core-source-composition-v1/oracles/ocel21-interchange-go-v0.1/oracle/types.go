@@ -79,6 +79,20 @@ type jLog struct {
 	Events      []jEvent  "json:\"events\""
 	Objects     []jObject "json:\"objects\""
 }
+type bundleType struct {
+	File        string    "json:\"file\""
+	ChangesFile string    "json:\"changesFile\""
+	Attributes  []attrDef "json:\"attributes\""
+}
+type bundleMeta struct {
+	OCELVersion         string                "json:\"ocelVersion\""
+	BundleFormatVersion string                "json:\"bundleFormatVersion\""
+	StorageFormat       string                "json:\"storageFormat\""
+	EventTypes          map[string]bundleType "json:\"eventTypes\""
+	ObjectTypes         map[string]bundleType "json:\"objectTypes\""
+	Relations           map[string]string     "json:\"relations\""
+}
+
 type objectRef struct {
 	ID, Qualifier string
 	Attributes    map[string]any
