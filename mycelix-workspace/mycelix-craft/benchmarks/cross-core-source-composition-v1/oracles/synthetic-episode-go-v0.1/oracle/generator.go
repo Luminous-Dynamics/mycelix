@@ -14,6 +14,7 @@ import (
 )
 
 const EpisodeDomain = "MYCELIX-CRAFT-SYNTHETIC-EPISODE-V0.1\x00"
+const RegistryDomain = "MYCELIX-CRAFT-SYNTHETIC-REGISTRY-V0.1\x00"
 
 type MutationCase struct {
  ID string `json:"id"`
@@ -45,7 +46,47 @@ type Bundle struct {
  Episode map[string]any `json:"episode"`
 }
 
+func scanJSONValue(d *json.Decoder) error {
+	tok, err := d.Token()
+	if err != nil { return err }
+	delim, ok := tok.(json.Delim)
+	if !ok { return nil }
+	switch delim {
+	case '{':
+		seen := map[string]bool{}
+		for d.More() {
+			keyToken, err := d.Token()
+			if err != nil { return err }
+			key, ok := keyToken.(string)
+			if !ok { return errors.New("object key is not a string") }
+			if seen[key] { return fmt.Errorf("duplicate JSON object key %q", key) }
+			seen[key] = true
+			if err := scanJSONValue(d); err != nil { return err }
+		}
+		closeToken, err := d.Token()
+		if err != nil { return err }
+		if closeToken != json.Delim('}') { return errors.New("malformed JSON object") }
+	case '[':
+		for d.More() { if err := scanJSONValue(d); err != nil { return err } }
+		closeToken, err := d.Token()
+		if err != nil { return err }
+		if closeToken != json.Delim(']') { return errors.New("malformed JSON array") }
+	default:
+		return errors.New("unexpected JSON delimiter")
+	}
+	return nil
+}
+
+func validateJSON(raw []byte) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	if err := scanJSONValue(d); err != nil { return err }
+	if _, err := d.Token(); err != io.EOF { return errors.New("trailing JSON or invalid trailing bytes") }
+	return nil
+}
+
 func decodeObject(raw []byte) (map[string]any,error) {
+ if err:=validateJSON(raw);err!=nil{return nil,err}
  d:=json.NewDecoder(bytes.NewReader(raw)); d.UseNumber(); var v map[string]any
  if err:=d.Decode(&v); err!=nil{return nil,err}; if v==nil{return nil,errors.New("root must be object")}
  var extra any; if err:=d.Decode(&extra); err!=io.EOF{return nil,errors.New("trailing JSON or invalid trailing bytes")}
@@ -89,9 +130,9 @@ func apply(ep map[string]any,c MutationCase)error{
 
 func Generate(baseRaw,registryRaw []byte)([]Bundle,error){
  base,e:=decodeObject(baseRaw);if e!=nil{return nil,fmt.Errorf("base episode: %w",e)}
- d:=json.NewDecoder(bytes.NewReader(registryRaw));d.UseNumber();var reg Registry;if e=d.Decode(&reg);e!=nil{return nil,e};var trailing any;if e=d.Decode(&trailing);e!=io.EOF{return nil,errors.New("trailing registry JSON or invalid trailing bytes")}
+ if e=validateJSON(registryRaw);e!=nil{return nil,e};d:=json.NewDecoder(bytes.NewReader(registryRaw));d.UseNumber();d.DisallowUnknownFields();var reg Registry;if e=d.Decode(&reg);e!=nil{return nil,e}
  if reg.SchemaID!="mycelix.craft.synthetic-scenario-mutations.v0.1"||reg.FixtureID==""||len(reg.Mutations)==0{return nil,errors.New("invalid registry header")}
- baseDigest:=RawDigest(EpisodeDomain,baseRaw);regDigest:=RawDigest(EpisodeDomain,registryRaw)
+ baseDigest:=RawDigest(EpisodeDomain,baseRaw);regDigest:=RawDigest(RegistryDomain,registryRaw)
  cases:=append([]MutationCase(nil),reg.Mutations...);sort.Slice(cases,func(i,j int)bool{return cases[i].ID<cases[j].ID})
  seen:=map[string]bool{};out:=make([]Bundle,0,len(cases))
  for _,c:=range cases{if c.ID==""||seen[c.ID]{return nil,fmt.Errorf("duplicate or empty scenario ID %q",c.ID)};seen[c.ID]=true;ep,e:=clone(base);if e!=nil{return nil,e};if e=apply(ep,c);e!=nil{return nil,fmt.Errorf("%s: %w",c.ID,e)};digest,e:=Digest(EpisodeDomain,ep);if e!=nil{return nil,e};out=append(out,Bundle{SchemaID:"mycelix.craft.synthetic-scenario-bundle.v0.1",GeneratorVersion:"0.1.0",Seed:reg.Seed,ScenarioID:c.ID,Mutation:c.Mutation,Missingness:c.Missingness,BaseFixtureDigest:baseDigest,ScenarioRegistryDigest:regDigest,TransformedEpisodeDigest:digest,Expected:c.Expected,Purpose:c.Purpose,Episode:ep})}
