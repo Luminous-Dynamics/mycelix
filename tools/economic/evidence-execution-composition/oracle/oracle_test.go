@@ -302,4 +302,29 @@ func TestStageEdgeRejectsUnsortedOrUnknownRequiredClaims(t *testing.T) {
 		t.Fatal("unknown required claim accepted")
 	}
 }
+func TestProfileManifestRejectsWeakenedDependencyClaim(t *testing.T) {
+	manifest, err := LoadProfileManifest("../DJCC_PROFILES_V0_1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.Profiles[0].DependencyClaims["query"]["source_trust"] = []string{"authentication"}
+	if err := ValidateProfileManifest(manifest); err == nil {
+		t.Fatal("profile weakened a query's source-trust completeness requirement")
+	}
+}
+
+func TestProfileManifestDecisionOnlyDoesNotClaimOutcome(t *testing.T) {
+	manifest, err := LoadProfileManifest("../DJCC_PROFILES_V0_1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := manifest.Profiles[1]
+	if !contains(profile.AllowedNotApplicable, "execution") ||
+		!contains(profile.AllowedNotApplicable, "outcome") {
+		t.Fatal("decision-only profile must explicitly mark execution and outcome NotApplicable")
+	}
+	if contains(profile.ClaimStages["truth"], "outcome") {
+		t.Fatal("decision-only profile cannot use an absent outcome to establish truth")
+	}
+}
 
