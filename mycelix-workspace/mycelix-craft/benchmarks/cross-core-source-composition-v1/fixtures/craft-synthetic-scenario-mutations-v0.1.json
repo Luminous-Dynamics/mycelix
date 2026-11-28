@@ -1,0 +1,122 @@
+{
+  "schema_id": "mycelix.craft.synthetic-scenario-mutations.v0.1",
+  "fixture_id": "water-service-multi-source-001",
+  "seed": 20261128,
+  "mutations": [
+    {
+      "id": "SYN-001",
+      "mutation": "identity",
+      "expected": "baseline",
+      "purpose": "positive semantic and frontier control"
+    },
+    {
+      "id": "SYN-002",
+      "mutation": "omit_source:calibration-registry",
+      "missingness": "MNAR",
+      "expected": {
+        "source_universe_coverage": "Indeterminate",
+        "independence": "NotEvaluated"
+      },
+      "purpose": "signed-but-incomplete source universe"
+    },
+    {
+      "id": "SYN-003",
+      "mutation": "append_late_event:EV-010",
+      "event": {
+        "event_id": "EV-010",
+        "source_id": "utility-telemetry",
+        "stream_id": "pump-pressure",
+        "epoch": "UT-2026-11-28-A",
+        "offset": 3,
+        "event_time": "2026-11-28T08:01:00Z",
+        "ingest_time": "2026-11-28T09:10:00Z",
+        "activity": "late_pressure_observation",
+        "parents": [
+          "EV-002"
+        ],
+        "objects": [
+          {
+            "id": "P-17",
+            "qualifier": "measured_asset"
+          }
+        ]
+      },
+      "expected": {
+        "historical_frontier_digest": "unchanged",
+        "new_frontier": "recomputed_after_admission"
+      }
+    },
+    {
+      "id": "SYN-004",
+      "mutation": "equal_time_without_parent",
+      "expected": {
+        "cross_stream_causality": "NotEstablished"
+      },
+      "purpose": "equal timestamps must not imply causal order"
+    },
+    {
+      "id": "SYN-005",
+      "mutation": "fork_offset:utility-telemetry/UT-2026-11-28-A/2",
+      "expected": {
+        "frontier": "Invalid"
+      },
+      "purpose": "same stream offset fork"
+    },
+    {
+      "id": "SYN-006",
+      "mutation": "shared_calibration_root",
+      "expected": {
+        "independence": "NotEvaluated"
+      },
+      "purpose": "common-cause dependency prevents independence claim"
+    },
+    {
+      "id": "SYN-007",
+      "mutation": "policy_no_review_for_rare_zone",
+      "selection_policy": {
+        "propensity_for_rare_zone": 0
+      },
+      "expected": {
+        "off_policy_estimate": "NotEvaluated",
+        "rare_risk_coverage": "fail"
+      },
+      "purpose": "zero-propensity region"
+    },
+    {
+      "id": "SYN-008",
+      "mutation": "unknown_outcome_then_same_scope_mutation",
+      "expected": {
+        "outcome": "Unknown",
+        "same_scope_mutation": "Rejected"
+      },
+      "purpose": "unknown outcome mutation barrier"
+    },
+    {
+      "id": "SYN-009",
+      "mutation": "drop_object_relationship:CAL-4/LB-17",
+      "expected": {
+        "semantic_projection": "Rejected"
+      },
+      "purpose": "object graph semantic loss"
+    },
+    {
+      "id": "SYN-010",
+      "mutation": "valid_signature_selective_event_omission",
+      "missingness": "strategic",
+      "expected": {
+        "authentication": "EstablishedWithinProfile",
+        "source_universe_coverage": "Indeterminate"
+      },
+      "purpose": "signature does not prove completeness"
+    }
+  ],
+  "reproducibility": {
+    "random_seed": 20261128,
+    "expected_mutation_order": "lexicographic_by_mutation_id",
+    "digest_algorithm": "sha256",
+    "output_encoding": "utf-8-json",
+    "canonicalization": "RFC8785-JCS-or-declared-profile",
+    "ambient_clock_allowed": false,
+    "network_allowed": false
+  }
+}
