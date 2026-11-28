@@ -25,7 +25,7 @@ The caller must independently authenticate the log/tree-head identity and signer
 
 ## Tests
 
-The test suite includes fixed SHA-256 vectors, every leaf inclusion for trees of 1–64 leaves, every old/new append-only prefix pair for trees up to 64 leaves, and negative controls for tree-size errors, wrong leaves/roots, malformed/truncated/extra paths, path ordering and node mutation. It also consumes the shared cross-language fixture at `tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt`; the Go reference harness at `tools/economic/temporal-hindsight/reference/rfc9162vectors/` reads the exact same file, so leaf/MTH/inclusion bytes must agree between implementations.
+The test suite includes fixed SHA-256 vectors, every leaf inclusion for trees of 1–64 leaves, every old/new append-only prefix pair for trees up to 64 leaves, and negative controls for tree-size errors, wrong leaves/roots, malformed/truncated/extra paths, path ordering and node mutation. It also consumes the shared cross-language fixture at `tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt`; the Go reference harness at `tools/economic/temporal-hindsight/reference/rfc9162vectors/` reads the exact same file, so leaf/MTH/inclusion bytes must agree between implementations. A separate `XENIA_CHECKPOINT_V1_KAT.txt` fixture is consumed by both Go and Rust tests to verify the RFC 9162 leaf hash over Xenia's canonical 297-byte journal-checkpoint payload. This is a byte-interop test only; it does not authenticate a tree head or claim effect-owner truth.
 
 Run:
 
