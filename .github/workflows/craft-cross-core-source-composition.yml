@@ -65,6 +65,8 @@ jobs:
           python3 -m pip freeze --all > "$RUNNER_TEMP/pm4py-oracle/environment.txt"
 
       - name: Run independent PM4Py OCEL 2.0 round-trip
+        id: pm4py
+        continue-on-error: true
         run: |
           set -euo pipefail
           ORACLE_DIR="mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles"
@@ -113,8 +115,26 @@ jobs:
           retention-days: 30
 
       - name: Emit exact-source composition receipt
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          PM4PY_OUTCOME: ${{ steps.pm4py.outcome }}
+          CROSS_CORE_WORKSPACE: ${{ env.CROSS_CORE_WORKSPACE }}
         run: |
-          sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock"
-          cat "$CROSS_CORE_WORKSPACE/source-receipt.tsv"
-          printf '%s\n' 'PASS = six exact pinned owner cores, executable water-service checks, OCEL 2.0 profile conformance tests, all owner unit suites, rustfmt and Clippy.'
-          printf '%s\n' 'NONCLAIM = a restricted OCEL 2.0 profile is not a full OCEL schema implementation; OCEL 2.1 remains experimental; field-service outcomes remain unqualified.'
+          set -euo pipefail
+          if [[ -n "$CROSS_CORE_WORKSPACE" && -f "$CROSS_CORE_WORKSPACE/Cargo.lock" ]]; then
+            sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock"
+            cat "$CROSS_CORE_WORKSPACE/source-receipt.tsv"
+          fi
+          printf 'pm4py_outcome=%s\\n' "$PM4PY_OUTCOME"
+          printf 'job_status=%s\\n' "$JOB_STATUS"
+          if [[ "$JOB_STATUS" != "success" ]]; then
+            echo 'FAIL = one or more Rust/materialization/workspace gates failed.'
+            exit 1
+          fi
+          if [[ "$PM4PY_OUTCOME" != "success" ]]; then
+            echo 'FAIL = PM4Py independent round-trip did not preserve the declared OCEL profile.'
+            exit 1
+          fi
+          printf '%s\\n' 'PASS = six exact pinned owner cores, executable water-service checks, OCEL 2.0 profile conformance tests, all owner unit suites, rustfmt, Clippy and PM4Py round-trip.'
+          printf '%s\\n' 'NONCLAIM = a restricted OCEL 2.0 profile is not a full OCEL schema implementation; OCEL 2.1 remains experimental; field-service outcomes remain unqualified.'
