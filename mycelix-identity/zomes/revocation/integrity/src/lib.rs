@@ -515,7 +515,11 @@ mod tests {
 
     // --- As-of revocation semantics ---
 
-    fn entry_with(status: RevocationStatus, effective_from: i64, suspension_end: Option<i64>) -> RevocationEntry {
+    fn entry_with(
+        status: RevocationStatus,
+        effective_from: i64,
+        suspension_end: Option<i64>,
+    ) -> RevocationEntry {
         RevocationEntry {
             credential_id: "cred-as-of".into(),
             issuer: "did:mycelix:issuer-as-of".into(),
@@ -530,26 +534,56 @@ mod tests {
     #[test]
     fn future_revocation_is_active_before_effective_time_and_revoked_at_boundary() {
         let entry = entry_with(RevocationStatus::Revoked, 100, None);
-        assert_eq!(revocation_status_at(&entry, ts(99)), RevocationStatus::Active);
-        assert_eq!(revocation_status_at(&entry, ts(100)), RevocationStatus::Revoked);
-        assert_eq!(revocation_status_at(&entry, ts(101)), RevocationStatus::Revoked);
+        assert_eq!(
+            revocation_status_at(&entry, ts(99)),
+            RevocationStatus::Active
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(100)),
+            RevocationStatus::Revoked
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(101)),
+            RevocationStatus::Revoked
+        );
     }
 
     #[test]
     fn suspension_applies_only_inside_its_half_open_effective_interval() {
         let entry = entry_with(RevocationStatus::Suspended, 100, Some(200));
-        assert_eq!(revocation_status_at(&entry, ts(99)), RevocationStatus::Active);
-        assert_eq!(revocation_status_at(&entry, ts(100)), RevocationStatus::Suspended);
-        assert_eq!(revocation_status_at(&entry, ts(199)), RevocationStatus::Suspended);
-        assert_eq!(revocation_status_at(&entry, ts(200)), RevocationStatus::Active);
-        assert_eq!(revocation_status_at(&entry, ts(201)), RevocationStatus::Active);
+        assert_eq!(
+            revocation_status_at(&entry, ts(99)),
+            RevocationStatus::Active
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(100)),
+            RevocationStatus::Suspended
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(199)),
+            RevocationStatus::Suspended
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(200)),
+            RevocationStatus::Active
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(201)),
+            RevocationStatus::Active
+        );
     }
 
     #[test]
     fn suspension_without_end_remains_suspended_after_effective_time() {
         let entry = entry_with(RevocationStatus::Suspended, 100, None);
-        assert_eq!(revocation_status_at(&entry, ts(99)), RevocationStatus::Active);
-        assert_eq!(revocation_status_at(&entry, ts(100)), RevocationStatus::Suspended);
+        assert_eq!(
+            revocation_status_at(&entry, ts(99)),
+            RevocationStatus::Active
+        );
+        assert_eq!(
+            revocation_status_at(&entry, ts(100)),
+            RevocationStatus::Suspended
+        );
     }
 
     // --- RevocationCheckResult ---
@@ -568,7 +602,10 @@ mod tests {
         };
         let json = serde_json::to_string(&result).unwrap();
         let decoded: RevocationCheckResult = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.lookup_status, RevocationLookupStatus::NoRecordObserved);
+        assert_eq!(
+            decoded.lookup_status,
+            RevocationLookupStatus::NoRecordObserved
+        );
         assert_eq!(decoded.status, RevocationStatus::Active);
         assert!(decoded.effective_from.is_none());
     }
