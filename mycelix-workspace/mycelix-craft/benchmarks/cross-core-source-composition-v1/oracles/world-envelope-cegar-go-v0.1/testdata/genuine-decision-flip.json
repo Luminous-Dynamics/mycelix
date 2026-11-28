@@ -1,0 +1,27 @@
+{
+  "schema_id": "mycelix.craft.world-envelope-cegar.v0.1",
+  "case_id": "CWE-002-genuine-decision-flip",
+  "scope_basis": "fixture_exact",
+  "fixture_digest": "9c49b79ec74079b4b10cbb5e86dbb219de9f18ae3cb302ab517d73c580a83fb4",
+  "dimensions": [
+    {"id": "hazard_state", "values": ["high", "low"]},
+    {"id": "sensor_state", "values": ["failed", "healthy"]}
+  ],
+  "constraints": [
+    {
+      "id": "impossible-high-with-healthy-sensor",
+      "forbidden": {"hazard_state": "high", "sensor_state": "healthy"},
+      "evidence_refs": ["fixture:causal-rule:01"]
+    }
+  ],
+  "actions": ["operate", "hold"],
+  "worlds": [
+    {"assignment": {"hazard_state": "high", "sensor_state": "failed"}, "losses": {"operate": 5, "hold": 0}},
+    {"assignment": {"hazard_state": "high", "sensor_state": "healthy"}, "losses": {"operate": 0, "hold": 5}},
+    {"assignment": {"hazard_state": "low", "sensor_state": "failed"}, "losses": {"operate": 0, "hold": 5}},
+    {"assignment": {"hazard_state": "low", "sensor_state": "healthy"}, "losses": {"operate": 0, "hold": 5}}
+  ],
+  "cells": [
+    {"id": "coarse-all"}
+  ]
+}
