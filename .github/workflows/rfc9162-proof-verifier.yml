@@ -72,9 +72,21 @@ jobs:
           rustc +1.96.0 --version
           cargo +1.96.0 --version
 
+      - name: Prepare isolated RFC 9162 crate workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          isolated="$RUNNER_TEMP/rfc9162-isolated"
+          mkdir -p "$isolated/mycelix-workspace/crates" "$isolated/tools/economic/temporal-frontier-model"
+          cp -a mycelix-workspace/crates/mycelix-rfc9162-proof-verifier "$isolated/mycelix-workspace/crates/"
+          cp tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt "$isolated/tools/economic/temporal-frontier-model/"
+          test ! -f "$isolated/mycelix-workspace/Cargo.toml"
+          test -f "$isolated/mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/Cargo.toml"
+          test -f "$isolated/tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt"
+
       - name: Check formatting
         id: fmt
-        working-directory: mycelix-workspace
+        working-directory: ${{ runner.temp }}/rfc9162-isolated/mycelix-workspace
         shell: bash
         run: |
           set -euo pipefail
@@ -82,7 +94,7 @@ jobs:
 
       - name: Run RFC 9162 vector and generated-tree tests
         id: tests
-        working-directory: mycelix-workspace
+        working-directory: ${{ runner.temp }}/rfc9162-isolated/mycelix-workspace
         shell: bash
         run: |
           set -euo pipefail
@@ -92,7 +104,7 @@ jobs:
 
       - name: Run release-mode tests
         id: release_tests
-        working-directory: mycelix-workspace
+        working-directory: ${{ runner.temp }}/rfc9162-isolated/mycelix-workspace
         shell: bash
         run: |
           set -euo pipefail
@@ -100,7 +112,7 @@ jobs:
 
       - name: Run reproducible RFC 9162 microbenchmark
         id: benchmark
-        working-directory: mycelix-workspace
+        working-directory: ${{ runner.temp }}/rfc9162-isolated/mycelix-workspace
         shell: bash
         run: |
           set -euo pipefail
@@ -109,7 +121,7 @@ jobs:
 
       - name: Run clippy with warnings denied
         id: clippy
-        working-directory: mycelix-workspace
+        working-directory: ${{ runner.temp }}/rfc9162-isolated/mycelix-workspace
         shell: bash
         run: |
           set -euo pipefail
