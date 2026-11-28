@@ -8,7 +8,7 @@ The EAP connects three immutable objects:
 2. **Evidence Acquisition Proposal:** what optional observation, mandatory measurement or authorized review could be useful next, and under which explicit EVSI/loss/cost assumptions.
 3. **Next DBC:** a new capsule after new evidence has actually been acquired, admitted, verified and replayed.
 
-The EAP references the prior DBC digest. The prior DBC does not embed or hash the EAP. This avoids cyclic commitments and keeps a current decision basis separate from a future evidence-acquisition policy. The EVSI receipt must bind the same DBC decision ID, scope digest and frontier digest, plus the same explicit decision-loss-profile digest.
+The EAP references the prior DBC digest. The prior DBC does not embed or hash the EAP. This avoids cyclic commitments and keeps a current decision basis separate from a future evidence-acquisition policy. The EVSI receipt must bind the same DBC decision ID, scope digest and frontier digest. The decision-loss profile is a separate EAP receipt reference, not a field retrofitted into the DBC; the EVSI receipt must bind that exact loss-profile digest.
 
 ## Hard safety boundary
 
@@ -22,7 +22,7 @@ The EAP references the prior DBC digest. The prior DBC does not embed or hash th
 
 ## Validation scope
 
-The Go reference validates a typed EAP model and deterministic domain-separated commitment. It verifies receipt references, DBC/frontier/scope binding, EVSI/cost/loss-profile binding, mandatory-vs-optional disposition, candidate safety/admissibility, result-impact coverage, independence prerequisites, expiry ordering, advisory-only capability and absence of operational effects.
+The Go reference validates a typed EAP model and deterministic domain-separated commitment. It verifies receipt references, DBC/frontier/scope binding, a separately referenced loss-profile receipt, EVSI/cost binding, exact candidate-set and observation-model bindings, mandatory-vs-optional disposition, candidate safety/admissibility, result-impact coverage, independence prerequisites, DBC/proposal chronology, expiry ordering, advisory-only capability and absence of operational effects.
 
 It does not authenticate the referenced DBC, EVSI model, loss function, observation likelihoods, calibration, professional role or field source. Those remain with their owners. It does not recompute the upstream EVSI evaluator.
 
