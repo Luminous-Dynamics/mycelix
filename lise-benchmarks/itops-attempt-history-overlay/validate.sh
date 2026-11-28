@@ -81,6 +81,16 @@ jq -e '
           end
       );
 
+  def retry_after_confirmed_effect:
+    . as $c
+    | any($c.operation.actions[];
+        .action_id as $action
+        | ([$c.attempts[] | select(.action_id == $action)] | sort_by(.ordinal)) as $chain
+        | ($chain | length) > 1
+          and $chain[0].effect == "applied"
+          and $chain[1].dispatched == true
+      );
+
   def duplicate_effect_retry:
     . as $c
     | any($c.operation.actions[];
@@ -108,7 +118,7 @@ jq -e '
   and .schema_version == "0.1.0"
   and .contract == "ITOPS-OUTCOME-ADAPTER-001"
   and .visibility == "PUBLIC_REFERENCE_ORACLE_FIXTURE"
-  and (.cases | length) == 17
+  and (.cases | length) == 18
   and ([.cases[].case_id] | length) == ([.cases[].case_id] | unique | length)
   and all(.cases[];
     . as $c
@@ -151,6 +161,7 @@ jq -e '
           )
           and (not ($c | blind_retry))
           and (not ($c | duplicate_effect_retry))
+          and (not ($c | retry_after_confirmed_effect))
           and (
             if $c.prior_frontier == null then true
             else $c.prior_frontier.status != "COMPLETE_FOR_SCOPE"
@@ -189,6 +200,8 @@ jq -e '
           (
             (($c | blind_retry) and ($c.hard_gate_violations | index("blind_retry_after_unknown")) != null)
             or
+            (($c | retry_after_confirmed_effect) and ($c.hard_gate_violations | index("retry_after_confirmed_effect")) != null)
+            or
             (($c | duplicate_effect_retry) and ($c.hard_gate_violations | index("duplicate_effect")) != null)
           )
         elif $c.expected_next_step == "INVALID_HISTORY" then
@@ -215,6 +228,6 @@ jq -e '
   )
 ' "$CORPUS" >/dev/null
 
-echo "PASS: 16 ITOPS attempt-history reference cases satisfy the semantic fixture gate."
+echo "PASS: 18 ITOPS attempt-history reference cases satisfy the semantic fixture gate."
 echo "schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
 echo "corpus_sha256=$(sha256sum "$CORPUS" | cut -d' ' -f1)"
