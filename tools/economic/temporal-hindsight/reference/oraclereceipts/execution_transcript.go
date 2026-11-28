@@ -936,6 +936,7 @@ func ReplayOracleExecutionTranscriptV1(
 	appliedStepFrontier := make(map[string]uint64, len(events))
 	appliedStepOrder := make([]string, 0, len(events))
 	appliedStepReceiptDigests := make(map[string][]string, len(events))
+	appliedStepInputState := make(map[string]string, len(events))
 	var pending *executionPendingState
 	stepDigests := make([]string, 0, len(events))
 
@@ -977,11 +978,21 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+			cone, err := validateCorrectionImpactConeV1(*event.Transition, receiptsByDigest, receiptsByID,
+				appliedStepOrder, appliedStepReceiptDigests, appliedStepInputState)
+			if err != nil {
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateCorrectionImpactConeV1(*event.Transition, receiptsByDigest, receiptsByID, appliedStepOrder, appliedStepReceiptDigests); err != nil {
+			expectedInputState := state.stateDigest
+			if cone != nil {
+				expectedInputState = cone.BaseInputStateDigest
+			}
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, expectedInputState, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+				result.Reason = err.Error()
+				return finalizeExecutionReplay(result)
+			}
+			if err := invalidateCorrectionImpactConeV1(cone, &appliedStepOrder, appliedStepReceiptDigests, appliedStepInputState); err != nil {
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -991,6 +1002,7 @@ func ReplayOracleExecutionTranscriptV1(
 			appliedStepFrontier[event.Transition.StepID] = event.Transition.ReceiptFrontierSequence
 			appliedStepOrder = append(appliedStepOrder, event.Transition.StepID)
 			appliedStepReceiptDigests[event.Transition.StepID] = append([]string(nil), event.Transition.ConsumedReceiptDigests...)
+			appliedStepInputState[event.Transition.StepID] = event.Transition.InputStateDigest
 			applyExecutionTransition(&state, *event.Transition, stepDigest)
 			result.AppliedStepIDs = append(result.AppliedStepIDs, event.Transition.StepID)
 			stepDigests = append(stepDigests, stepDigest)
@@ -1004,12 +1016,18 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
-				result.Reason = "unknown execution intent is invalid: " + err.Error()
+			cone, err := validateCorrectionImpactConeV1(*event.Transition, receiptsByDigest, receiptsByID,
+				appliedStepOrder, appliedStepReceiptDigests, appliedStepInputState)
+			if err != nil {
+				result.Reason = "unknown execution intent impact cone is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateCorrectionImpactConeV1(*event.Transition, receiptsByDigest, receiptsByID, appliedStepOrder, appliedStepReceiptDigests); err != nil {
-				result.Reason = "unknown execution intent impact cone is invalid: " + err.Error()
+			expectedInputState := state.stateDigest
+			if cone != nil {
+				expectedInputState = cone.BaseInputStateDigest
+			}
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, expectedInputState, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+				result.Reason = "unknown execution intent is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
 			stepDigest, _ := executionTransitionDigestV1(scopeDigest, *event.Transition)
@@ -1027,12 +1045,22 @@ func ReplayOracleExecutionTranscriptV1(
 				return finalizeExecutionReplay(result)
 			}
 			if event.Outcome == ExecutionReconciledApplied {
-				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
+				cone, err := validateCorrectionImpactConeV1(pending.transition, receiptsByDigest, receiptsByID,
+					appliedStepOrder, appliedStepReceiptDigests, appliedStepInputState)
+				if err != nil {
+					result.Reason = "reconciled execution impact cone is no longer valid: " + err.Error()
+					return finalizeExecutionReplay(result)
+				}
+				expectedInputState := state.stateDigest
+				if cone != nil {
+					expectedInputState = cone.BaseInputStateDigest
+				}
+				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, expectedInputState, state.proofDigest, state.adviceCommitmentDigest, receiptSequence, receiptFrontiers, appliedStepIDs, appliedStepFrontier, state.receiptFrontierSequence, reservedStepIDs, true); err != nil {
 					result.Reason = "reconciled execution transition is no longer valid: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
-				if err := validateCorrectionImpactConeV1(pending.transition, receiptsByDigest, receiptsByID, appliedStepOrder, appliedStepReceiptDigests); err != nil {
-					result.Reason = "reconciled execution impact cone is no longer valid: " + err.Error()
+				if err := invalidateCorrectionImpactConeV1(cone, &appliedStepOrder, appliedStepReceiptDigests, appliedStepInputState); err != nil {
+					result.Reason = "reconciled execution cone invalidation failed: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
 				applyExecutionTransition(&state, pending.transition, pending.digest)
@@ -1040,6 +1068,7 @@ func ReplayOracleExecutionTranscriptV1(
 				appliedStepFrontier[pending.transition.StepID] = pending.transition.ReceiptFrontierSequence
 				appliedStepOrder = append(appliedStepOrder, pending.transition.StepID)
 				appliedStepReceiptDigests[pending.transition.StepID] = append([]string(nil), pending.transition.ConsumedReceiptDigests...)
+				appliedStepInputState[pending.transition.StepID] = pending.transition.InputStateDigest
 				result.AppliedStepIDs = append(result.AppliedStepIDs, pending.transition.StepID)
 			}
 			pending = nil
