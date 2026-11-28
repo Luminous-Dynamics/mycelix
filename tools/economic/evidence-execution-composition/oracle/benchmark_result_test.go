@@ -2,6 +2,7 @@ package oracle
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -40,6 +41,23 @@ func validBenchmarkResultV01() map[string]any {
 		"mmr-peak-unpinned-accumulator",
 		"approval-execution-action-join-mismatch",
 	}
+	fixtureRecords := make([]any, 0, 60)
+	for classIndex, rawClassID := range classIDs {
+		classID := rawClassID.(string)
+		for controlIndex, controlKind := range []string{"positive_control", "hard_negative"} {
+			fixtureNumber := classIndex*2 + controlIndex + 1
+			fixtureRecords = append(fixtureRecords, map[string]any{
+				"fixture_id":       fmt.Sprintf("djcc-fixture-%02d-%s", fixtureNumber, controlKind),
+				"class_id":         classID,
+				"control_kind":     controlKind,
+				"digest":           "sha256:" + fmt.Sprintf("%064x", fixtureNumber),
+				"byte_length":      128 + fixtureNumber,
+				"media_type":       "application/json",
+				"generator_version": "djcc-fixture-generator-v0.1",
+				"generator_seed":   fixtureNumber,
+			})
+		}
+	}
 	return map[string]any{
 		"schema": benchmarkResultSchemaV01,
 		"benchmark_id": "djcc-v0.1-candidate-vs-full-recompute",
@@ -64,6 +82,7 @@ func validBenchmarkResultV01() map[string]any {
 			"positive_control_class_ids": append([]any(nil), classIDs...),
 			"hard_negative_class_ids":    append([]any(nil), classIDs...),
 			"fixture_set_digest": digest,
+			"fixture_records":    fixtureRecords,
 			"oracle_version": "independent-oracle-v0.1",
 			"oracle_digest": digest,
 		},
@@ -362,5 +381,47 @@ func TestValidateBenchmarkResultV01RejectsControlClassOutsideAdversarialSet(t *t
 	ids[0] = "undeclared-class"
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("positive control for an undeclared adversarial class accepted")
+	}
+}
+
+
+func TestValidateBenchmarkResultV01RejectsDuplicateFixtureIDs(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	records := corpus["fixture_records"].([]any)
+	second := records[1].(map[string]any)
+	second["fixture_id"] = records[0].(map[string]any)["fixture_id"]
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("duplicate fixture ID accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsDuplicateFixtureDigests(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	records := corpus["fixture_records"].([]any)
+	records[1].(map[string]any)["digest"] = records[0].(map[string]any)["digest"]
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("duplicate fixture content digest accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsMissingFixtureRecord(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	records := corpus["fixture_records"].([]any)
+	corpus["fixture_records"] = records[:59]
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification missing a fixture record accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsMultiplePositiveFixturesForClass(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	records := corpus["fixture_records"].([]any)
+	records[1].(map[string]any)["control_kind"] = "positive_control"
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("duplicate positive control for a class accepted")
 	}
 }
