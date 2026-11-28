@@ -183,6 +183,27 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 				t.Errorf("stage %q dependency schema is missing %q", stage, requiredDependencyField)
 			}
 		}
+		dependencyRequired, ok := dependencyItems["required"].([]any)
+		if !ok {
+			t.Errorf("stage %q dependency schema has no required-field list", stage)
+			continue
+		}
+		for _, requiredDependencyField := range []string{"stage_id", "input_name", "required_claims", "output_digest", "schema_ref"} {
+			found := false
+			for _, field := range dependencyRequired {
+				if field == requiredDependencyField {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("stage %q dependency schema does not require %q", stage, requiredDependencyField)
+			}
+		}
+		claimSchema, ok := dependencyProperties["required_claims"].(map[string]any)
+		if !ok || claimSchema["type"] != "array" || claimSchema["minItems"] != float64(1) || claimSchema["uniqueItems"] != true {
+			t.Errorf("stage %q required_claims schema is not a non-empty unique array", stage)
+		}
 	}
 	stageRequired, ok := stageEnvelope["required"].([]any)
 	if !ok || len(stageRequired) != len(requiredStages) {
