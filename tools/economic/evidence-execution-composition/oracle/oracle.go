@@ -77,30 +77,30 @@ type ClaimCeiling struct {
 }
 
 type Scenario struct {
-	ID                          string               `json:"id"`
-	Title                       string               `json:"title"`
-	Class                       string               `json:"class"`
-	RiskTier                    string               `json:"risk_tier"`
-	SyntheticOnly               bool                 `json:"synthetic_only"`
-	FixtureRef                  string               `json:"fixture_ref"`
-	Mutation                    *Mutation            `json:"mutation"`
-	Controls                    Controls             `json:"controls"`
-	ExpectedStages              map[StageID]Disposition `json:"expected_stages"`
-	ExpectedComposition         CompositionDisposition `json:"expected_composition"`
-	ExpectedClaimCeiling        ClaimCeiling          `json:"expected_claim_ceiling"`
-	Rationale                   string               `json:"rationale"`
+	ID                   string               `json:"id"`
+	Title                string               `json:"title"`
+	Class                string               `json:"class"`
+	RiskTier             string               `json:"risk_tier"`
+	SyntheticOnly        bool                 `json:"synthetic_only"`
+	FixtureRef           string               `json:"fixture_ref"`
+	Mutation             *Mutation            `json:"mutation"`
+	Controls             Controls             `json:"controls"`
+	ExpectedStages       map[StageID]Disposition `json:"expected_stages"`
+	ExpectedComposition  CompositionDisposition `json:"expected_composition"`
+	ExpectedClaimCeiling ClaimCeiling          `json:"expected_claim_ceiling"`
+	Rationale            string               `json:"rationale"`
 }
 
 type Manifest struct {
-	Schema            string     `json:"schema"`
-	Status            string     `json:"status"`
-	ClaimBoundary     string     `json:"claim_boundary"`
-	OracleRule        string     `json:"oracle_rule"`
-	OracleVersion     string     `json:"oracle_version"`
-	ControlSemantics  string     `json:"control_semantics"`
-	StageIDs          []StageID  `json:"stage_ids"`
-	Dispositions      []Disposition `json:"dispositions"`
-	Cases             []Scenario `json:"cases"`
+	Schema           string     `json:"schema"`
+	Status           string     `json:"status"`
+	ClaimBoundary    string     `json:"claim_boundary"`
+	OracleRule       string     `json:"oracle_rule"`
+	OracleVersion    string     `json:"oracle_version"`
+	ControlSemantics string     `json:"control_semantics"`
+	StageIDs         []StageID  `json:"stage_ids"`
+	Dispositions     []Disposition `json:"dispositions"`
+	Cases            []Scenario `json:"cases"`
 }
 
 type ExpectedResult struct {
@@ -114,13 +114,13 @@ type ExpectedResult struct {
 func stages(frontier, source, semantic, query, policy, authorization, execution, outcome Disposition) map[StageID]Disposition {
 	return map[StageID]Disposition{
 		StageVerifierFrontier: frontier,
-		StageSourceTrust: source,
-		StageSemantic: semantic,
-		StageQuery: query,
-		StagePolicy: policy,
-		StageAuthorization: authorization,
-		StageExecution: execution,
-		StageOutcome: outcome,
+		StageSourceTrust     : source,
+		StageSemantic        : semantic,
+		StageQuery           : query,
+		StagePolicy          : policy,
+		StageAuthorization   : authorization,
+		StageExecution       : execution,
+		StageOutcome         : outcome,
 	}
 }
 
@@ -131,11 +131,11 @@ func ceiling(authentication, completeness, truth, authority, effect ClaimState, 
 	}
 	return ClaimCeiling{
 		Authentication: authentication,
-		Completeness: completeness,
-		Truth: truth,
-		Authority: authority,
-		Effect: effect,
-		Independence: independenceState,
+		Completeness  : completeness,
+		Truth         : truth,
+		Authority     : authority,
+		Effect        : effect,
+		Independence  : independenceState,
 	}
 }
 
@@ -143,52 +143,52 @@ func ceiling(authentication, completeness, truth, authority, effect ClaimState, 
 // Changes to an expected disposition require an explicit review of the rationale.
 var expected = map[string]ExpectedResult{
 	"DJCC-001": {
-		Stages: stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim),
-		Composition: JustifiedAtFrontier,
+		Stages      : stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim),
+		Composition : JustifiedAtFrontier,
 		ClaimCeiling: ceiling(Established, Established, Established, Established, Established),
-		Class: "positive-control", RiskTier: "control",
+		Class       : "positive-control", RiskTier: "control",
 	},
 	"DJCC-002": {
-		Stages: stages(VerifiedForDeclaredClaim, Indeterminate, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated),
-		Composition: CompositionUnknown,
+		Stages      : stages(VerifiedForDeclaredClaim, Indeterminate, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated),
+		Composition : CompositionUnknown,
 		ClaimCeiling: ceiling(ClaimUnknown, ClaimNotEvaluated, ClaimNotEvaluated, ClaimNotEvaluated, ClaimNotEvaluated),
-		Class: "hard-safety", RiskTier: "critical",
+		Class       : "hard-safety", RiskTier: "critical",
 	},
 	"DJCC-003": {
-		Stages: stages(Indeterminate, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated),
-		Composition: CompositionUnknown,
+		Stages      : stages(Indeterminate, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated, NotEvaluated),
+		Composition : CompositionUnknown,
 		ClaimCeiling: ceiling(ClaimNotEvaluated, ClaimUnknown, ClaimNotEvaluated, ClaimNotEvaluated, ClaimNotEvaluated),
-		Class: "hard-safety", RiskTier: "critical",
+		Class       : "hard-safety", RiskTier: "critical",
 	},
 	"DJCC-004": {
-		Stages: stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, NotApplicable, NotApplicable),
-		Composition: JustifiedAtFrontier,
+		Stages      : stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, NotApplicable, NotApplicable),
+		Composition : JustifiedAtFrontier,
 		ClaimCeiling: ceiling(Established, Established, Established, Established, ClaimNotApplicable),
-		Class: "historical-noninterference", RiskTier: "control",
+		Class       : "historical-noninterference", RiskTier: "control",
 	},
 	"DJCC-005": {
-		Stages: stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Rejected, NotEvaluated, NotEvaluated, NotEvaluated),
-		Composition: ReplayMismatch,
+		Stages      : stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Rejected, NotEvaluated, NotEvaluated, NotEvaluated),
+		Composition : ReplayMismatch,
 		ClaimCeiling: ceiling(Established, Established, ClaimNotEvaluated, ClaimNotEvaluated, ClaimNotEvaluated),
-		Class: "hard-safety", RiskTier: "critical",
+		Class       : "hard-safety", RiskTier: "critical",
 	},
 	"DJCC-006": {
-		Stages: stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Rejected, NotEvaluated, NotEvaluated),
-		Composition: NotJustified,
+		Stages      : stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Rejected, NotEvaluated, NotEvaluated),
+		Composition : NotJustified,
 		ClaimCeiling: ceiling(Established, Established, ClaimNotEvaluated, ClaimRejected, ClaimNotEvaluated),
-		Class: "hard-safety", RiskTier: "critical",
+		Class       : "hard-safety", RiskTier: "critical",
 	},
 	"DJCC-007": {
-		Stages: stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Rejected, NotEvaluated),
-		Composition: CompositionUnknown,
+		Stages      : stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Rejected, NotEvaluated),
+		Composition : CompositionUnknown,
 		ClaimCeiling: ceiling(Established, Established, ClaimNotEvaluated, Established, ClaimUnknown),
-		Class: "hard-safety", RiskTier: "critical",
+		Class       : "hard-safety", RiskTier: "critical",
 	},
 	"DJCC-008": {
-		Stages: stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Indeterminate),
-		Composition: CompositionUnknown,
+		Stages      : stages(VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, VerifiedForDeclaredClaim, Indeterminate),
+		Composition : CompositionUnknown,
 		ClaimCeiling: ceiling(Established, ClaimUnknown, ClaimUnknown, Established, ClaimUnknown),
-		Class: "hard-safety", RiskTier: "critical",
+		Class       : "hard-safety", RiskTier: "critical",
 	},
 }
 
@@ -321,11 +321,11 @@ func equalStages(left, right map[StageID]Disposition) bool {
 
 
 type CompositionProfile struct {
-	ProfileRef          string                         `json:"profile_ref"`
-	RequiredClaims      []string                       `json:"required_claims"`
+	ProfileRef           string                         `json:"profile_ref"`
+	RequiredClaims       []string                       `json:"required_claims"`
 	AllowedNotApplicable []string                      `json:"allowed_not_applicable"`
-	ClaimStages         map[string][]string            `json:"claim_stages"`
-	DependencyClaims   map[string]map[string][]string `json:"dependency_claims"`
+	ClaimStages          map[string][]string            `json:"claim_stages"`
+	DependencyClaims     map[string]map[string][]string `json:"dependency_claims"`
 }
 
 type ProfileManifest struct {
@@ -391,9 +391,9 @@ type expectedProfileV01 struct {
 
 var expectedProfilesV01 = map[string]expectedProfileV01{
 	"mycelix.djcc.full-evidence-execution.v0.1": {
-		RequiredClaims: []string{"authentication", "authority", "completeness", "effect", "truth"},
+		RequiredClaims      : []string{"authentication", "authority", "completeness", "effect", "truth"},
 		AllowedNotApplicable: []string{},
-		ClaimStages: map[string][]string{
+		ClaimStages         : map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
 			"authority": {"authorization"},
 			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
@@ -431,9 +431,9 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 		},
 	},
 	"mycelix.djcc.historical-decision-only.v0.1": {
-		RequiredClaims: []string{"authentication", "authority", "completeness", "truth"},
+		RequiredClaims      : []string{"authentication", "authority", "completeness", "truth"},
 		AllowedNotApplicable: []string{"execution", "outcome"},
-		ClaimStages: map[string][]string{
+		ClaimStages         : map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
 			"authority": {"authorization"},
 			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
@@ -462,9 +462,9 @@ var expectedProfilesV01 = map[string]expectedProfileV01{
 		},
 	},
 	"mycelix.djcc.independent-corroboration.v0.1": {
-		RequiredClaims: []string{"authentication", "authority", "completeness", "independence", "truth"},
+		RequiredClaims      : []string{"authentication", "authority", "completeness", "independence", "truth"},
 		AllowedNotApplicable: []string{"execution", "outcome"},
-		ClaimStages: map[string][]string{
+		ClaimStages         : map[string][]string{
 			"authentication": {"verifier_frontier", "source_trust"},
 			"authority": {"authorization"},
 			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
