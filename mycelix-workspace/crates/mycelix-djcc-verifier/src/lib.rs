@@ -733,19 +733,26 @@ fn derive_disposition(input: &CompositionInput, profile: &CompositionProfile) ->
     {
         return CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
     }
-    for dimension in &profile.required_claims {
-        match claim_state(input.declared_claim_ceiling, *dimension) {
-            ClaimState::EstablishedWithinProfile => {}
-            ClaimState::Rejected => {
-                return CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
-            }
-            ClaimState::UnsupportedByProfile | ClaimState::NotApplicable => {
-                return CompositionDisposition::UnsupportedByProfile;
-            }
-            ClaimState::Indeterminate | ClaimState::NotEvaluated => {
-                return CompositionDisposition::Indeterminate;
-            }
-        }
+    if profile.required_claims.iter().any(|dimension| {
+        claim_state(input.declared_claim_ceiling, *dimension) == ClaimState::Rejected
+    }) {
+        return CompositionDisposition::DecisionNotJustifiedAtAcceptedFrontier;
+    }
+    if profile.required_claims.iter().any(|dimension| {
+        matches!(
+            claim_state(input.declared_claim_ceiling, *dimension),
+            ClaimState::UnsupportedByProfile | ClaimState::NotApplicable
+        )
+    }) {
+        return CompositionDisposition::UnsupportedByProfile;
+    }
+    if profile.required_claims.iter().any(|dimension| {
+        matches!(
+            claim_state(input.declared_claim_ceiling, *dimension),
+            ClaimState::Indeterminate | ClaimState::NotEvaluated
+        )
+    }) {
+        return CompositionDisposition::Indeterminate;
     }
     if profile.required_claims.is_empty() {
         return CompositionDisposition::UnsupportedByProfile;
