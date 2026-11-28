@@ -1,0 +1,177 @@
+{
+  "schema_id": "mycelix.craft.comparator-register.v1",
+  "status": "protocol_and_baseline_registry_not_benchmark_results",
+  "issue": 6841,
+  "comparators": [
+    {
+      "id": "pm4py",
+      "tasks": [
+        "ocel_import_export",
+        "filtering",
+        "process_discovery",
+        "supported_conformance"
+      ],
+      "non_claims": [
+        "causal_event_frontier_authentication",
+        "source_universe_completeness",
+        "legal_authority",
+        "physical_outcome"
+      ]
+    },
+    {
+      "id": "ocelescope",
+      "tasks": [
+        "ocel_import_filter_export_performance"
+      ],
+      "non_claims": [
+        "evidence_trust",
+        "decision_justification",
+        "physical_outcome"
+      ]
+    },
+    {
+      "id": "oc_dcr_2026",
+      "tasks": [
+        "object_centric_process_discovery",
+        "alignment_conformance"
+      ],
+      "non_claims": [
+        "source_authentication",
+        "source_completeness",
+        "field_truth"
+      ]
+    },
+    {
+      "id": "xtdb",
+      "tasks": [
+        "matched_valid_time_system_time_queries"
+      ],
+      "non_claims": [
+        "distributed_causal_frontier",
+        "evidence_independence"
+      ]
+    },
+    {
+      "id": "tgb_2_0",
+      "tasks": [
+        "temporal_graph_representation",
+        "graph_scale_stress"
+      ],
+      "non_claims": [
+        "ocel_conformance",
+        "process_alignment",
+        "evidence_trust"
+      ]
+    },
+    {
+      "id": "djcc_0_1",
+      "tasks": [
+        "receipt_edge_composition",
+        "claim_ceiling_non_widening"
+      ],
+      "non_claims": [
+        "signature_authentication",
+        "legal_authority",
+        "physical_outcome"
+      ]
+    },
+    {
+      "id": "scitt_vds",
+      "tasks": [
+        "signed_statement_transparency",
+        "receipt_verification_interop"
+      ],
+      "non_claims": [
+        "process_semantics",
+        "decision_utility",
+        "physical_outcome_truth"
+      ]
+    },
+    {
+      "id": "fixed_expert_random_eig",
+      "tasks": [
+        "safe_observation_selection_baselines"
+      ],
+      "non_claims": [
+        "evsi_superiority_without_matched_loss_budget"
+      ]
+    }
+  ],
+  "datasets": [
+    {
+      "id": "P2P",
+      "events": 14671,
+      "objects": 9543
+    },
+    {
+      "id": "OrderManagement",
+      "events": 21008,
+      "objects": 10840
+    },
+    {
+      "id": "Container",
+      "events": 35372,
+      "objects": 13882
+    },
+    {
+      "id": "AoE2",
+      "events": 2372505,
+      "objects": 630590
+    },
+    {
+      "id": "Hinge",
+      "events": 38528,
+      "objects": 23771
+    },
+    {
+      "id": "Angular",
+      "events": 27847,
+      "objects": 28317
+    },
+    {
+      "id": "BPIC2017",
+      "events": 1202267,
+      "objects": 31509
+    }
+  ],
+  "scale_ladder_events": [
+    1000,
+    10000,
+    100000,
+    1000000,
+    2372505,
+    7000000,
+    10000000
+  ],
+  "optional_graph_only_edges": [
+    50000000
+  ],
+  "protocol": {
+    "minimum_repetitions": 5,
+    "separate_cold_and_warm_cache": true,
+    "report": [
+      "median",
+      "p95",
+      "p99_when_valid",
+      "dispersion",
+      "confidence_interval",
+      "peak_rss",
+      "cpu_time",
+      "wall_time",
+      "bytes_read_written",
+      "timeout_rate"
+    ],
+    "semantics_before_timing": true,
+    "fastest_of_three_comparable_to_median_of_five": false
+  },
+  "acceptance_targets_not_results": {
+    "known_answer_agreement": 1,
+    "false_safe_critical_suite": 0,
+    "false_completeness": 0,
+    "false_independence": 0,
+    "false_effect_unknown_outcome": 0,
+    "digest_schema_substitution_acceptance": 0,
+    "historical_receipt_mutations": 0,
+    "mandatory_evidence_waivers": 0
+  }
+}
