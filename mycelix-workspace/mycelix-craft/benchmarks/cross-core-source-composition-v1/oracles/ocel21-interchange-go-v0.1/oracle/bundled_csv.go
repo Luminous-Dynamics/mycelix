@@ -12,20 +12,6 @@ import (
 	"time"
 )
 
-type bundleType struct {
-	File        string    "json:\"file\""
-	ChangesFile string    "json:\"changesFile\""
-	Attributes  []attrDef "json:\"attributes\""
-}
-type bundleMeta struct {
-	OCELVersion         string                "json:\"ocelVersion\""
-	BundleFormatVersion string                "json:\"bundleFormatVersion\""
-	StorageFormat       string                "json:\"storageFormat\""
-	EventTypes          map[string]bundleType "json:\"eventTypes\""
-	ObjectTypes         map[string]bundleType "json:\"objectTypes\""
-	Relations           map[string]string     "json:\"relations\""
-}
-
 func readCSV(path string) ([][]string, error) {
 	b, e := os.ReadFile(path)
 	if e != nil {
