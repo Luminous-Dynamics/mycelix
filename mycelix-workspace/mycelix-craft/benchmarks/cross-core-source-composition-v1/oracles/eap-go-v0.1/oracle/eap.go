@@ -40,7 +40,6 @@ type DecisionBasis struct {
 	QueryID string `json:"query_id"`
 	ScopeDigest string `json:"scope_digest"`
 	FrontierDigest string `json:"frontier_digest"`
-	DecisionLossProfileDigest string `json:"decision_loss_profile_digest"`
 	ValidAt string `json:"valid_at"`
 }
 
@@ -86,13 +85,14 @@ type Candidate struct {
 	ResultImpacts []ResultImpact `json:"result_impacts"`
 }
 
-type Proposal struct {
+	type Proposal struct {
 	SchemaID string `json:"schema_id"`
 	ProposalID string `json:"proposal_id"`
 	CapabilityBoundary string `json:"capability_boundary"`
 	AdvisoryOnly bool `json:"advisory_only"`
 	AuthorizedEffects []string `json:"authorized_effects"`
 	PriorDecisionBasis DecisionBasis `json:"prior_decision_basis"`
+	LossProfile Ref `json:"loss_profile"`
 	EVSI EVSIEvaluation `json:"evsi_evaluation"`
 	Candidate Candidate `json:"candidate"`
 	Disposition string `json:"disposition"`
@@ -193,7 +193,7 @@ func Validate(p Proposal) Report {
 	}
 	if p.PriorDecisionBasis.ProfileRef != DBCProfile || strings.TrimSpace(p.PriorDecisionBasis.DecisionID) == "" ||
 		strings.TrimSpace(p.PriorDecisionBasis.QueryID) == "" || !validDigest(p.PriorDecisionBasis.ScopeDigest) ||
-		!validDigest(p.PriorDecisionBasis.FrontierDigest) || !validDigest(p.PriorDecisionBasis.DecisionLossProfileDigest) {
+		!validDigest(p.PriorDecisionBasis.FrontierDigest) {
 		add(&violations, "EAP-DBC-BINDING", "prior_decision_basis", "prior DBC identity, profile, scope and frontier bindings are incomplete")
 	}
 	switch p.PriorDecisionBasis.Disposition {
@@ -204,6 +204,9 @@ func Validate(p Proposal) Report {
 	if _, ok := parseCanonicalUTC(p.PriorDecisionBasis.ValidAt); !ok {
 		add(&violations, "EAP-DBC-TIME", "prior_decision_basis.valid_at", "prior DBC valid time must be canonical UTC seconds")
 	}
+	if !validRef(p.LossProfile) || p.LossProfile.Schema != "mycelix.craft.decision-loss-profile.v0.1" {
+		add(&violations, "EAP-LOSS-PROFILE-REF", "loss_profile", "independent, versioned decision-loss profile receipt is required")
+	}
 	if !validRef(p.EVSI.Receipt) || p.EVSI.Receipt.Schema != "mycelix.craft.evsi-evaluation-receipt.v0.1" || !validDigest(p.EVSI.EvaluatorDigest) ||
 		!validDigest(p.EVSI.LossProfileDigest) || !validDigest(p.EVSI.CandidateSetDigest) ||
 		!validDigest(p.EVSI.ObservationModelDigest) {
@@ -213,8 +216,8 @@ func Validate(p Proposal) Report {
 		p.EVSI.DecisionID != p.PriorDecisionBasis.DecisionID {
 		add(&violations, "EAP-EVSI-DBC-MISMATCH", "evsi_evaluation", "EVSI result must bind the exact prior DBC frontier, scope and decision")
 	}
-	if p.EVSI.LossProfileDigest != p.PriorDecisionBasis.DecisionLossProfileDigest {
-		add(&violations, "EAP-LOSS-PROFILE-MISMATCH", "evsi_evaluation.loss_profile_digest", "EVSI result uses a different loss profile from the prior decision basis")
+	if p.EVSI.LossProfileDigest != p.LossProfile.Digest {
+		add(&violations, "EAP-LOSS-PROFILE-MISMATCH", "evsi_evaluation.loss_profile_digest", "EVSI result uses a different decision-loss profile receipt")
 	}
 	if !finiteNonNegative(p.EVSI.EVSI) || !finiteNonNegative(p.EVSI.EIGBits) {
 		add(&violations, "EAP-EVSI-VALUE", "evsi_evaluation", "EVSI and EIG must be finite and non-negative")
