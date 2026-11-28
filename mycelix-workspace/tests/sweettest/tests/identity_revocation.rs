@@ -52,7 +52,11 @@ struct ReinstateInput {
 struct RevocationCheckResult {
     credential_id: String,
     status: String,
+    lookup_status: String,
     reason: Option<String>,
+    effective_from: Option<i64>,
+    recorded_at: Option<i64>,
+    suspension_end: Option<i64>,
     checked_at: i64,
 }
 
@@ -110,8 +114,16 @@ async fn test_revoke_credential_lifecycle() {
         .call_zome_fn("revocation", "create_revocation_list", list_input)
         .await;
 
-    // Revoke a credential
+    // No observed revocation record is not proof of global DHT completeness.
     let credential_id = "cred-001".to_string();
+    let initial: RevocationCheckResult = alice
+        .call_zome_fn("revocation", "check_revocation_status", credential_id.clone())
+        .await;
+    assert_eq!(initial.status, "Active");
+    assert_eq!(initial.lookup_status, "NoRecordObserved");
+    assert!(initial.effective_from.is_none());
+
+    // Revoke a credential
     let revoke_input = RevokeInput {
         credential_id: credential_id.clone(),
         issuer_did: issuer_did.clone(),
@@ -129,7 +141,56 @@ async fn test_revoke_credential_lifecycle() {
 
     assert_eq!(status.credential_id, credential_id);
     assert_eq!(status.status, "Revoked", "Credential should be revoked");
+    assert_eq!(status.lookup_status, "RecordObserved");
+    assert!(status.effective_from.is_some());
+    assert!(status.recorded_at.is_some());
     assert!(status.reason.is_some(), "Revocation should include reason");
+}
+
+/// Test: a future-effective revocation is visible but does not apply early.
+#[tokio::test(flavor = "multi_thread")]
+#[serial]
+#[ignore] // Requires DNA bundle
+async fn test_future_effective_revocation_is_not_active_early() {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let agents = setup_test_agents(&DnaPaths::identity(), "mycelix-identity", 1).await;
+    let alice = &agents[0];
+    let _: Record = alice.call_zome_fn("did_registry", "create_did", ()).await;
+    let issuer_did = format!("did:mycelix:{}", alice.agent_pubkey);
+
+    let list_input = CreateRevocationListInput {
+        id: "alice-future-revocation-list".into(),
+        issuer_did: issuer_did.clone(),
+    };
+    let _: Record = alice
+        .call_zome_fn("revocation", "create_revocation_list", list_input)
+        .await;
+
+    let now_micros = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be after UNIX epoch")
+        .as_micros() as i64;
+    let effective_from = now_micros + 600_000_000;
+    let credential_id = "cred-future-effective".to_string();
+    let revoke_input = RevokeInput {
+        credential_id: credential_id.clone(),
+        issuer_did,
+        reason: "Scheduled key rotation".into(),
+        effective_from: Some(effective_from),
+    };
+    let _: Record = alice
+        .call_zome_fn("revocation", "revoke_credential", revoke_input)
+        .await;
+
+    let status: RevocationCheckResult = alice
+        .call_zome_fn("revocation", "check_revocation_status", credential_id)
+        .await;
+    assert_eq!(status.lookup_status, "RecordObserved");
+    assert_eq!(status.status, "Active");
+    assert_eq!(status.effective_from, Some(effective_from));
+    assert!(status.recorded_at.is_some());
+    assert!(status.checked_at < effective_from);
 }
 
 /// Test: Suspend and reinstate a credential.
