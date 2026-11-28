@@ -26,7 +26,7 @@ func testScope() OracleScopeV1 {
 	}
 }
 
-func testReceipt(t *testing.T, scope OracleScopeV1, sequence uint64, receiptID, previous string, disposition AnswerDispositionV1, payload string) OracleReceiptV1 {
+func testReceipt(t testing.TB, scope OracleScopeV1, sequence uint64, receiptID, previous string, disposition AnswerDispositionV1, payload string) OracleReceiptV1 {
 	t.Helper()
 	to := int64(20_000_000_000)
 	receipt := OracleReceiptV1{
@@ -64,7 +64,7 @@ func testReceipt(t *testing.T, scope OracleScopeV1, sequence uint64, receiptID, 
 	return receipt
 }
 
-func testGenesis(t *testing.T, scope OracleScopeV1) string {
+func testGenesis(t testing.TB, scope OracleScopeV1) string {
 	t.Helper()
 	digest, err := ScopeDigestV1(scope)
 	if err != nil {
@@ -73,7 +73,7 @@ func testGenesis(t *testing.T, scope OracleScopeV1) string {
 	return genesisDigest(digest)
 }
 
-func appendReceipt(t *testing.T, scope OracleScopeV1, receipts []OracleReceiptV1, receiptID string, disposition AnswerDispositionV1, payload string) []OracleReceiptV1 {
+func appendReceipt(t testing.TB, scope OracleScopeV1, receipts []OracleReceiptV1, receiptID string, disposition AnswerDispositionV1, payload string) []OracleReceiptV1 {
 	t.Helper()
 	previous := testGenesis(t, scope)
 	if len(receipts) > 0 {
@@ -83,7 +83,7 @@ func appendReceipt(t *testing.T, scope OracleScopeV1, receipts []OracleReceiptV1
 	return append(receipts, receipt)
 }
 
-func verify(t *testing.T, scope OracleScopeV1, receipts []OracleReceiptV1) ChainResultV1 {
+func verify(t testing.TB, scope OracleScopeV1, receipts []OracleReceiptV1) ChainResultV1 {
 	t.Helper()
 	tail := testGenesis(t, scope)
 	if len(receipts) > 0 {
