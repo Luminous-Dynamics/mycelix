@@ -8,14 +8,14 @@ The EAP connects three immutable objects:
 2. **Evidence Acquisition Proposal:** what optional observation, mandatory measurement or authorized review could be useful next, and under which explicit EVSI/loss/cost assumptions.
 3. **Next DBC:** a new capsule after new evidence has actually been acquired, admitted, verified and replayed.
 
-The EAP references the prior DBC digest. The prior DBC does not embed or hash the EAP. This avoids cyclic commitments and keeps a current decision basis separate from a future evidence-acquisition policy.
+The EAP references the prior DBC digest. The prior DBC does not embed or hash the EAP. This avoids cyclic commitments and keeps a current decision basis separate from a future evidence-acquisition policy. The EVSI receipt must bind the same DBC decision ID, scope digest and frontier digest, plus the same explicit decision-loss-profile digest.
 
 ## Hard safety boundary
 
 - Wire capability is fixed to `AdvisoryOnly`.
 - The EAP cannot dispatch, create work orders, authorize sampling, amend a permit, issue a public advisory, change an action denominator or close an episode.
 - Mandatory safety/legal/professional/water-quality evidence cannot be ranked away by optional EVSI.
-- A recommendation is bound to a prior DBC, exact frontier, decision scope, candidate catalogue, policy/loss profile and observation model. A changed prerequisite invalidates it.
+- A recommendation is bound to a prior DBC, exact frontier, decision scope, candidate catalogue and observation model. The candidate's candidate-set and observation-model digests must match the EVSI receipt exactly. A changed prerequisite invalidates it.
 - Unknown, uncalibrated, unavailable or out-of-domain likelihoods require abstention or authorized human review.
 - Common-cause dependencies must be considered; different sensors, vendors, IDs or signing keys do not prove independence.
 - Predicted EVSI, realized EVSI, acquired observations and physical outcomes are distinct.
@@ -28,7 +28,7 @@ It does not authenticate the referenced DBC, EVSI model, loss function, observat
 
 ## KATs
 
-The frozen JSON known-answer suite contains 12 named scenarios, each with an independently authored expected violation/disposition. The Go runner applies each mutation to one fully specified positive control. Positive and negative controls prevent the benchmark from rewarding blanket abstention.
+The frozen JSON known-answer suite contains 15 named scenarios, each with an independently authored expected violation/disposition. The Go runner applies each mutation to one fully specified positive control. Positive and negative controls prevent the benchmark from rewarding blanket abstention. Strict JSON encoding/decoding rejects duplicate keys, unknown fields, trailing JSON and null/missing required arrays; round-trip canonical-digest parity is tested.
 
 ## Run
 
