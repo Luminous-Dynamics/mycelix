@@ -81,7 +81,10 @@ fn generate_log(
     }
     let callout_group_count = event_count.div_ceil(complaints_per_callout);
 
-    if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
         fs::create_dir_all(parent)?;
     }
 
@@ -377,8 +380,7 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let complaints_per_callout =
-        match args.get(3).map(|value| value.parse::<usize>()).transpose() {
+    let complaints_per_callout = match args.get(3).map(|value| value.parse::<usize>()).transpose() {
             Ok(value) => value.unwrap_or(100),
             Err(error) => {
                 eprintln!("invalid complaints-per-callout value: {error}");
