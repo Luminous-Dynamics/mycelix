@@ -47,6 +47,7 @@ jq -e '
   and all($root.scenario.fault_schedule[];
     . as $event
     | any($root.scenario.services[]; .service_id == $event.target_service_id)
+    and ($event.affected_observation_ids | length) > 0
     and all($event.affected_observation_ids[];
       . as $obs
       | any($root.scenario.operator_observations[]; .observation_id == $obs)
@@ -54,8 +55,21 @@ jq -e '
   )
   and all($root.scenario.dependencies[];
     . as $edge
-    | any($root.scenario.services[]; .service_id == $edge.from_service)
+    | $edge.from_service != $edge.to_service
+    and any($root.scenario.services[]; .service_id == $edge.from_service)
     and any($root.scenario.services[]; .service_id == $edge.to_service)
+  )
+  and ([ $root.scenario.dependencies[] | "\(.from_service)->\(.to_service):\(.dependency_kind)" ] | length)
+      == ([ $root.scenario.dependencies[] | "\(.from_service)->\(.to_service):\(.dependency_kind)" ] | unique | length)
+  and all($root.scenario.services[];
+    . as $service
+    | all($service.depends_on[];
+      . as $dependency
+      | any($root.scenario.services[]; .service_id == $dependency)
+      and any($root.scenario.dependencies[];
+        .from_service == $service.service_id and .to_service == $dependency
+      )
+    )
   )
   and all($root.scenario.operator_observations[];
     . as $obs
@@ -75,6 +89,10 @@ jq -e '
   and $root.scenario.agent_payload_policy.observations_available_only_after_observed_time == true
   and all($root.scenario.terminal_propositions[];
     .independent_verification_required == true
+  )
+  and all(["term-availability", "term-latency", "term-unauthorized", "term-unresolved"][];
+    . as $required
+    | any($root.scenario.terminal_propositions[]; .proposition_id == $required)
   )
 ' "$CORPUS" >/dev/null
 
