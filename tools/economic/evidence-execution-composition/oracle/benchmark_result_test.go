@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-func validBenchmarkResultV01() map[string]any {
+// syntheticBenchmarkResultV01 returns a structurally complete test record. Its digests, machine details and measurements are placeholders; it is not benchmark evidence or a qualification result.
+func syntheticBenchmarkResultV01() map[string]any {
 	const digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	classIDs := []any{
 		"valid-positive-decision",
@@ -171,13 +172,13 @@ func encodeBenchmarkResult(t *testing.T, value map[string]any) []byte {
 }
 
 func TestValidateBenchmarkResultV01AcceptsCompleteQualification(t *testing.T) {
-	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, validBenchmarkResultV01())); err != nil {
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, syntheticBenchmarkResultV01())); err != nil {
 		t.Fatalf("valid benchmark result rejected: %v", err)
 	}
 }
 
 func TestValidateBenchmarkResultV01RejectsFalseAuthenticationOnPass(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["correctness"].(map[string]any)["false_authentication_count"] = 1
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("passing qualification accepted a false-authentication event")
@@ -185,7 +186,7 @@ func TestValidateBenchmarkResultV01RejectsFalseAuthenticationOnPass(t *testing.T
 }
 
 func TestValidateBenchmarkResultV01RejectsIncompleteMutationKills(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["correctness"].(map[string]any)["safety_mutants_killed"] = 24
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("passing qualification accepted an unkilled safety mutant")
@@ -193,7 +194,7 @@ func TestValidateBenchmarkResultV01RejectsIncompleteMutationKills(t *testing.T) 
 }
 
 func TestValidateBenchmarkResultV01RejectsPositiveControlMiss(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["correctness"].(map[string]any)["positive_control_accepted"] = 1
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("passing qualification accepted a missed positive control")
@@ -201,7 +202,7 @@ func TestValidateBenchmarkResultV01RejectsPositiveControlMiss(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsCorrectionRecallBelowOne(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["correctness"].(map[string]any)["correction_impact_recall"] = 0.99
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("passing qualification accepted incomplete correction-impact recall")
@@ -209,7 +210,7 @@ func TestValidateBenchmarkResultV01RejectsCorrectionRecallBelowOne(t *testing.T)
 }
 
 func TestValidateBenchmarkResultV01RejectsNonMonotonePercentiles(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["performance"].(map[string]any)["latency_ns"] = map[string]any{"p50": 1000, "p95": 900, "p99": 1100}
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("non-monotone latency percentiles accepted")
@@ -217,7 +218,7 @@ func TestValidateBenchmarkResultV01RejectsNonMonotonePercentiles(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsFixtureCountMismatch(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["corpus"].(map[string]any)["fixture_count"] = 41
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("fixture count mismatch accepted")
@@ -225,7 +226,7 @@ func TestValidateBenchmarkResultV01RejectsFixtureCountMismatch(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsReplayMismatchOnPass(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["correctness"].(map[string]any)["full_incremental_outputs_identical"] = false
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("passing qualification accepted a full/incremental replay mismatch")
@@ -233,7 +234,7 @@ func TestValidateBenchmarkResultV01RejectsReplayMismatchOnPass(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RequiresFalseAuthenticationMetric(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	delete(value["correctness"].(map[string]any), "false_authentication_count")
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("benchmark result omitted false-authentication metric")
@@ -241,7 +242,7 @@ func TestValidateBenchmarkResultV01RequiresFalseAuthenticationMetric(t *testing.
 }
 
 func TestValidateBenchmarkResultV01AllowsFailingExploratoryRun(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["run_class"] = "exploratory"
 	value["qualification_outcome"] = "indeterminate"
 	value["source"].(map[string]any)["working_tree_clean"] = false
@@ -255,7 +256,7 @@ func TestValidateBenchmarkResultV01AllowsFailingExploratoryRun(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsUnorderedTimestamps(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["ended_at"] = "2026-11-28T11:59:59Z"
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("unordered benchmark timestamps accepted")
@@ -263,14 +264,14 @@ func TestValidateBenchmarkResultV01RejectsUnorderedTimestamps(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsMalformedTrailingData(t *testing.T) {
-	raw := append(encodeBenchmarkResult(t, validBenchmarkResultV01()), []byte("not-json")...)
+	raw := append(encodeBenchmarkResult(t, syntheticBenchmarkResultV01()), []byte("not-json")...)
 	if err := ValidateBenchmarkResultV01(raw); err == nil {
 		t.Fatal("malformed trailing data accepted")
 	}
 }
 
 func TestValidateBenchmarkResultV01RejectsDuplicateJSONKeys(t *testing.T) {
-	raw := string(encodeBenchmarkResult(t, validBenchmarkResultV01()))
+	raw := string(encodeBenchmarkResult(t, syntheticBenchmarkResultV01()))
 	raw = strings.Replace(raw, `"run_id":"local-qualification-001"`, `"run_id":"shadow","run_id":"local-qualification-001"`, 1)
 	if err := ValidateBenchmarkResultV01([]byte(raw)); err == nil {
 		t.Fatal("duplicate run_id field accepted")
@@ -278,7 +279,7 @@ func TestValidateBenchmarkResultV01RejectsDuplicateJSONKeys(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["workload"].(map[string]any)["owner_count"] = 0
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("zero-owner workload accepted")
@@ -286,7 +287,7 @@ func TestValidateBenchmarkResultV01RejectsZeroOwners(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsQualificationBelowThirtyClasses(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	corpus["adversarial_class_count"] = 29
 	corpus["adversarial_class_ids"] = corpus["adversarial_class_ids"].([]any)[:29]
@@ -298,7 +299,7 @@ func TestValidateBenchmarkResultV01RejectsQualificationBelowThirtyClasses(t *tes
 }
 
 func TestValidateBenchmarkResultV01RejectsSymbolicFixturesOnQualification(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	corpus["symbolic_fixture_count"] = 1
 	corpus["fixture_count"] = corpus["executable_fixture_count"].(int) + 1
@@ -309,7 +310,7 @@ func TestValidateBenchmarkResultV01RejectsSymbolicFixturesOnQualification(t *tes
 
 
 func TestValidateBenchmarkResultV01RejectsDuplicateAdversarialClassIDs(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	ids := corpus["adversarial_class_ids"].([]any)
 	ids[29] = ids[0]
@@ -319,7 +320,7 @@ func TestValidateBenchmarkResultV01RejectsDuplicateAdversarialClassIDs(t *testin
 }
 
 func TestValidateBenchmarkResultV01RejectsAdversarialClassCountMismatch(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	value["corpus"].(map[string]any)["adversarial_class_count"] = 31
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("adversarial class count inconsistent with class IDs accepted")
@@ -328,7 +329,7 @@ func TestValidateBenchmarkResultV01RejectsAdversarialClassCountMismatch(t *testi
 
 
 func TestValidateBenchmarkResultV01RejectsUnpairedPositiveControlClass(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	corpus["positive_control_class_ids"] = corpus["positive_control_class_ids"].([]any)[:29]
 	value["correctness"].(map[string]any)["positive_control_total"] = 29
@@ -338,7 +339,7 @@ func TestValidateBenchmarkResultV01RejectsUnpairedPositiveControlClass(t *testin
 }
 
 func TestValidateBenchmarkResultV01RejectsFewerThanSixtyExecutableFixtures(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	corpus["fixture_count"] = 59
 	corpus["executable_fixture_count"] = 59
@@ -348,7 +349,7 @@ func TestValidateBenchmarkResultV01RejectsFewerThanSixtyExecutableFixtures(t *te
 }
 
 func TestValidateBenchmarkResultV01RequiresFixtureSetDigest(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	delete(value["corpus"].(map[string]any), "fixture_set_digest")
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("qualification without fixture-set digest accepted")
@@ -357,7 +358,7 @@ func TestValidateBenchmarkResultV01RequiresFixtureSetDigest(t *testing.T) {
 
 
 func TestValidateBenchmarkResultV01RejectsUnpairedHardNegativeClass(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	corpus["hard_negative_class_ids"] = corpus["hard_negative_class_ids"].([]any)[:29]
 	value["correctness"].(map[string]any)["hard_negative_total"] = 29
@@ -367,7 +368,7 @@ func TestValidateBenchmarkResultV01RejectsUnpairedHardNegativeClass(t *testing.T
 }
 
 func TestValidateBenchmarkResultV01RequiresOracleDigest(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	delete(value["corpus"].(map[string]any), "oracle_digest")
 	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
 		t.Fatal("qualification without independent oracle digest accepted")
@@ -375,7 +376,7 @@ func TestValidateBenchmarkResultV01RequiresOracleDigest(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsControlClassOutsideAdversarialSet(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	ids := corpus["positive_control_class_ids"].([]any)
 	ids[0] = "undeclared-class"
@@ -386,7 +387,7 @@ func TestValidateBenchmarkResultV01RejectsControlClassOutsideAdversarialSet(t *t
 
 
 func TestValidateBenchmarkResultV01RejectsDuplicateFixtureIDs(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	records := corpus["fixture_records"].([]any)
 	second := records[1].(map[string]any)
@@ -397,7 +398,7 @@ func TestValidateBenchmarkResultV01RejectsDuplicateFixtureIDs(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsDuplicateFixtureDigests(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	records := corpus["fixture_records"].([]any)
 	records[1].(map[string]any)["digest"] = records[0].(map[string]any)["digest"]
@@ -407,7 +408,7 @@ func TestValidateBenchmarkResultV01RejectsDuplicateFixtureDigests(t *testing.T) 
 }
 
 func TestValidateBenchmarkResultV01RejectsMissingFixtureRecord(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	records := corpus["fixture_records"].([]any)
 	corpus["fixture_records"] = records[:59]
@@ -417,7 +418,7 @@ func TestValidateBenchmarkResultV01RejectsMissingFixtureRecord(t *testing.T) {
 }
 
 func TestValidateBenchmarkResultV01RejectsMultiplePositiveFixturesForClass(t *testing.T) {
-	value := validBenchmarkResultV01()
+	value := syntheticBenchmarkResultV01()
 	corpus := value["corpus"].(map[string]any)
 	records := corpus["fixture_records"].([]any)
 	records[1].(map[string]any)["control_kind"] = "positive_control"
