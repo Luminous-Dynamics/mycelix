@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix.craft.decision-separating-observation.v0.1.schema.json",
+  "title": "Craft Decision-Separating Observation V0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "case_id",
+    "scope_basis",
+    "actions",
+    "worlds",
+    "observations"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "mycelix.craft.decision-separating-observation.v0.1"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_basis": {
+      "enum": [
+        "declared_set",
+        "not_evaluated"
+      ]
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "worlds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "losses"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "losses": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "hard_violations": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "outcome_by_world"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "outcome_by_world": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "acquisition_cost_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delay_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "burden_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failure_domain_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "existing_failure_domain_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
