@@ -335,3 +335,32 @@ func TestValidateBenchmarkResultV01RequiresFixtureSetDigest(t *testing.T) {
 		t.Fatal("qualification without fixture-set digest accepted")
 	}
 }
+
+
+func TestValidateBenchmarkResultV01RejectsUnpairedHardNegativeClass(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	corpus["hard_negative_class_ids"] = corpus["hard_negative_class_ids"].([]any)[:29]
+	value["correctness"].(map[string]any)["hard_negative_total"] = 29
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification missing a hard negative for one adversarial class accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RequiresOracleDigest(t *testing.T) {
+	value := validBenchmarkResultV01()
+	delete(value["corpus"].(map[string]any), "oracle_digest")
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("qualification without independent oracle digest accepted")
+	}
+}
+
+func TestValidateBenchmarkResultV01RejectsControlClassOutsideAdversarialSet(t *testing.T) {
+	value := validBenchmarkResultV01()
+	corpus := value["corpus"].(map[string]any)
+	ids := corpus["positive_control_class_ids"].([]any)
+	ids[0] = "undeclared-class"
+	if err := ValidateBenchmarkResultV01(encodeBenchmarkResult(t, value)); err == nil {
+		t.Fatal("positive control for an undeclared adversarial class accepted")
+	}
+}
