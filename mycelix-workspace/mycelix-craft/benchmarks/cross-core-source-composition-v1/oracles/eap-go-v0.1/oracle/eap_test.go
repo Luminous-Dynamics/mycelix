@@ -196,3 +196,54 @@ func TestSchemaIsValidJSONAndAdvisoryOnly(t *testing.T) {
 	effects,ok:=properties["authorized_effects"].(map[string]any)
 	if !ok || effects["maxItems"]!=float64(0) { t.Fatal("schema permits operational effects") }
 }
+
+
+func TestEAPJSONWireRoundTripPreservesCanonicalDigest(t *testing.T) {
+	p:=base()
+	before,err:=CanonicalDigest(p)
+	if err!=nil { t.Fatal(err) }
+	wire,err:=EncodeJSON(p)
+	if err!=nil { t.Fatal(err) }
+	decoded,err:=DecodeJSON(wire)
+	if err!=nil { t.Fatalf("decode EAP wire proposal: %v",err) }
+	r:=Validate(decoded)
+	if len(r.Violations)!=0 { t.Fatalf("decoded EAP proposal invalid: %#v",r.Violations) }
+	after,err:=CanonicalDigest(decoded)
+	if err!=nil { t.Fatal(err) }
+	if before!=after { t.Fatalf("wire round trip changed proposal digest: %s != %s",before,after) }
+}
+
+func TestEAPJSONWireRejectsDuplicateUnknownAndTrailingFields(t *testing.T) {
+	wire,err:=EncodeJSON(base())
+	if err!=nil { t.Fatal(err) }
+	duplicate:=strings.Replace(string(wire), `"proposal_id":"proposal-001"`, `"proposal_id":"proposal-001","proposal_id":"forged"`,1)
+	if duplicate==string(wire) { t.Fatal("duplicate-key test fixture did not match proposal_id") }
+	if _,err:=DecodeJSON([]byte(duplicate)); err==nil { t.Fatal("duplicate JSON key accepted") }
+	unknown:=strings.TrimSuffix(string(wire),"}") + `, "forged_effect":true}`
+	if _,err:=DecodeJSON([]byte(unknown)); err==nil { t.Fatal("unknown JSON field accepted") }
+	if _,err:=DecodeJSON(append(wire,[]byte("{}")...)); err==nil { t.Fatal("trailing JSON value accepted") }
+}
+
+func TestEAPSchemaRequiresNoEffectsAndPriorBindings(t *testing.T) {
+	data,err:=os.ReadFile(filepath.Join("..","schema","evidence-acquisition-proposal-v0.1.schema.json"))
+	if err!=nil { t.Fatal(err) }
+	var schema map[string]any
+	if err:=json.Unmarshal(data,&schema); err!=nil { t.Fatalf("EAP schema invalid JSON: %v",err) }
+	properties:=schema["properties"].(map[string]any)
+	effects:=properties["authorized_effects"].(map[string]any)
+	if effects["maxItems"]!=float64(0) { t.Fatal("schema permits authorized effects") }
+	prior:=properties["prior_decision_basis"].(map[string]any)
+	priorRequired:=prior["required"].([]any)
+	for _,name:=range []string{"receipt","frontier_digest","decision_loss_profile_digest","scope_digest"} {
+		found:=false
+		for _,candidate:=range priorRequired { if candidate==name { found=true;break } }
+		if !found { t.Errorf("prior DBC schema does not require %s",name) }
+	}
+	evsi:=properties["evsi_evaluation"].(map[string]any)
+	evsiRequired:=evsi["required"].([]any)
+	for _,name:=range []string{"frontier_digest","scope_digest","decision_id","loss_profile_digest","candidate_set_digest","observation_model_digest"} {
+		found:=false
+		for _,candidate:=range evsiRequired { if candidate==name { found=true;break } }
+		if !found { t.Errorf("EVSI schema does not require %s",name) }
+	}
+}
