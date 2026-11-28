@@ -5,8 +5,10 @@ DIR="$ROOT/itops-harness-operations-reference"
 SCHEMA="$DIR/itops-harness-operations-v0.1.schema.json"
 CORPUS="${ITOPS_HARNESS_OPS_CORPUS_PATH:-$DIR/itops-harness-operations-v0.1.json}"
 command -v jq >/dev/null || { echo "ERROR: jq is required" >&2; exit 2; }
+command -v python3 >/dev/null || { echo "ERROR: python3 is required for Draft 2020-12 validation" >&2; exit 2; }
 test -s "$SCHEMA"
 test -s "$CORPUS"
+python3 "$DIR/validate-json-schema.py" "$SCHEMA" "$CORPUS"
 jq -e '.["$schema"] == "https://json-schema.org/draft/2020-12/schema" and .type == "object" and .additionalProperties == false and .["$defs"].group.type == "object"' "$SCHEMA" >/dev/null
 jq -e '
   def arm($g; $id): [ $g.arms[] | select(.arm_id == $id) ][0];
