@@ -202,7 +202,7 @@ Static fixtures are present; the parser/importer/exporter and round-trip runner 
 
 ### 13.1 Decision Identifiability Envelope (CDIE)
 
-The benchmark adds a decision-identifiability track, implemented separately in [CDIE v0.1 specification](CRAFT-DECISION-IDENTIFIABILITY-ENVELOPE-V0.1.md), [issue #6865](https://github.com/Luminous-Dynamics/mycelix/issues/6865) and [draft oracle PR #6866](https://github.com/Luminous-Dynamics/mycelix/pull/6866).
+The benchmark adds a decision-identifiability track, implemented separately in [CDIE v0.1 specification](https://github.com/Luminous-Dynamics/mycelix/blob/research/craft-decision-identifiability-v0.1-20261128/mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/CRAFT-DECISION-IDENTIFIABILITY-ENVELOPE-V0.1.md), [issue #6865](https://github.com/Luminous-Dynamics/mycelix/issues/6865) and [draft oracle PR #6866](https://github.com/Luminous-Dynamics/mycelix/pull/6866).
 
 For the finite set of worlds compatible with the admitted evidence, evaluate:
 
