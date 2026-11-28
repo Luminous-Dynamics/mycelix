@@ -81,6 +81,10 @@ pub struct LineageAttestationV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LineageAttestationContextV1 {
+    /// Expected issuer identity and key epoch; the precheck binds these values but does not authenticate them.
+    pub issuer_ref: String,
+    pub issuer_key_ref: String,
+    pub issuer_key_epoch: u64,
     pub evidence_ref: String,
     pub scope_digest: [u8; 32],
     pub graph_digest: [u8; 32],
