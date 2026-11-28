@@ -28,7 +28,7 @@ The factors and oracle are public in this reference fixture. A future evaluated 
 
 - Draft 2020-12 JSON Schema.
 - jq semantic gate for exact 2x2 arm coverage, matched run profile, counterfactual interaction contrast, terminal persistence and hidden oracle policy.
-- Nine adversarial mutation controls.
+- Thirteen adversarial mutation controls.
 
 The jq gate is a dependency-light semantic validator, not a full JSON Schema engine. Cross-arm equality and difference-in-differences are checked in jq because JSON Schema does not express those relationships conveniently.
 
