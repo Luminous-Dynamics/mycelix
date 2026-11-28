@@ -488,6 +488,15 @@ fn validate_relation_claim_declaration(root: &Value) -> Result<(), TemporalRelat
             kind,
         )?;
     }
+    match declared_ocel_attribute_type(
+        root,
+        "objectTypes",
+        "temporal_relation_claim",
+        "valid_to",
+    )? {
+        None | Some("time") => {}
+        Some(_) => return Err(TemporalRelationshipErrorV1::InvalidOcel20),
+    }
     Ok(())
 }
 
@@ -1343,6 +1352,32 @@ mod tests {
                 attributes.insert(0, duplicate);
             } else {
                 attributes.push(duplicate);
+            }
+            let input = serde_json::to_string(&candidate).unwrap();
+            assert_eq!(
+                parse_temporal_relationships_ocel20(&input),
+                Err(TemporalRelationshipErrorV1::InvalidOcel20)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_optional_valid_to_schema_even_when_no_claim_uses_it() {
+        let digest = digest_hex(&[0x11; 32]);
+        let fixture = temporal_relationship_ocel_fixture(&digest, &digest);
+        for duplicate_first in [false, true] {
+            let mut candidate = fixture.clone();
+            let attributes = candidate["objectTypes"][2]["attributes"]
+                .as_array_mut()
+                .unwrap();
+            let declaration = serde_json::json!({"name": "valid_to", "type": "time"});
+            let conflicting = serde_json::json!({"name": "valid_to", "type": "string"});
+            if duplicate_first {
+                attributes.push(conflicting);
+                attributes.push(declaration);
+            } else {
+                attributes.push(declaration);
+                attributes.push(conflicting);
             }
             let input = serde_json::to_string(&candidate).unwrap();
             assert_eq!(
