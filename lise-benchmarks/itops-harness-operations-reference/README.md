@@ -31,12 +31,12 @@ The public manifest exposes the evaluator schedule for maintainers. An evaluated
 
 ## Validation
 
-- Draft 2020-12 JSON Schema.
+- Draft 2020-12 JSON Schema, fully checked with pinned `jsonschema==4.26.0` in the exact-revision workflow.
 - jq semantic gate for exact arm coverage, matched profiles, schedule visibility, transition coverage, known-answer interaction contrasts and hard-gate states.
-- Thirteen adversarial mutation controls.
-- Exact-revision workflow.
+- Sixteen adversarial mutation controls, including schema-level unknown-property, required-field and numeric-bound failures.
+- Exact-revision workflow with pinned validation dependencies.
 
-The jq gate is a dependency-light semantic check, not a complete JSON Schema implementation. The public groups are synthetic known answers, not empirical estimates.
+The jq gate remains a dependency-light semantic check; JSON Schema validation is a separate, explicit gate. The public groups are synthetic known answers, not empirical estimates.
 
 ## Reuse and claim boundaries
 
