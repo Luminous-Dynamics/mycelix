@@ -1,0 +1,11 @@
+{
+  "schema_id": "mycelix.craft.decision-identifiability.v0.1",
+  "case_id": "CDIE-003-hard-safety-veto",
+  "coverage_basis": "fixture_exhaustive",
+  "actions": ["release", "hold"],
+  "fallback_action": "hold",
+  "worlds": [
+    {"id": "clear", "losses": {"release": 0, "hold": 3}},
+    {"id": "contaminated", "losses": {"release": 0, "hold": 5}, "hard_violations": ["release"]}
+  ]
+}
