@@ -41,6 +41,15 @@ jq -e '
     . as $c
     | ((.expected_operation_ids | length) == (.expected_operation_ids | unique | length))
     and (([.actions[].operation_id] | length) == ([.actions[].operation_id] | unique | length))
+    and (
+      if .family == "healthy_baseline_noop" then
+        (.expected_operation_ids | length) == 0
+        and (.actions | length) == 0
+      else
+        (.expected_operation_ids | length) > 0
+        and (.actions | length) > 0
+      end
+    )
     and (([.actions[].operation_id] | sort) == ($c.expected_operation_ids | sort))
     and (([.evidence[].evidence_id] | length) == ([.evidence[].evidence_id] | unique | length))
     and all(.evidence[].operation_ids[];
