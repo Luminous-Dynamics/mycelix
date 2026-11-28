@@ -1,0 +1,56 @@
+name: Normalize standalone Craft Go oracle formatting
+
+on:
+  push:
+    branches:
+      - research/craft-dbc-capsule-oracle-v0.1-20261128
+      - research/craft-eap-receipt-v0.1-20261128
+      - research/craft-evsi-go-oracle-v0.1-20261128
+    paths:
+      - ".github/workflows/craft-go-oracle-autoformat.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/**/oracle/*.go"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: craft-go-oracle-autoformat-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    name: Format Go sources without executing repository code
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout pushed branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Install pinned Go 1.23.2
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: 1.23.2
+          cache: false
+          check-latest: false
+      - name: Normalize and commit formatting-only changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles -type f -path '*/oracle/*.go' -print | sort)
+          if (("${#files[@]}" == 0)); then
+            echo "No standalone Go oracle sources present."
+            exit 0
+          fi
+          gofmt -w "${files[@]}"
+          if git diff --quiet -- "${files[@]}"; then
+            echo "All standalone Go oracle sources already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${files[@]}"
+          git commit -m "style(craft): normalize standalone Go oracle formatting"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
