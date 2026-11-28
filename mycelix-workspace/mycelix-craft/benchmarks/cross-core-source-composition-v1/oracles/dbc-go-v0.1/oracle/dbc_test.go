@@ -241,3 +241,57 @@ func TestPolicyAndOutcomeStageReceiptsAreBound(t *testing.T) {
  for i:=range c.External { if c.External[i].Slot=="policy" { c.External[i].Digest=d(333) } }
  expectCode(t,c,"POLICY_STAGE_BINDING_MISMATCH")
 }
+
+
+func TestJSONWireRoundTripPreservesCanonicalDBC(t *testing.T) {
+	original := base()
+	before, err := CanonicalDigest(original)
+	if err != nil { t.Fatal(err) }
+	wire, err := EncodeJSON(original)
+	if err != nil { t.Fatal(err) }
+	decoded, err := DecodeJSON(wire)
+	if err != nil { t.Fatalf("strict DBC JSON decode failed: %v", err) }
+	if err := Validate(decoded); err != nil { t.Fatalf("decoded capsule did not validate: %v", err) }
+	after, err := CanonicalDigest(decoded)
+	if err != nil { t.Fatal(err) }
+	if before != after { t.Fatalf("wire round-trip changed canonical DBC: %s != %s", before, after) }
+}
+
+func TestJSONWireDecoderRejectsUnknownFieldsAndTrailingValues(t *testing.T) {
+	wire, err := EncodeJSON(base())
+	if err != nil { t.Fatal(err) }
+	unknown := strings.TrimSuffix(string(wire), "}") + `,"unvalidated_extension":true}`
+	if _, err := DecodeJSON([]byte(unknown)); err == nil {
+		t.Fatal("unknown top-level field was silently ignored")
+	}
+	if _, err := DecodeJSON(append(wire, []byte("{}")...)); err == nil {
+		t.Fatal("a second JSON value after the capsule was accepted")
+	}
+}
+
+func TestWireSchemaRequiresCrossOwnerBindings(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "schema", "decision-basis-capsule-v0.1.schema.json"))
+	if err != nil { t.Fatal(err) }
+	var schema map[string]any
+	if err := json.Unmarshal(b, &schema); err != nil { t.Fatalf("schema is invalid JSON: %v", err) }
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok { t.Fatal("schema has no top-level properties") }
+	checks := map[string][]string{
+		"progress_antichain": {"owner_inventory_digest"},
+		"owner_universe": {"authentication", "frontier_digest"},
+		"temporal": {"frontier_digest", "source_corpus_digest"},
+		"action_plan": {"coverage_revision"},
+		"outcome": {"execution_digest", "plan_digest", "mutation_scope", "same_scope_mutation_attempt"},
+	}
+	for field, requiredFields := range checks {
+		obj, ok := properties[field].(map[string]any)
+		if !ok { t.Fatalf("schema missing %s object", field) }
+		required, ok := obj["required"].([]any)
+		if !ok { t.Fatalf("%s has no required-field list", field) }
+		for _, requiredField := range requiredFields {
+			found := false
+			for _, candidate := range required { if candidate == requiredField { found = true; break } }
+			if !found { t.Errorf("%s does not require %s", field, requiredField) }
+		}
+	}
+}
