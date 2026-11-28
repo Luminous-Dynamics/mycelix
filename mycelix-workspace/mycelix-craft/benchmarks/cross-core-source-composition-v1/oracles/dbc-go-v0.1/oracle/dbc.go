@@ -54,6 +54,7 @@ type OutcomeBinding struct { Receipt Ref; Status, Reconciliation string }
 type Capsule struct {
  SchemaID, ProfileRef, ProfileDigest, DecisionID, QueryID, QueryDigest, QuerySchema, ScopeDigest, ValidAt string
  Policy Ref
+ Temporal struct { OCELProfile, SourceCorpus, Projection, Replay Ref }
  Frontier FrontierBinding
  Progress ProgressBinding
  Owner OwnerBinding
@@ -110,6 +111,23 @@ var externalSlots = map[string]Stage{
 func same(a,b []string) bool { if len(a)!=len(b){return false}; x:=append([]string{},a...); y:=append([]string{},b...); sort.Strings(x); sort.Strings(y); return strings.Join(x,"|")==strings.Join(y,"|") }
 func established(c map[string]State, d string) bool { return c[d]==Established }
 
+func externalRefs(c Capsule) map[string]Ref {
+ return map[string]Ref{
+  "causal_event_frontier": c.Frontier.Receipt,
+  "progress_antichain": c.Progress.Receipt,
+  "owner_universe": c.Owner.Receipt,
+  "ocel_profile": c.Temporal.OCELProfile,
+  "source_corpus": c.Temporal.SourceCorpus,
+  "projection": c.Temporal.Projection,
+  "replay": c.Temporal.Replay,
+  "policy": c.Policy,
+  "authority": c.Authority.Receipt,
+  "action_plan": c.Action.Receipt,
+  "action_coverage": c.Action.Coverage,
+  "outcome": c.Outcome.Receipt,
+ }
+}
+
 func Validate(c Capsule) error {
  if c.SchemaID!="mycelix.craft.decision-basis-capsule.v0.1" || c.ProfileRef!="mycelix.djcc.full-evidence-execution.v0.1" { return fail("PROFILE_MISMATCH","unsupported DBC schema/profile") }
  for _,d:=range []string{c.ProfileDigest,c.QueryDigest,c.ScopeDigest} { if !digestOK(d) { return fail("DIGEST_INVALID","malformed profile/query/scope digest") } }
@@ -158,6 +176,8 @@ func Validate(c Capsule) error {
   if _,ok:=expected[k]; ok { return fail("EXTERNAL_BINDING_DUPLICATE",k) }
   owner,ok:=externalSlots[b.Slot]
   if !ok || owner!=b.Consumer || !refOK(Ref{b.ReceiptID,b.Schema,b.Digest}) { return fail("EXTERNAL_BINDING_INVALID",k) }
+  want:=externalRefs(c)[b.Slot]
+  if b.ReceiptID!=want.ID || b.Schema!=want.Schema || b.Digest!=want.Digest { return fail("EXTERNAL_BINDING_MISMATCH",k) }
   expected[k]=b
  }
  if len(expected)!=len(externalSlots) { return fail("EXTERNAL_BINDINGS_INCOMPLETE","all 12 source/profile references required") }
