@@ -214,6 +214,40 @@
         "SYN-010"
       ],
       "target": "zero invalid frontier acceptance and zero historical receipt mutation"
+    },
+    {
+      "id": "ocel21_cross_format_semantic_interoperability",
+      "metrics": [
+        "json_csv_bundle_semantic_projection_equivalence",
+        "e2o_edge_preservation",
+        "o2o_edge_preservation",
+        "qualifier_preservation",
+        "object_attribute_history_preservation",
+        "primitive_type_preservation",
+        "object_identity_type_consistency",
+        "metadata_mapping_integrity",
+        "round_trip_projection_digest"
+      ],
+      "scenarios": [
+        "ocel_multi_object_event",
+        "qualified_e2o",
+        "qualified_o2o_without_shared_event",
+        "timed_object_attribute_change",
+        "multiple_same_type_objects",
+        "missing_object_change_table",
+        "bad_type_filename_mapping",
+        "id_reused_across_object_types",
+        "event_object_relation_qualifier_loss",
+        "object_object_relation_loss"
+      ],
+      "formats": [
+        "OCEL_2.0_JSON",
+        "OCEL_2.1_single_file_CSV",
+        "OCEL_2.1_bundled_CSV",
+        "OCEL_2.1_bundled_Parquet"
+      ],
+      "fixture": "fixtures/ocel21-interchange/ocel21-interchange-parity-v0.1.json",
+      "target": "100% frozen semantic KAT agreement for each implemented format; unsupported formats NotComparable/NotImplemented, never silently accepted"
     }
   ],
   "comparators": [
@@ -314,5 +348,19 @@
       "canonical_digests",
       "mutation_provenance"
     ]
+  },
+  "ocel21_fixture_registry": {
+    "specification": "OCEL 2.1.0pre5 (2026-10-01)",
+    "spec_url": "https://www.ocel-standard.org/2.1/ocel20_specification.pdf",
+    "profile": "CRAFT-OCEL21-INTERCHANGE-PARITY-V0.1.md",
+    "fixture_root": "fixtures/ocel21-interchange/",
+    "fixture_cases": [
+      "ocel21-mini.json",
+      "ocel21-mini.ocel.csv",
+      "bundled-csv/ocel-meta.json",
+      "ocel21-interchange-parity-v0.1.json"
+    ],
+    "bundled_csv_files": "bundled-csv/**/*.csv",
+    "bundled_parquet_status": "NotImplemented"
   }
 }
