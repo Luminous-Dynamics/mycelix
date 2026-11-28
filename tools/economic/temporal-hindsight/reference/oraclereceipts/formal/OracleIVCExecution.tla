@@ -8,14 +8,17 @@ VARIABLES
     stepCount,
     stateHead,
     proofHead,
+    adviceHead,
     receiptFrontier,
     receiptHighWater,
     pending,
     pendingBaseState,
     pendingBaseProof,
+    pendingBaseAdvice,
     pendingBaseFrontier,
     pendingTargetState,
     pendingTargetProof,
+    pendingTargetAdvice,
     pendingTargetFrontier
 
 vars ==
@@ -27,14 +30,17 @@ Init ==
     /\ stepCount = 0
     /\ stateHead = 0
     /\ proofHead = 0
+    /\ adviceHead = 0
     /\ receiptFrontier = 0
     /\ receiptHighWater = 0
     /\ pending = FALSE
     /\ pendingBaseState = 0
     /\ pendingBaseProof = 0
+    /\ pendingBaseAdvice = 0
     /\ pendingBaseFrontier = 0
     /\ pendingTargetState = 0
     /\ pendingTargetProof = 0
+    /\ pendingTargetAdvice = 0
     /\ pendingTargetFrontier = 0
 
 ApplyKnownStep ==
@@ -44,11 +50,12 @@ ApplyKnownStep ==
     /\ stepCount' = stepCount + 1
     /\ stateHead' = stateHead + 1
     /\ proofHead' = proofHead + 1
+    /\ adviceHead' = adviceHead + 1
     /\ receiptFrontier' = receiptFrontier + 1
     /\ receiptHighWater' = receiptFrontier + 1
     /\ UNCHANGED << pending, pendingBaseState, pendingBaseProof,
                     pendingBaseFrontier, pendingTargetState,
-                    pendingTargetProof, pendingTargetFrontier >>
+                    pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
 PrepareUnknownStep ==
     /\ ~pending
@@ -57,9 +64,11 @@ PrepareUnknownStep ==
     /\ pending' = TRUE
     /\ pendingBaseState' = stateHead
     /\ pendingBaseProof' = proofHead
+    /\ pendingBaseAdvice' = adviceHead
     /\ pendingBaseFrontier' = receiptFrontier
     /\ pendingTargetState' = stateHead + 1
     /\ pendingTargetProof' = proofHead + 1
+    /\ pendingTargetAdvice' = adviceHead + 1
     /\ pendingTargetFrontier' = receiptFrontier + 1
     /\ UNCHANGED << stepCount, stateHead, proofHead,
                     receiptFrontier, receiptHighWater >>
@@ -69,12 +78,13 @@ ReconcileApplied ==
     /\ stepCount' = stepCount + 1
     /\ stateHead' = pendingTargetState
     /\ proofHead' = pendingTargetProof
+    /\ adviceHead' = pendingTargetAdvice
     /\ receiptFrontier' = pendingTargetFrontier
     /\ receiptHighWater' = pendingTargetFrontier
     /\ pending' = FALSE
     /\ UNCHANGED << pendingBaseState, pendingBaseProof,
                     pendingBaseFrontier, pendingTargetState,
-                    pendingTargetProof, pendingTargetFrontier >>
+                    pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
 ReconcileNotApplied ==
     /\ pending
@@ -140,19 +150,23 @@ TypeOK ==
     /\ stepCount \in Counts
     /\ stateHead \in Counts
     /\ proofHead \in Counts
+    /\ adviceHead \in Counts
     /\ receiptFrontier \in Counts
     /\ receiptHighWater \in Counts
     /\ pending \in BOOLEAN
     /\ pendingBaseState \in Counts
     /\ pendingBaseProof \in Counts
+    /\ pendingBaseAdvice \in Counts
     /\ pendingBaseFrontier \in Counts
     /\ pendingTargetState \in Counts
     /\ pendingTargetProof \in Counts
+    /\ pendingTargetAdvice \in Counts
     /\ pendingTargetFrontier \in Counts
 
 StateProofHeadsConsistent ==
     /\ stateHead = stepCount
     /\ proofHead = stepCount
+    /\ adviceHead = stepCount
 
 ReceiptFrontierMonotone ==
     receiptFrontier >= receiptHighWater
@@ -161,12 +175,14 @@ UnknownOutcomeFreezesHeads ==
     pending =>
         /\ stateHead = pendingBaseState
         /\ proofHead = pendingBaseProof
+        /\ adviceHead = pendingBaseAdvice
         /\ receiptFrontier = pendingBaseFrontier
 
 PendingTargetIsNext ==
     pending =>
         /\ pendingTargetState = stateHead + 1
         /\ pendingTargetProof = proofHead + 1
+        /\ pendingTargetAdvice = adviceHead + 1
         /\ pendingTargetFrontier = receiptFrontier + 1
 
 =============================================================================
