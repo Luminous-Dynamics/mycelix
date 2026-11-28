@@ -92,3 +92,27 @@ The planned MMR adversarial classes DJCC-009..017 are specified in the certifica
 
 
 The DJCC seed-oracle workflow prints the exact gofmt diff when its formatting gate fails so formatting fixes are evidence-driven rather than manually approximated.
+
+
+## Benchmark-result qualification validator
+
+The benchmark-run schema is at `DJCC_BENCHMARK_RESULT_V0_1.schema.json`; its dependency-free Go semantic validator is `oracle/benchmark_result.go`.
+
+For a qualification record, the current contract requires:
+- at least 30 distinct named scenario/adversarial classes;
+- the exact same class set declared for positive controls and hard negatives;
+- exactly one fixture record of each control kind per class;
+- at least 60 executable fixture records and zero symbolic fixtures;
+- unique fixture IDs and unique SHA-256 content digests;
+- fixture ID, class ID, control kind, byte length, media type, generator version and deterministic seed per record;
+- fixture-set digest and independent oracle version/digest;
+- exact equality between fixture-record counts and the positive/hard-negative correctness denominators;
+- at least 30 timed trials per stable qualification cell and all existing non-compensatory correctness gates.
+
+The Go validator checks cross-field and set invariants that JSON Schema alone cannot express. The schema defines the structural conditional requirements; the Go validator enforces exact class pairing and fixture record reconciliation.
+
+The validator's positive unit-test input is created by `syntheticBenchmarkResultV01`. Its hashes, byte sizes, machine details and performance values are placeholders used to test validator behavior. They are **not** actual fixture bytes, benchmark observations or a DJCC qualification result.
+
+## Current corpus boundary
+
+The eight entries in `DJCC_V0_1_SEEDS.json` remain symbolic seed specifications, not executable fixture packages. The 30-class/60-fixture requirement is a release contract, not evidence that those fixture files already exist. Until #6875 checks in frozen fixture bytes and both independent Go and Rust consumers read the same bytes, no corpus qualification or mutation-kill credit is claimed.
