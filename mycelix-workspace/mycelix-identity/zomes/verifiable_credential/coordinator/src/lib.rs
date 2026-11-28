@@ -2573,16 +2573,7 @@ mod tests {
             suspension_end: None,
             checked_at: Timestamp::from_micros(0),
         };
-        let mapped = match check.status {
-            RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-            RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                check.reason.unwrap_or_else(|| "No reason provided".into()),
-            ),
-            RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                check.reason.unwrap_or_else(|| "No reason provided".into()),
-                check.checked_at.to_string(),
-            ),
-        };
+        let mapped = map_revocation_check(check);
         assert!(matches!(mapped, CredentialRevocationStatus::Active));
 
         // Revoked with reason
@@ -2596,20 +2587,7 @@ mod tests {
             suspension_end: None,
             checked_at: Timestamp::from_micros(1_000_000),
         };
-        let mapped_revoked = match check_revoked.status {
-            RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-            RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                check_revoked
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-            ),
-            RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                check_revoked
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-                check_revoked.checked_at.to_string(),
-            ),
-        };
+        let mapped_revoked = map_revocation_check(check_revoked);
         assert!(
             matches!(mapped_revoked, CredentialRevocationStatus::Revoked(ref r) if r == "Key compromised")
         );
@@ -2625,20 +2603,7 @@ mod tests {
             suspension_end: None,
             checked_at: Timestamp::from_micros(0),
         };
-        let mapped_no_reason = match check_no_reason.status {
-            RevocationStatusMirror::Active => CredentialRevocationStatus::Active,
-            RevocationStatusMirror::Revoked => CredentialRevocationStatus::Revoked(
-                check_no_reason
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-            ),
-            RevocationStatusMirror::Suspended => CredentialRevocationStatus::Suspended(
-                check_no_reason
-                    .reason
-                    .unwrap_or_else(|| "No reason provided".into()),
-                check_no_reason.checked_at.to_string(),
-            ),
-        };
+        let mapped_no_reason = map_revocation_check(check_no_reason);
         assert!(
             matches!(mapped_no_reason, CredentialRevocationStatus::Revoked(ref r) if r == "No reason provided")
         );
