@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -374,6 +375,107 @@ func strictlyOrdered(values []string, order []string) bool {
 	return true
 }
 
+type expectedProfileV01 struct {
+	RequiredClaims       []string
+	AllowedNotApplicable []string
+	ClaimStages          map[string][]string
+	DependencyClaims     map[string]map[string][]string
+}
+
+var expectedProfilesV01 = map[string]expectedProfileV01{
+	"mycelix.djcc.full-evidence-execution.v0.1": {
+		RequiredClaims: []string{"authentication", "authority", "completeness", "effect", "truth"},
+		AllowedNotApplicable: []string{},
+		ClaimStages: map[string][]string{
+			"authentication": {"verifier_frontier", "source_trust"},
+			"authority": {"authorization"},
+			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
+			"effect": {"execution", "outcome"},
+			"truth": {"query", "policy", "outcome"},
+		},
+		DependencyClaims: map[string]map[string][]string{
+			"source_trust": {
+				"verifier_frontier": {"authentication", "completeness"},
+			},
+			"semantic_projection": {
+				"verifier_frontier": {"authentication"},
+				"source_trust": {"authentication"},
+			},
+			"query": {
+				"verifier_frontier": {"authentication", "completeness"},
+				"source_trust": {"authentication", "completeness"},
+				"semantic_projection": {"authentication", "completeness"},
+			},
+			"policy": {
+				"query": {"authentication", "completeness", "truth"},
+			},
+			"authorization": {
+				"verifier_frontier": {"authentication"},
+				"policy": {"authentication", "truth"},
+			},
+			"execution": {
+				"authorization": {"authentication", "authority"},
+			},
+			"outcome": {
+				"source_trust": {"authentication"},
+				"semantic_projection": {"completeness"},
+				"execution": {"effect"},
+			},
+		},
+	},
+	"mycelix.djcc.historical-decision-only.v0.1": {
+		RequiredClaims: []string{"authentication", "authority", "completeness", "truth"},
+		AllowedNotApplicable: []string{"execution", "outcome"},
+		ClaimStages: map[string][]string{
+			"authentication": {"verifier_frontier", "source_trust"},
+			"authority": {"authorization"},
+			"completeness": {"verifier_frontier", "source_trust", "semantic_projection", "query"},
+			"truth": {"query", "policy"},
+		},
+		DependencyClaims: map[string]map[string][]string{
+			"source_trust": {
+				"verifier_frontier": {"authentication", "completeness"},
+			},
+			"semantic_projection": {
+				"verifier_frontier": {"authentication"},
+				"source_trust": {"authentication"},
+			},
+			"query": {
+				"verifier_frontier": {"authentication", "completeness"},
+				"source_trust": {"authentication", "completeness"},
+				"semantic_projection": {"authentication", "completeness"},
+			},
+			"policy": {
+				"query": {"authentication", "completeness", "truth"},
+			},
+			"authorization": {
+				"verifier_frontier": {"authentication"},
+				"policy": {"authentication", "truth"},
+			},
+		},
+	},
+}
+
+func ValidateProfileAgainstIndependentOracle(profile CompositionProfile) error {
+	expected, ok := expectedProfilesV01[profile.ProfileRef]
+	if !ok {
+		return fmt.Errorf("unregistered DJCC profile %q", profile.ProfileRef)
+	}
+	if !reflect.DeepEqual(profile.RequiredClaims, expected.RequiredClaims) {
+		return fmt.Errorf("%s required root claim set differs from independent oracle", profile.ProfileRef)
+	}
+	if !reflect.DeepEqual(profile.AllowedNotApplicable, expected.AllowedNotApplicable) {
+		return fmt.Errorf("%s NotApplicable stage set differs from independent oracle", profile.ProfileRef)
+	}
+	if !reflect.DeepEqual(profile.ClaimStages, expected.ClaimStages) {
+		return fmt.Errorf("%s root claim-stage ownership differs from independent oracle", profile.ProfileRef)
+	}
+	if !reflect.DeepEqual(profile.DependencyClaims, expected.DependencyClaims) {
+		return fmt.Errorf("%s dependency claim-edge matrix differs from independent oracle", profile.ProfileRef)
+	}
+	return nil
+}
+
 func ValidateProfileManifest(manifest ProfileManifest) error {
 	if manifest.Schema != "mycelix.djcc-composition-profiles.v0.1" {
 		return errors.New("unsupported DJCC composition profile manifest schema")
@@ -405,6 +507,9 @@ func ValidateProfileManifest(manifest ProfileManifest) error {
 		}
 		if len(profile.ClaimStages) != len(profile.RequiredClaims) {
 			return fmt.Errorf("%s claim-stage map must cover each required claim exactly once", profile.ProfileRef)
+		}
+		if err := ValidateProfileAgainstIndependentOracle(profile); err != nil {
+			return err
 		}
 		for _, claim := range profile.RequiredClaims {
 			stages, ok := profile.ClaimStages[claim]
