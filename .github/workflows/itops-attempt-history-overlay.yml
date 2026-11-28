@@ -1,0 +1,41 @@
+name: ITOPS Attempt-History Overlay
+on:
+  pull_request:
+    branches:
+      - research/itops-outcome-denominator-hardening-v0-1
+    paths:
+      - "lise-benchmarks/itops-attempt-history-overlay/**"
+      - ".github/workflows/itops-attempt-history-overlay.yml"
+  push:
+    branches:
+      - research/itops-attempt-history-overlay-v0-1
+    paths:
+      - "lise-benchmarks/itops-attempt-history-overlay/**"
+      - ".github/workflows/itops-attempt-history-overlay.yml"
+permissions:
+  contents: read
+concurrency:
+  group: itops-attempt-history-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  reference-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify exact checked-out revision
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -z "$(git status --porcelain)"
+      - name: Check jq and fixture syntax
+        run: |
+          jq --version
+          jq -e . lise-benchmarks/itops-attempt-history-overlay/attempt-history-cases-v0.1.json >/dev/null
+          jq -e . lise-benchmarks/itops-attempt-history-overlay/attempt-history-cases-v0.1.schema.json >/dev/null
+      - name: Validate reference fixture semantics
+        run: bash lise-benchmarks/itops-attempt-history-overlay/validate.sh
+      - name: Run adversarial mutations
+        run: bash lise-benchmarks/itops-attempt-history-overlay/mutation-tests.sh
