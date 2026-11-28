@@ -255,7 +255,7 @@ pub fn assess_independence(
         }
         let node = nodes
             .get(domain_ref)
-            .expect("reachable failure-domain node is registered");
+            .ok_or_else(|| format!("reachable failure-domain node {domain_ref} is missing"))?;
         if profile.material_shared_classes.contains(&node.class) {
             common_domain_refs.push(domain_ref.clone());
         } else if !profile
@@ -482,6 +482,33 @@ mod tests {
             .sort();
         let result = assess_independence(&missing, &profile());
         assert!(result.unwrap_err().contains("missing parent"));
+    }
+
+    #[test]
+    fn profile_cannot_classify_one_shared_class_as_both_material_and_non_material() {
+        let mut selected_profile = profile();
+        selected_profile
+            .explicitly_non_material_shared_classes
+            .insert(FailureDomainClass::UpstreamSource);
+        assert!(
+            assess_independence(&disjoint_graph(), &selected_profile)
+                .unwrap_err()
+                .contains("both material and explicitly non-material")
+        );
+    }
+
+    #[test]
+    fn unreachable_domain_nodes_are_rejected_instead_of_ignored() {
+        let mut graph = disjoint_graph();
+        graph
+            .nodes
+            .push(node("unused-domain", FailureDomainClass::EconomicControl, &[]));
+        graph.nodes.sort_by(|a, b| a.domain_ref.cmp(&b.domain_ref));
+        assert!(
+            assess_independence(&graph, &profile())
+                .unwrap_err()
+                .contains("unreachable nodes")
+        );
     }
 
     #[test]
