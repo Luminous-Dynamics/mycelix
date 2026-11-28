@@ -116,7 +116,9 @@ pub fn assess_independence(
         return Err("independence profile reference is empty or oversized".to_owned());
     }
     if profile.required_classes.is_empty() {
-        return Err("independence profile must require at least one failure-domain class".to_owned());
+        return Err(
+            "independence profile must require at least one failure-domain class".to_owned(),
+        );
     }
     if profile.material_shared_classes.is_empty()
         || !profile
@@ -159,7 +161,9 @@ pub fn assess_independence(
     let mut channel_refs = Vec::with_capacity(graph.channels.len());
     for channel in &graph.channels {
         if !valid_ref(&channel.evidence_ref) || channel.root_domain_refs.is_empty() {
-            return Err("evidence channel requires an identifier and at least one lineage root".to_owned());
+            return Err(
+                "evidence channel requires an identifier and at least one lineage root".to_owned(),
+            );
         }
         if !strictly_sorted_unique(&channel.root_domain_refs) {
             return Err(format!(
@@ -237,7 +241,7 @@ pub fn assess_independence(
                 profile
                     .material_shared_classes
                     .contains(&node.class)
-                    .then(|| domain_ref.clone())
+                    .then_some(domain_ref.clone())
             })
         })
         .collect();
@@ -299,11 +303,19 @@ mod tests {
     fn disjoint_graph() -> FailureDomainGraph {
         FailureDomainGraph {
             nodes: vec![
-                node("a-device", FailureDomainClass::CollectionDevice, &["a-feed", "a-key", "a-operator"]),
+                node(
+                    "a-device",
+                    FailureDomainClass::CollectionDevice,
+                    &["a-feed", "a-key", "a-operator"],
+                ),
                 node("a-feed", FailureDomainClass::UpstreamSource, &[]),
                 node("a-key", FailureDomainClass::SigningKeyCustody, &[]),
                 node("a-operator", FailureDomainClass::OrganizationOperator, &[]),
-                node("b-device", FailureDomainClass::CollectionDevice, &["b-feed", "b-key", "b-operator"]),
+                node(
+                    "b-device",
+                    FailureDomainClass::CollectionDevice,
+                    &["b-feed", "b-key", "b-operator"],
+                ),
                 node("b-feed", FailureDomainClass::UpstreamSource, &[]),
                 node("b-key", FailureDomainClass::SigningKeyCustody, &[]),
                 node("b-operator", FailureDomainClass::OrganizationOperator, &[]),
@@ -327,7 +339,12 @@ mod tests {
     fn shared_upstream_source_is_detected_as_a_common_cause() {
         let mut graph = disjoint_graph();
         graph.nodes.retain(|node| node.domain_ref != "b-feed");
-        graph.nodes.iter_mut().find(|node| node.domain_ref == "b-device").unwrap().parent_refs = vec![
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "b-device")
+            .unwrap()
+            .parent_refs = vec![
             "a-feed".to_owned(),
             "b-key".to_owned(),
             "b-operator".to_owned(),
@@ -353,10 +370,34 @@ mod tests {
         let mut graph = disjoint_graph();
         graph.nodes.push(node("shared-network", FailureDomainClass::NetworkTransport, &[]));
         graph.nodes.sort_by(|a, b| a.domain_ref.cmp(&b.domain_ref));
-        graph.nodes.iter_mut().find(|node| node.domain_ref == "a-device").unwrap().parent_refs.push("shared-network".to_owned());
-        graph.nodes.iter_mut().find(|node| node.domain_ref == "a-device").unwrap().parent_refs.sort();
-        graph.nodes.iter_mut().find(|node| node.domain_ref == "b-device").unwrap().parent_refs.push("shared-network".to_owned());
-        graph.nodes.iter_mut().find(|node| node.domain_ref == "b-device").unwrap().parent_refs.sort();
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "a-device")
+            .unwrap()
+            .parent_refs
+            .push("shared-network".to_owned());
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "a-device")
+            .unwrap()
+            .parent_refs
+            .sort();
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "b-device")
+            .unwrap()
+            .parent_refs
+            .push("shared-network".to_owned());
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "b-device")
+            .unwrap()
+            .parent_refs
+            .sort();
         let result = assess_independence(&graph, &profile()).unwrap();
         assert_eq!(
             result.disposition,
@@ -367,13 +408,30 @@ mod tests {
     #[test]
     fn malformed_graphs_fail_closed_on_cycles_and_missing_parents() {
         let mut cycle = disjoint_graph();
-        cycle.nodes.iter_mut().find(|node| node.domain_ref == "a-operator").unwrap().parent_refs = vec!["a-device".to_owned()];
+        cycle
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "a-operator")
+            .unwrap()
+            .parent_refs = vec!["a-device".to_owned()];
         let result = assess_independence(&cycle, &profile());
         assert!(result.unwrap_err().contains("cycle"));
 
         let mut missing = disjoint_graph();
-        missing.nodes.iter_mut().find(|node| node.domain_ref == "a-device").unwrap().parent_refs.push("not-registered".to_owned());
-        missing.nodes.iter_mut().find(|node| node.domain_ref == "a-device").unwrap().parent_refs.sort();
+        missing
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "a-device")
+            .unwrap()
+            .parent_refs
+            .push("not-registered".to_owned());
+        missing
+            .nodes
+            .iter_mut()
+            .find(|node| node.domain_ref == "a-device")
+            .unwrap()
+            .parent_refs
+            .sort();
         let result = assess_independence(&missing, &profile());
         assert!(result.unwrap_err().contains("missing parent"));
     }
