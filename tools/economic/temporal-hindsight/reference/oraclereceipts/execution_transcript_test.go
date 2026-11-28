@@ -179,6 +179,9 @@ func TestExecutionTranscriptBindsStateAndIVCProofHeads(t *testing.T) {
 	if result.StateHeadDigest != outputState || result.ProofHeadDigest != nextProof {
 		t.Fatalf("state/proof heads not reconstructed: %+v", result)
 	}
+	if result.AdviceCommitmentDigest != transition.IVCUpdate.NextAdviceCommitmentDigest {
+		t.Fatalf("cumulative advice commitment not reconstructed: %+v", result)
+	}
 	if result.ProofVerification != NotEvaluated ||
 		result.OracleSignatureAuthentication != NotEvaluated ||
 		result.SourceUniverseCompleteness != NotEvaluated ||
@@ -406,7 +409,8 @@ func TestCorrectionAppendsNewStepAndPreservesPriorStep(t *testing.T) {
 	events = appendExecutionEvent(t, scope, events, "event:recompute", ExecutionCommitted, &correction, "")
 	got := replayExecution(t, scope, receipts, events)
 	if got.Disposition != ExecutionChainStructurallyValid ||
-		got.StateHeadDigest != testDigestA || got.ProofHeadDigest != testDigestB {
+		got.StateHeadDigest != testDigestA || got.ProofHeadDigest != testDigestB ||
+		got.AdviceCommitmentDigest != correction.IVCUpdate.NextAdviceCommitmentDigest {
 		t.Fatalf("backdated correction recomputation failed: %+v", got)
 	}
 	if events[0].EventDigest != originalEventDigest || len(got.AppliedStepIDs) != 2 {
@@ -559,6 +563,61 @@ func TestOversizedExecutionCollectionFailureDigestBindsSamples(t *testing.T) {
 		first.SubmittedEventsDigest == second.SubmittedEventsDigest ||
 		first.CertificateDigest == second.CertificateDigest {
 		t.Fatalf("distinct oversized collection submissions collapsed: first=%+v second=%+v", first, second)
+	}
+}
+
+func TestExecutionTranscriptAccumulatesOracleAdviceCommitments(t *testing.T) {
+	scope := executionFixtureScope()
+	receipts := executionReceipts(t, scope, 1)
+	events := buildExecutionChain(t, scope, receipts, 3)
+	for i := 1; i < len(events); i++ {
+		prior := events[i-1].Transition.IVCUpdate.NextAdviceCommitmentDigest
+		if events[i].Transition.IVCUpdate.PriorAdviceCommitmentDigest != prior {
+			t.Fatalf("step %d does not extend prior advice commitment", i+1)
+		}
+	}
+	got := replayExecution(t, scope, receipts, events)
+	if got.Disposition != ExecutionChainStructurallyValid ||
+		got.AdviceCommitmentDigest != events[len(events)-1].Transition.IVCUpdate.NextAdviceCommitmentDigest {
+		t.Fatalf("advice commitment chain was not reconstructed: %+v", got)
+	}
+}
+
+func TestExecutionTranscriptRejectsAlteredAdviceDeltaCommitment(t *testing.T) {
+	scope := executionFixtureScope()
+	receipts := executionReceipts(t, scope, 1)
+	scopeDigest, _, state := executionGenesis(t, scope)
+	proof := executionGenesisProofDigest(scopeDigest)
+	transition := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+		state, proof, "step:bad-advice", StepApply, testDigestB, testDigestC)
+	transition.IVCUpdate.AdviceDeltaCommitmentDigest = testDigestC
+	transition.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, transition.IVCUpdate.PriorAdviceCommitmentDigest, transition.IVCUpdate.AdviceDeltaCommitmentDigest)
+	transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
+	events := appendExecutionEvent(t, scope, nil, "event:bad-advice", ExecutionCommitted, &transition, "")
+	got := replayExecution(t, scope, receipts, events)
+	if got.Disposition != ExecutionChainIndeterminate ||
+		!strings.Contains(got.Reason, "advice-delta commitment") {
+		t.Fatalf("altered advice delta commitment accepted: %+v", got)
+	}
+}
+
+func TestExecutionTranscriptRejectsAdviceCommitmentFork(t *testing.T) {
+	scope := executionFixtureScope()
+	receipts := executionReceipts(t, scope, 1)
+	scopeDigest, _, state := executionGenesis(t, scope)
+	proof := executionGenesisProofDigest(scopeDigest)
+	transition := executionTransition(t, scope, scopeDigest, receipts[0].ReceiptDigest, 1,
+		state, proof, "step:forked-advice", StepApply, testDigestB, testDigestC)
+	transition.IVCUpdate.PriorAdviceCommitmentDigest = testDigestC
+	transition.IVCUpdate.NextAdviceCommitmentDigest, _ = executionNextAdviceCommitmentDigestV1(
+		scopeDigest, transition.IVCUpdate.PriorAdviceCommitmentDigest, transition.IVCUpdate.AdviceDeltaCommitmentDigest)
+	transition.IVCUpdate.PublicInputDigest, _ = ExecutionPublicInputDigestV1(scope, transition)
+	events := appendExecutionEvent(t, scope, nil, "event:forked-advice", ExecutionCommitted, &transition, "")
+	got := replayExecution(t, scope, receipts, events)
+	if got.Disposition != ExecutionChainIndeterminate ||
+		!strings.Contains(got.Reason, "prior advice commitment") {
+		t.Fatalf("advice commitment fork accepted: %+v", got)
 	}
 }
 
