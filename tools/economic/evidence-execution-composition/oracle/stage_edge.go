@@ -16,10 +16,10 @@ const (
 )
 
 type StageEdgeV1 struct {
-	ProducerStage   string
-	ConsumerStage   string
-	InputName       string
-	OutputSchemaRef string
+	ProducerStage   string  
+	ConsumerStage   string  
+	InputName       string  
+	OutputSchemaRef string  
 	RequiredClaims  []string
 	OutputDigest    [32]byte
 }
