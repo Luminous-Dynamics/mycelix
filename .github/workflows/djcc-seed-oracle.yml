@@ -31,12 +31,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out exact pull request head
+        id: checkout
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Assert exact workflow head and required artifacts
+        id: assert_head
         env:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
