@@ -31,18 +31,28 @@ func parseLineageAttestationVector(fields []string) (LineageAttestationV1, []byt
 		return strconv.ParseUint(value, 10, 64)
 	}
 	epoch, err := parseUint(fields[4])
-	if err != nil { return LineageAttestationV1{}, nil, err }
+	if err != nil {
+		return LineageAttestationV1{}, nil, err
+	}
 	issued, err := parseUint(fields[16])
-	if err != nil { return LineageAttestationV1{}, nil, err }
+	if err != nil {
+		return LineageAttestationV1{}, nil, err
+	}
 	validFrom, err := parseUint(fields[17])
-	if err != nil { return LineageAttestationV1{}, nil, err }
+	if err != nil {
+		return LineageAttestationV1{}, nil, err
+	}
 	validUntil, err := parseUint(fields[18])
-	if err != nil { return LineageAttestationV1{}, nil, err }
+	if err != nil {
+		return LineageAttestationV1{}, nil, err
+	}
 
 	digests := make([][32]byte, 7)
 	for i, field := range []int{6, 7, 9, 10, 12, 13, 15} {
 		digests[i], err = decodeLineageDigest(fields[field])
-		if err != nil { return LineageAttestationV1{}, nil, err }
+		if err != nil {
+		return LineageAttestationV1{}, nil, err
+	}
 	}
 	attestation := LineageAttestationV1{
 		AttestationRef: fields[1], IssuerRef: fields[2], IssuerKeyRef: fields[3],
@@ -54,7 +64,7 @@ func parseLineageAttestationVector(fields []string) (LineageAttestationV1, []byt
 		StatementDigest: digests[6], IssuedAtUnixSeconds: issued,
 		ValidFromUnixSeconds: validFrom, ValidUntilUnixSeconds: validUntil,
 		DisclosureStatus: LineageDisclosureStatus(fields[19]),
-		AssuranceBasis: LineageAttestationBasis(fields[20]),
+		AssuranceBasis:   LineageAttestationBasis(fields[20]),
 	}
 	expected, err := hex.DecodeString(fields[21])
 	return attestation, expected, err
@@ -62,27 +72,39 @@ func parseLineageAttestationVector(fields []string) (LineageAttestationV1, []byt
 
 func TestSharedGoRustLineageAttestationCanonicalizationVector(t *testing.T) {
 	file, err := os.Open("../LINEAGE_ATTESTATION_V1_KAT.tsv")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	seen := 0
 	for line := 1; scanner.Scan(); line++ {
 		raw := scanner.Text()
-		if raw == "" || strings.HasPrefix(raw, "#") { continue }
+		if raw == "" || strings.HasPrefix(raw, "#") {
+			continue
+		}
 		fields := strings.Split(raw, "\t")
 		attestation, expected, err := parseLineageAttestationVector(fields)
-		if err != nil { t.Fatalf("line %d: %v", line, err) }
+		if err != nil {
+			t.Fatalf("line %d: %v", line, err)
+		}
 		actual, err := CanonicalLineageAttestationBytesV1(attestation)
-		if err != nil { t.Fatalf("line %d (%s): %v", line, fields[0], err) }
+		if err != nil {
+			t.Fatalf("line %d (%s): %v", line, fields[0], err)
+		}
 		if !bytes.Equal(actual, expected) {
 			t.Errorf("line %d (%s): preimage mismatch\n got %s\nwant %s",
 				line, fields[0], hex.EncodeToString(actual), hex.EncodeToString(expected))
 		}
 		seen++
 	}
-	if err := scanner.Err(); err != nil { t.Fatal(err) }
-	if seen != 1 { t.Fatalf("expected one attestation vector, evaluated %d", seen) }
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if seen != 1 {
+		t.Fatalf("expected one attestation vector, evaluated %d", seen)
+	}
 }
 
 func TestLineageAttestationCanonicalizerRejectsInvalidStatesAndValidity(t *testing.T) {
@@ -90,10 +112,10 @@ func TestLineageAttestationCanonicalizerRejectsInvalidStatesAndValidity(t *testi
 		AttestationRef: "attestation:test", IssuerRef: "issuer:test",
 		IssuerKeyRef: "key:test", EvidenceRef: "evidence:test",
 		ProfileRef: "profile:test", TrustPolicyRef: "policy:test",
-		AssuranceBasisRef: "audit:test",
+		AssuranceBasisRef:    "audit:test",
 		ValidFromUnixSeconds: 10, ValidUntilUnixSeconds: 20,
 		DisclosureStatus: LineageDisclosureComplete,
-		AssuranceBasis: LineageBasisIndependentlyAudited,
+		AssuranceBasis:   LineageBasisIndependentlyAudited,
 	}
 	valid.DisclosureStatus = LineageDisclosureStatus("unknown")
 	if _, err := CanonicalLineageAttestationBytesV1(valid); err == nil {
