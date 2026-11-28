@@ -1417,10 +1417,7 @@ mod tests {
         assert_eq!(receipt.denominator_count, 6);
         assert_eq!(receipt.covered_count, 5);
         assert_eq!(receipt.coverage_basis_points, 8_333);
-        assert_eq!(
-            receipt.uncovered_action_ids,
-            vec!["handover-documentation"]
-        );
+        assert_eq!(receipt.uncovered_action_ids, vec!["handover-documentation"]);
         assert_eq!(receipt.identical_duplicate_observations_ignored, 99);
         assert!(receipt.rejected_observations.iter().any(|rejected| {
             rejected.action_id == "unapproved-extra-work"
