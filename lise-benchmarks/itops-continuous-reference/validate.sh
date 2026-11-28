@@ -49,8 +49,13 @@ jq -e '
     | any($root.scenario.services[]; .service_id == $event.target_service_id)
     and ($event.affected_observation_ids | length) > 0
     and all($event.affected_observation_ids[];
-      . as $obs
-      | any($root.scenario.operator_observations[]; .observation_id == $obs)
+      . as $obs_id
+      | any($root.scenario.operator_observations[];
+        . as $obs
+        | $obs.observation_id == $obs_id
+        and $obs.observed_at_seconds >= $event.start_seconds
+        and $obs.observed_at_seconds <= ($event.start_seconds + $event.duration_seconds)
+      )
     )
   )
   and all($root.scenario.dependencies[];
