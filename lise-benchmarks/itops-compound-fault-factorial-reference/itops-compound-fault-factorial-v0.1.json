@@ -31,7 +31,7 @@
           },
           "terminal": {
             "availability_fraction": 0.999,
-            "unrecovered_degradation_minutes": 0,
+            "service_degraded_minutes": 0,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
@@ -49,7 +49,7 @@
           },
           "terminal": {
             "availability_fraction": 0.996,
-            "unrecovered_degradation_minutes": 0,
+            "service_degraded_minutes": 0,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
@@ -67,7 +67,7 @@
           },
           "terminal": {
             "availability_fraction": 0.997,
-            "unrecovered_degradation_minutes": 0,
+            "service_degraded_minutes": 0,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
@@ -85,13 +85,13 @@
           },
           "terminal": {
             "availability_fraction": 0.7,
-            "unrecovered_degradation_minutes": 35,
+            "service_degraded_minutes": 35,
             "fault_persists_after_trigger_removed": true,
             "functional_contract_pass": false
           }
         }
       ],
-      "interaction_metric": "unrecovered_degradation_minutes",
+      "interaction_metric": "service_degraded_minutes",
       "expected_interaction_contrast": 35,
       "expected_causal_factor_ids": [
         "retry_amplification",
@@ -134,7 +134,7 @@
           },
           "terminal": {
             "availability_fraction": 0.999,
-            "unrecovered_degradation_minutes": 0,
+            "service_degraded_minutes": 0,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
@@ -152,7 +152,7 @@
           },
           "terminal": {
             "availability_fraction": 0.995,
-            "unrecovered_degradation_minutes": 5,
+            "service_degraded_minutes": 5,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
@@ -170,7 +170,7 @@
           },
           "terminal": {
             "availability_fraction": 0.993,
-            "unrecovered_degradation_minutes": 7,
+            "service_degraded_minutes": 7,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
@@ -188,13 +188,13 @@
           },
           "terminal": {
             "availability_fraction": 0.987,
-            "unrecovered_degradation_minutes": 12,
+            "service_degraded_minutes": 12,
             "fault_persists_after_trigger_removed": false,
             "functional_contract_pass": true
           }
         }
       ],
-      "interaction_metric": "unrecovered_degradation_minutes",
+      "interaction_metric": "service_degraded_minutes",
       "expected_interaction_contrast": 0,
       "expected_causal_factor_ids": [
         "dns_latency",
