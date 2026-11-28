@@ -18,6 +18,17 @@
 //! - Identify exploitable game-theoretic weaknesses
 //! - Design incentive-compatible mechanisms
 //! - Validate slashing and reward parameters
+//!
+//! ## Claim boundary
+//!
+//! This file contains legacy exploratory APIs, not a qualified mechanism verifier.
+//! The legacy equilibrium enumerator treats missing payoff rows as zero and does
+//! not enforce player-specific strategy applicability; the incentive analyzer
+//! uses a fixed focal-player ordering; and mechanism validation uses parameter
+//! heuristics rather than explicit transfer, type, identity, or coalition models.
+//! Do not use these legacy outputs as protocol, treasury, governance, or safety
+//! certificates. New finite-game work should use `game_theory_validation` and
+//! `game_theory_verified`; mechanism-property claims remain separately unqualified.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -185,13 +196,18 @@ pub struct NashEquilibrium {
     pub payoffs: Vec<(String, f64)>, // (player_id, payoff)
     /// Is this a pure strategy equilibrium?
     pub is_pure: bool,
-    /// Stability measure
+    /// Legacy normalized heuristic; not a mathematical equilibrium-stability measure.
     pub stability: f64,
     /// Is this Pareto optimal?
     pub pareto_optimal: bool,
 }
 
-/// Equilibrium finder
+/// Legacy pure-profile enumerator.
+///
+/// This API does not require a complete payoff table, does not honor
+/// `Strategy::applicable_types`, and uses a hidden fixed comparison tolerance.
+/// Missing payoff profiles are treated as zero. Do not use its output as a
+/// formal equilibrium certificate; use `game_theory_verified` instead.
 #[derive(Debug)]
 pub struct EquilibriumFinder {
     game: GameDefinition,
@@ -362,9 +378,9 @@ impl EquilibriumFinder {
 /// Incentive compatibility check result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncentiveAnalysis {
-    /// Is the mechanism incentive compatible?
+    /// Legacy heuristic flag; not a formal incentive-compatibility certificate.
     pub is_incentive_compatible: bool,
-    /// Dominant strategy (if exists)
+    /// Legacy focal-player dominant-strategy heuristic; not a per-player certificate.
     pub dominant_strategy: Option<String>,
     /// Individual rationality violations
     pub ir_violations: Vec<String>,
@@ -389,7 +405,12 @@ pub struct ProfitableDeviation {
     pub conditions: String,
 }
 
-/// Incentive analyzer
+/// Legacy incentive analyzer for exploratory payoff-table diagnostics.
+///
+/// This API silently treats missing payoff profiles as zero, assumes the
+/// focal player is profile position zero for dominant-strategy analysis, and
+/// does not implement a declared type/report space. Do not use its boolean
+/// output as a formal mechanism certificate.
 #[derive(Debug)]
 pub struct IncentiveAnalyzer {
     game: GameDefinition,
@@ -561,7 +582,13 @@ impl IncentiveAnalyzer {
 // Mechanism Validator
 // ============================================================================
 
-/// Mechanism validation result
+/// Legacy parameter-heuristic summary, not a formal mechanism validation result.
+///
+/// Its boolean fields and score are assumption-free-looking labels over
+/// hard-coded parameter proxies. They do not establish budget balance,
+/// individual rationality, incentive compatibility, Sybil resistance, or
+/// collusion resistance. Prefer property-specific evidence states in a future
+/// validated mechanism API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MechanismValidation {
     /// Is mechanism valid?
@@ -582,7 +609,9 @@ pub struct MechanismValidation {
     pub score: u32,
 }
 
-/// Mechanism parameters to validate
+/// Inputs to the legacy mechanism-parameter heuristic only.
+///
+/// These scalars do not constitute a complete mechanism specification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MechanismParams {
     /// Base reward for participation
@@ -599,7 +628,10 @@ pub struct MechanismParams {
     pub attestation_weight: f64,
 }
 
-/// Validate mechanism parameters
+/// Run the legacy mechanism-parameter heuristic.
+///
+/// This function is retained for source compatibility. Its result is not a
+/// formal proof or validation of any named mechanism property.
 pub fn validate_mechanism(params: &MechanismParams) -> MechanismValidation {
     let mut issues = Vec::new();
     let mut score = 100u32;
