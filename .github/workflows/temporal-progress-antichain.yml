@@ -1,0 +1,217 @@
+name: Temporal progress antichain reference
+
+on:
+  pull_request:
+    paths:
+      - "tools/economic/temporal-hindsight/reference/progressantichain/**"
+      - ".github/workflows/temporal-progress-antichain.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/economic/temporal-hindsight/reference/progressantichain/**"
+      - ".github/workflows/temporal-progress-antichain.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temporal-progress-antichain-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Go correctness, race, vet and benchmark smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact workflow head
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f tools/economic/temporal-hindsight/reference/progressantichain/formal/TemporalProgressAntichain.tla
+          test -f tools/economic/temporal-hindsight/reference/progressantichain/formal/TemporalProgressAntichain.cfg
+          test -f tools/economic/temporal-hindsight/reference/progressantichain/formal/TemporalProgressAntichain-Mutant.cfg
+
+      - name: Set up Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+
+      - name: Set up pinned Java toolchain
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download and verify pinned TLA+ tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          curl --fail --location --silent --show-error --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$jar"
+          printf '%s  %s\n' \
+            "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88" \
+            "$jar" | sha256sum --check --status
+          jar tf "$jar" | grep -q "^tlc2/TLC.class$"
+      - name: Run progress antichain tests
+        id: progress_tests
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/progress-antichain"
+          go version 2>&1 | tee "$RUNNER_TEMP/progress-antichain/go.log"
+          go test -v ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
+
+      - name: Run race detector
+        id: progress_race
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
+
+      - name: Run go vet
+        id: progress_vet
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
+
+      - name: Repeat adversarial progress tests
+        id: progress_repeat
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -run 'Test(Incomparable|AnyPredecessor|SingleOwner|EmptyAntichain|Dominated|Duplicate|MissingAndForeign|ScopeAndEpoch|ProgressAdvance|ProgressDigests|Malformed|DistinctMalformed|Oversized|OwnerUniverseLimit|AntichainWidthLimit|ProgressWorkBudget|PairwiseComparisonBudget|VectorMaterializationBudget|AdvanceComparisonBudget)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/progress-antichain/go.log"
+
+      - name: Check bounded progress antichain model
+        id: progress_tlc
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/progress-antichain"
+          log="$RUNNER_TEMP/progress-antichain/tlc-progress-correct.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-progress-correct" \
+            -config TemporalProgressAntichain.cfg \
+            TemporalProgressAntichain.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          exit "$status"
+
+      - name: Require premature-finalization mutant counterexample
+        id: progress_mutant
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/progress-antichain"
+          log="$RUNNER_TEMP/progress-antichain/tlc-progress-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-progress-mutant" \
+            -config TemporalProgressAntichain-Mutant.cfg \
+            TemporalProgressAntichain.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "Premature-finalization mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant StableSound is violated." "$log"
+          echo "Expected premature-finalization counterexample observed."
+
+      - name: Benchmark progress antichain smoke
+        id: progress_benchmark
+        working-directory: tools/economic/temporal-hindsight/reference/progressantichain
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -run '^$' -bench . -benchmem -benchtime=1x ./... 2>&1 | tee "$RUNNER_TEMP/progress-antichain/benchmark.log"
+
+      - name: Assemble qualification receipt and checksums
+        if: always()
+        shell: bash
+        env:
+          TESTS: ${{ steps.progress_tests.outcome }}
+          RACE: ${{ steps.progress_race.outcome }}
+          VET: ${{ steps.progress_vet.outcome }}
+          REPEAT: ${{ steps.progress_repeat.outcome }}
+          BENCHMARK: ${{ steps.progress_benchmark.outcome }}
+          TLC: ${{ steps.progress_tlc.outcome }}
+          MUTANT: ${{ steps.progress_mutant.outcome }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/progress-antichain"
+          mkdir -p "$dir"
+          go_version="$(go version 2>&1 || printf 'UNAVAILABLE')"
+          workflow_sha="$(git rev-parse HEAD 2>/dev/null || printf 'UNAVAILABLE')"
+          jq -n \
+            --arg schema "mycelix.temporal-progress-antichain-qualification.v1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflow_sha "$workflow_sha" \
+            --arg go "$go_version" \
+            --arg tests "$TESTS" \
+            --arg race "$RACE" \
+            --arg vet "$VET" \
+            --arg repeat "$REPEAT" \
+            --arg benchmark "$BENCHMARK" \
+            --arg correct_tlc "$TLC" \
+            --arg mutant "$MUTANT" \
+            '{
+              schema:$schema,
+              repository:$repository,
+              run_id:$run_id,
+              run_attempt:$attempt,
+              workflow_sha:$workflow_sha,
+              toolchain:{go:$go},
+              outcomes:{
+                tests:$tests,
+                race:$race,
+                vet:$vet,
+                repeated_adversarial:$repeat,
+                benchmark_smoke:$benchmark,
+                correct_tlc:$correct_tlc,
+                premature_finalization_mutant:$mutant
+              },
+              claims:{
+                progress_algebra_only:true,
+                progress_authentication:"NotEvaluated",
+                source_universe_completeness:"NotEvaluated",
+                production_authority:"NotEvaluated",
+                unbounded_proof:false
+              }
+            }' > "$dir/qualification.json"
+          grep -hE 'states generated|distinct states found|depth of the complete state graph|Invariant .* is violated' "$dir"/tlc-*.log > "$dir/tlc-model-summary.txt" || true
+          (
+            cd "$dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          )
+
+      - name: Upload progress antichain evidence bundle
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: temporal-progress-antichain-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/progress-antichain/
+          if-no-files-found: error
+          retention-days: 90
