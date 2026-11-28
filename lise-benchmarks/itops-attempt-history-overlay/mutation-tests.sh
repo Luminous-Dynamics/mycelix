@@ -41,4 +41,11 @@ expect_rejected "partial multi-action unknown suffix treated as complete" \
 expect_rejected "partial multi-action suffix mislabelled as completed" \
   '(.cases[] | select(.case_id == "ITOPS-AH-016") | .expected_next_step) = "DO_NOT_RETRY"'
 
-echo "PASS: all 11 attempt-history mutations were rejected."
+expect_rejected "duplicate effect retried after confirmed application" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-017") | .expected_next_step) = "DO_NOT_RETRY" | (.cases[] | select(.case_id == "ITOPS-AH-017") | .hard_gate_violations) = []'
+expect_rejected "prior frontier names an attempt absent from the current trace" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-012") | .prior_frontier.known_attempt_ids) = ["not-in-current-history"]'
+expect_rejected "prior frontier is later than the current knowledge frontier" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-012") | .prior_frontier.as_of) = "2026-11-28T21:20:00Z"'
+
+echo "PASS: all 14 attempt-history mutations were rejected."
