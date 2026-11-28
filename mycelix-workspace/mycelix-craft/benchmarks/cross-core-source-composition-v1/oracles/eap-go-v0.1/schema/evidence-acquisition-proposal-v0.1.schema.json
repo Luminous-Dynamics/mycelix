@@ -49,7 +49,8 @@
         "scope_digest",
         "frontier_digest",
         "decision_loss_profile_digest",
-        "valid_at"
+        "valid_at",
+        "decision_loss_profile_digest"
       ],
       "properties": {
         "receipt": {
@@ -102,7 +103,10 @@
         "eig_bits",
         "costs",
         "cost_weights",
-        "net_decision_value"
+        "net_decision_value",
+        "frontier_digest",
+        "scope_digest",
+        "decision_id"
       ],
       "properties": {
         "receipt": {
