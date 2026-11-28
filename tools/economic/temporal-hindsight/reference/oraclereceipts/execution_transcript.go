@@ -450,9 +450,89 @@ func rawExecutionSubmissionDigest(events []ExecutionEventV1) string {
 	return digestBytes(b.Bytes())
 }
 
+func boundedExecutionValueDigest(domain string, eventCount, index uint64, label, value string) string {
+	var b bytes.Buffer
+	writeString(&b, domain)
+	writeUint64(&b, eventCount)
+	writeUint64(&b, index)
+	writeString(&b, label)
+	writeUint64(&b, uint64(len(value)))
+	if len(value) <= 128 {
+		writeString(&b, value)
+	} else {
+		writeString(&b, value[:64])
+		writeString(&b, value[len(value)-64:])
+	}
+	return digestBytes(b.Bytes())
+}
+
+func boundedExecutionCollectionDigest(eventCount, index uint64, label string, values []string) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-EXECUTION-OVERSIZE-COLLECTION-V1")
+	writeUint64(&b, eventCount)
+	writeUint64(&b, index)
+	writeString(&b, label)
+	writeUint64(&b, uint64(len(values)))
+	positions := make([]int, 0, 16)
+	limit := len(values)
+	if limit > 8 {
+		limit = 8
+	}
+	for i := 0; i < limit; i++ {
+		positions = append(positions, i)
+	}
+	if len(values) > 8 {
+		start := len(values) - 8
+		for i := start; i < len(values); i++ {
+			positions = append(positions, i)
+		}
+	}
+	for _, position := range positions {
+		writeUint64(&b, uint64(position))
+		value := values[position]
+		writeUint64(&b, uint64(len(value)))
+		if len(value) <= 128 {
+			writeString(&b, value)
+		} else {
+			writeString(&b, value[:64])
+			writeString(&b, value[len(value)-64:])
+		}
+	}
+	return digestBytes(b.Bytes())
+}
+
+func oversizedExecutionEventCountDigest(events []ExecutionEventV1) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-EXECUTION-COUNT-OVERLIMIT-V1")
+	writeUint64(&b, uint64(len(events)))
+	positions := make([]int, 0, 8)
+	limit := len(events)
+	if limit > 4 {
+		limit = 4
+	}
+	for i := 0; i < limit; i++ {
+		positions = append(positions, i)
+	}
+	if len(events) > 4 {
+		for i := len(events) - 4; i < len(events); i++ {
+			positions = append(positions, i)
+		}
+	}
+	for _, position := range positions {
+		event := events[position]
+		writeUint64(&b, uint64(position))
+		writeUint64(&b, event.LogSequence)
+		writeString(&b, event.EventID)
+		writeString(&b, event.PreviousEventDigest)
+		writeString(&b, string(event.Outcome))
+		writeString(&b, event.EventDigest)
+	}
+	return digestBytes(b.Bytes())
+}
+
 func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 	if len(events) > MaxExecutionEvents {
-		return "execution event count exceeds configured limit", digestBytes([]byte(fmt.Sprintf("MYCELIX-EXECUTION-COUNT-OVERLIMIT|%d", len(events))))
+		return "execution event count exceeds configured limit", oversizedExecutionEventCountDigest(events)
 	}
 	var total uint64
 	add := func(value string) bool {
@@ -465,7 +545,7 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 	for index, event := range events {
 		for _, value := range []string{event.EventID, event.PreviousEventDigest, string(event.Outcome), event.ReconcilesEventID, event.EventDigest} {
 			if !add(value) {
-				return fmt.Sprintf("execution event %d exceeds encoded-field budget", index), digestBytes([]byte(fmt.Sprintf("MYCELIX-EXECUTION-OVERSIZE|%d|%d", len(events), index)))
+				return fmt.Sprintf("execution event %d exceeds encoded-field budget", index), boundedExecutionValueDigest("MYCELIX-EXECUTION-OVERSIZE-FIELD-V1", uint64(len(events)), uint64(index), "event", value)
 			}
 		}
 		if event.Transition == nil {
@@ -484,20 +564,21 @@ func preflightExecutionEvents(events []ExecutionEventV1) (string, string) {
 			transition.IVCUpdate.ProofArtifactDigest, transition.IVCUpdate.PublicInputDigest,
 		} {
 			if !add(value) {
-				return fmt.Sprintf("execution transition %d exceeds encoded-field budget", index), digestBytes([]byte(fmt.Sprintf("MYCELIX-EXECUTION-TRANSITION-OVERSIZE|%d|%d", len(events), index)))
+				return fmt.Sprintf("execution transition %d exceeds encoded-field budget", index), boundedExecutionValueDigest("MYCELIX-EXECUTION-OVERSIZE-FIELD-V1", uint64(len(events)), uint64(index), "transition", value)
 			}
 		}
 		if len(transition.ConsumedReceiptDigests) > MaxEvidenceReferences || len(transition.SupersedesStepIDs) > MaxEvidenceReferences {
-			return fmt.Sprintf("execution transition %d collection count exceeds configured limit", index), digestBytes([]byte(fmt.Sprintf("MYCELIX-EXECUTION-COLLECTION-OVERLIMIT|%d|%d", len(events), index)))
+			values := append(append([]string(nil), transition.ConsumedReceiptDigests...), transition.SupersedesStepIDs...)
+			return fmt.Sprintf("execution transition %d collection count exceeds configured limit", index), boundedExecutionCollectionDigest(uint64(len(events)), uint64(index), "receipt+superseded-step collections", values)
 		}
 		for _, value := range transition.ConsumedReceiptDigests {
 			if !add(value) {
-				return fmt.Sprintf("execution transition %d receipt set exceeds encoded-field budget", index), digestBytes([]byte(fmt.Sprintf("MYCELIX-EXECUTION-RECEIPTS-OVERSIZE|%d|%d", len(events), index)))
+				return fmt.Sprintf("execution transition %d receipt set exceeds encoded-field budget", index), boundedExecutionValueDigest("MYCELIX-EXECUTION-OVERSIZE-FIELD-V1", uint64(len(events)), uint64(index), "consumed-receipt-digest", value)
 			}
 		}
 		for _, value := range transition.SupersedesStepIDs {
 			if !add(value) {
-				return fmt.Sprintf("execution transition %d supersession set exceeds encoded-field budget", index), digestBytes([]byte(fmt.Sprintf("MYCELIX-EXECUTION-SUPERSEDES-OVERSIZE|%d|%d", len(events), index)))
+				return fmt.Sprintf("execution transition %d supersession set exceeds encoded-field budget", index), boundedExecutionValueDigest("MYCELIX-EXECUTION-OVERSIZE-FIELD-V1", uint64(len(events)), uint64(index), "superseded-step-id", value)
 			}
 		}
 	}
