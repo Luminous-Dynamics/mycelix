@@ -188,7 +188,22 @@ authorization also consumes verifier_frontier directly
 
 The graph is encoded as an allowlisted stage-edge table, not supplied by the certificate author. Each edge binds a named consumer input to the exact producer output digest and output-schema reference. Every stage also binds the same canonical scope digest under the selected scope schema. The selected composition profile reference/digest must match the certificate.
 
-The candidate also checks stage output/disposition consistency, canonical dependency/input/reason ordering, profile-limited NotApplicable stages, and claim-ceiling monotonicity. A root claim dimension cannot be EstablishedWithinProfile if any required stage has that dimension as Rejected, Indeterminate, NotEvaluated, UnsupportedByProfile or NotApplicable.
+The candidate also checks stage output/disposition consistency, canonical dependency/input/reason ordering, profile-limited NotApplicable stages, and claim-ceiling monotonicity. A root claim dimension cannot be EstablishedWithinProfile if any required stage has that dimension as Rejected, Indeterminate, NotEvaluated, UnsupportedByProfile or NotApplicable. A child stage also cannot claim VerifiedForDeclaredClaim when any required producer stage is Rejected or Indeterminate; descendants of a blocked stage must abstain or return their own non-success disposition rather than preserving a false green chain.
+
+### 7.2 Shared stage-edge byte contract
+
+The first shared Go/Rust known-answer contract is `DJCC_STAGE_EDGE_V1_KAT.tsv`. Its preimage is:
+
+1. UTF-8 string `MYCELIX-DJCC-STAGE-EDGE-V1`;
+2. producer stage ID;
+3. consumer stage ID;
+4. consumer input name;
+5. producer output-schema reference;
+6. producer output digest as raw 32 bytes.
+
+Each string is prefixed with a big-endian u32 byte length. The corpus includes ASCII and non-ASCII UTF-8 input names. Go and Rust independently encode and compare the same exact preimage bytes.
+
+This locks down only one edge encoding. It is not a complete certificate canonical encoding, JSON canonicalization profile, or signed certificate digest. Full-certificate canonicalization remains a separate deliverable.
 
 This is a *structural composition verifier only*. It does not compute cryptographic hashes over serialized certificates yet; the digest values are inputs from owner receipts. It does not authenticate their producers or verify signatures, root identity, owner-universe completeness, actual source truth, policy semantics, legal authority, IVC proofs or physical outcome. Go seed validation does not evaluate Rust candidate certificates; candidate/oracle parity remains open work.
 
