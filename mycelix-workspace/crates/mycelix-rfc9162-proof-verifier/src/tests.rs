@@ -402,5 +402,4 @@ fn consumes_shared_go_rust_interoperability_vectors() {
                 .expect("32-byte Xenia leaf hash");
         assert_eq!(leaf_hash(&payload), expected);
     }
-
 }
