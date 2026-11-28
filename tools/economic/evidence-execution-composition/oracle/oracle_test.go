@@ -178,7 +178,7 @@ func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
 			t.Errorf("stage %q dependencies have no properties", stage)
 			continue
 		}
-		for _, requiredDependencyField := range []string{"stage_id", "input_name", "output_digest", "schema_ref"} {
+		for _, requiredDependencyField := range []string{"stage_id", "input_name", "required_claims", "output_digest", "schema_ref"} {
 			if _, exists := dependencyProperties[requiredDependencyField]; !exists {
 				t.Errorf("stage %q dependency schema is missing %q", stage, requiredDependencyField)
 			}
