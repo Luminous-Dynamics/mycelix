@@ -5,52 +5,73 @@
   "eventTypes": {
     "pressure_observed": {
       "file": "events/event_pressure_observed.csv",
-      "attributes": {
-        "pressure_kpa": "integer"
-      }
+      "attributes": [
+        {
+          "name": "pressure_kpa",
+          "type": "integer"
+        }
+      ]
     },
     "sample_collected": {
       "file": "events/event_sample_collected.csv",
-      "attributes": {
-        "sample_kind": "string"
-      }
+      "attributes": [
+        {
+          "name": "sample_kind",
+          "type": "string"
+        }
+      ]
     }
   },
   "objectTypes": {
     "Pump": {
       "file": "objects/object_Pump.csv",
       "changesFile": "object_changes/object_changes_Pump.csv",
-      "attributes": {
-        "status": "string"
-      }
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
     },
     "Zone": {
       "file": "objects/object_Zone.csv",
       "changesFile": "object_changes/object_changes_Zone.csv",
-      "attributes": {
-        "zone_class": "string"
-      }
+      "attributes": [
+        {
+          "name": "zone_class",
+          "type": "string"
+        }
+      ]
     },
     "Sample": {
       "file": "objects/object_Sample.csv",
       "changesFile": "object_changes/object_changes_Sample.csv",
-      "attributes": {
-        "status": "string"
-      }
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
     },
     "Calibration": {
       "file": "objects/object_Calibration.csv",
       "changesFile": "object_changes/object_changes_Calibration.csv",
-      "attributes": {
-        "certificate_state": "string"
-      }
+      "attributes": [
+        {
+          "name": "certificate_state",
+          "type": "string"
+        }
+      ]
     },
     "LabBatch": {
       "file": "objects/object_LabBatch.csv",
       "changesFile": "object_changes/object_changes_LabBatch.csv",
-      "attributes": {
-        "status": "string"
-      }
+      "attributes": [
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
     }
   },
   "relations": {
