@@ -89,3 +89,10 @@ The `failure_domain` module also defines a canonical `LineageAttestationV1` sign
 The precheck requires the expected issuer, key, key epoch and auditor identity as inputs from the selected trust context. It returns `ReadyForExternalTrustVerification` only when all bindings and valid-time preconditions match and the profile's disclosure/audit requirements are met. Withheld/incomplete lineage or an issuer declaration where independent audit is required remains Indeterminate.
 
 **It is not a COSE/SCITT verifier.** The self-reported `issued_at` is signed statement data, not causal-order evidence. Existing source-trust owners must verify the issuer/key authorization, signature, registration/inclusion receipt and that the registration was included at the accepted verifier frontier. They must also authenticate the auditor and establish that the disclosed lineage covers the profile's declared failure model. Only those separate verified owner outputs can support a positive Independence claim.
+
+
+### Shared lineage-attestation KAT
+
+`LINEAGE_ATTESTATION_V1_KAT.tsv` is consumed independently by Rust and Go. The Go oracle has its own encoder; Rust has the candidate preimage encoder. Both must produce exactly the frozen bytes, including field order, UTF-8 byte lengths, big-endian integers, digests and state tags. The current vector is one interoperability vector, not broad conformance coverage; extend it with Unicode references, invalid/oversized identifiers, every enum state and mutation of every bound field.
+
+The attestation precheck only prepares a canonical statement for external trust verification. It does not verify COSE signatures, SCITT registration/inclusion, issuer authorization, auditor identity or causal inclusion at the accepted frontier. The signed `issued_at` is informational and is not used to order causal knowledge.
