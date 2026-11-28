@@ -49,7 +49,7 @@
       "epoch": "FIELD-2026-11-28-A",
       "expected_offset_range": [
         1,
-        1
+        2
       ],
       "partitions": [
         "zone:Z-3"
