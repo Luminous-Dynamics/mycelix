@@ -214,12 +214,17 @@ pub enum GoalPlanError {
     #[error("preferred capability {capability_id} is outside the target prerequisite closure")]
     PreferenceOutsideGoalClosure { capability_id: String },
     #[error("preferred practice option {task_id} is not eligible for capability {capability_id}")]
-    PreferredPracticeNotEligible { capability_id: String, task_id: String },
+    PreferredPracticeNotEligible {
+        capability_id: String,
+        task_id: String,
+    },
     #[error("generated_at must be nonnegative: {timestamp}")]
     NegativeTimestamp { timestamp: i64 },
     #[error("estimated duration overflowed the supported integer range")]
     DurationOverflow,
-    #[error("required estimated duration {required_minutes} minutes exceeds budget {budget_minutes} minutes")]
+    #[error(
+        "required estimated duration {required_minutes} minutes exceeds budget {budget_minutes} minutes"
+    )]
     TotalBudgetExceeded {
         required_minutes: u32,
         budget_minutes: u32,
@@ -506,10 +511,7 @@ fn validate_graph<'a>(
         validate_identifier(&node.version, "capability_version")?;
         validate_text(&node.title, "capability_title", MAX_TITLE_BYTES)?;
 
-        if nodes
-            .insert(node.capability_id.clone(), node)
-            .is_some()
-        {
+        if nodes.insert(node.capability_id.clone(), node).is_some() {
             return Err(GoalPlanError::DuplicateCapability {
                 capability_id: node.capability_id.0.clone(),
             });
@@ -597,9 +599,7 @@ fn validate_text(
     field: &'static str,
     maximum_bytes: usize,
 ) -> Result<(), GoalPlanError> {
-    if value.trim().is_empty()
-        || value.len() > maximum_bytes
-        || value.chars().any(char::is_control)
+    if value.trim().is_empty() || value.len() > maximum_bytes || value.chars().any(char::is_control)
     {
         return Err(GoalPlanError::InvalidField { field });
     }
@@ -653,9 +653,7 @@ fn topological_order<'a>(
 
     let mut ready: BTreeSet<CapabilityId> = in_degree
         .iter()
-        .filter_map(|(capability_id, count)| {
-            (*count == 0).then_some(capability_id.clone())
-        })
+        .filter_map(|(capability_id, count)| (*count == 0).then_some(capability_id.clone()))
         .collect();
     let mut ordered = Vec::with_capacity(closure.len());
 
@@ -687,7 +685,9 @@ fn topological_order<'a>(
 }
 
 fn canonicalize_graph(mut graph: CapabilityGraph) -> CapabilityGraph {
-    graph.nodes.sort_by(|left, right| left.capability_id.cmp(&right.capability_id));
+    graph
+        .nodes
+        .sort_by(|left, right| left.capability_id.cmp(&right.capability_id));
     for node in &mut graph.nodes {
         node.prerequisites.sort();
         node.practice_options
@@ -769,7 +769,12 @@ mod tests {
         }
     }
 
-    fn request(target: &str, allowed_modes: &[DeliveryMode], max_task: u32, total: u32) -> GoalPlanRequest {
+    fn request(
+        target: &str,
+        allowed_modes: &[DeliveryMode],
+        max_task: u32,
+        total: u32,
+    ) -> GoalPlanRequest {
         GoalPlanRequest {
             request_id: "request-001".into(),
             target_capability: id(target),
@@ -789,21 +794,49 @@ mod tests {
                 "Diagnose a network fault",
                 &["cap-ip-basics", "cap-observation"],
                 vec![
-                    option("task-network-lab", "2", "rubric-network", "3", 35, DeliveryMode::Simulation),
-                    option("task-network-practical", "1", "rubric-network", "3", 50, DeliveryMode::SupervisedPractical),
+                    option(
+                        "task-network-lab",
+                        "2",
+                        "rubric-network",
+                        "3",
+                        35,
+                        DeliveryMode::Simulation,
+                    ),
+                    option(
+                        "task-network-practical",
+                        "1",
+                        "rubric-network",
+                        "3",
+                        50,
+                        DeliveryMode::SupervisedPractical,
+                    ),
                 ],
             ),
             node(
                 "cap-observation",
                 "Collect relevant signals",
                 &[],
-                vec![option("task-observe", "1", "rubric-observe", "1", 10, DeliveryMode::GuidedPractice)],
+                vec![option(
+                    "task-observe",
+                    "1",
+                    "rubric-observe",
+                    "1",
+                    10,
+                    DeliveryMode::GuidedPractice,
+                )],
             ),
             node(
                 "cap-ip-basics",
                 "Understand IP addressing",
                 &[],
-                vec![option("task-ip-retrieval", "1", "rubric-ip", "1", 15, DeliveryMode::RetrievalPractice)],
+                vec![option(
+                    "task-ip-retrieval",
+                    "1",
+                    "rubric-ip",
+                    "1",
+                    15,
+                    DeliveryMode::RetrievalPractice,
+                )],
             ),
         ])
     }
@@ -814,7 +847,11 @@ mod tests {
             &basic_graph(),
             &request(
                 "cap-net-debug",
-                &[DeliveryMode::GuidedPractice, DeliveryMode::RetrievalPractice, DeliveryMode::Simulation],
+                &[
+                    DeliveryMode::GuidedPractice,
+                    DeliveryMode::RetrievalPractice,
+                    DeliveryMode::Simulation,
+                ],
                 60,
                 100,
             ),
@@ -822,10 +859,20 @@ mod tests {
         )
         .unwrap();
 
-        let ids: Vec<&str> = plan.steps.iter().map(|step| step.capability_id.0.as_str()).collect();
-        assert_eq!(ids, vec!["cap-ip-basics", "cap-observation", "cap-net-debug"]);
+        let ids: Vec<&str> = plan
+            .steps
+            .iter()
+            .map(|step| step.capability_id.0.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            vec!["cap-ip-basics", "cap-observation", "cap-net-debug"]
+        );
         assert_eq!(plan.estimated_total_minutes, 60);
-        assert_eq!(plan.steps.last().unwrap().proposed_practice.task_id, "task-network-lab");
+        assert_eq!(
+            plan.steps.last().unwrap().proposed_practice.task_id,
+            "task-network-lab"
+        );
         assert!(plan.input_digest.starts_with("blake3:"));
         assert_eq!(plan.compiler_version, CAPABILITY_PLAN_COMPILER_VERSION);
     }
@@ -841,7 +888,11 @@ mod tests {
         }
         let request = request(
             "cap-net-debug",
-            &[DeliveryMode::GuidedPractice, DeliveryMode::RetrievalPractice, DeliveryMode::Simulation],
+            &[
+                DeliveryMode::GuidedPractice,
+                DeliveryMode::RetrievalPractice,
+                DeliveryMode::Simulation,
+            ],
             60,
             100,
         );
@@ -860,7 +911,11 @@ mod tests {
         changed.nodes[0].practice_options[0].rubric_version = "4".into();
         let request = request(
             "cap-net-debug",
-            &[DeliveryMode::GuidedPractice, DeliveryMode::RetrievalPractice, DeliveryMode::Simulation],
+            &[
+                DeliveryMode::GuidedPractice,
+                DeliveryMode::RetrievalPractice,
+                DeliveryMode::Simulation,
+            ],
             60,
             100,
         );
@@ -891,7 +946,14 @@ mod tests {
             plan.steps.last().unwrap().proposed_practice.delivery_mode,
             DeliveryMode::SupervisedPractical
         );
-        assert_eq!(plan.steps.last().unwrap().proposed_practice.estimated_minutes, 50);
+        assert_eq!(
+            plan.steps
+                .last()
+                .unwrap()
+                .proposed_practice
+                .estimated_minutes,
+            50
+        );
     }
 
     #[test]
@@ -922,11 +984,20 @@ mod tests {
         .unwrap();
 
         let target_step = plan.steps.last().unwrap();
-        assert_eq!(target_step.proposed_practice.task_id, "task-network-practical");
+        assert_eq!(
+            target_step.proposed_practice.task_id,
+            "task-network-practical"
+        );
         assert_eq!(target_step.proposed_practice.estimated_minutes, 50);
-        assert_eq!(target_step.selection_basis, PracticeSelectionBasis::CuratorPriority);
+        assert_eq!(
+            target_step.selection_basis,
+            PracticeSelectionBasis::CuratorPriority
+        );
         assert_eq!(target_step.eligible_alternatives.len(), 1);
-        assert_eq!(target_step.eligible_alternatives[0].task_id, "task-network-lab");
+        assert_eq!(
+            target_step.eligible_alternatives[0].task_id,
+            "task-network-lab"
+        );
     }
 
     #[test]
@@ -955,10 +1026,19 @@ mod tests {
 
         let plan = compile_goal_plan(&graph, &request, 100).unwrap();
         let target_step = plan.steps.last().unwrap();
-        assert_eq!(target_step.proposed_practice.task_id, "task-network-practical");
-        assert_eq!(target_step.selection_basis, PracticeSelectionBasis::LearnerPreference);
+        assert_eq!(
+            target_step.proposed_practice.task_id,
+            "task-network-practical"
+        );
+        assert_eq!(
+            target_step.selection_basis,
+            PracticeSelectionBasis::LearnerPreference
+        );
         assert_eq!(target_step.eligible_alternatives.len(), 1);
-        assert_eq!(target_step.eligible_alternatives[0].task_id, "task-network-lab");
+        assert_eq!(
+            target_step.eligible_alternatives[0].task_id,
+            "task-network-lab"
+        );
     }
 
     #[test]
@@ -1035,10 +1115,21 @@ mod tests {
             "cap-target",
             "Target",
             &["cap-missing"],
-            vec![option("task-target", "1", "rubric", "1", 10, DeliveryMode::Simulation)],
+            vec![option(
+                "task-target",
+                "1",
+                "rubric",
+                "1",
+                10,
+                DeliveryMode::Simulation,
+            )],
         )]);
         assert_eq!(
-            compile_goal_plan(&graph, &request("cap-target", &[DeliveryMode::Simulation], 60, 100), 100),
+            compile_goal_plan(
+                &graph,
+                &request("cap-target", &[DeliveryMode::Simulation], 60, 100),
+                100
+            ),
             Err(GoalPlanError::UnknownPrerequisite {
                 capability_id: "cap-target".into(),
                 prerequisite_id: "cap-missing".into()
@@ -1049,11 +1140,25 @@ mod tests {
     #[test]
     fn reachable_dependency_cycle_is_rejected() {
         let graph = graph(vec![
-            node("a", "A", &["b"], vec![option("ta", "1", "ra", "1", 10, DeliveryMode::Simulation)]),
-            node("b", "B", &["a"], vec![option("tb", "1", "rb", "1", 10, DeliveryMode::Simulation)]),
+            node(
+                "a",
+                "A",
+                &["b"],
+                vec![option("ta", "1", "ra", "1", 10, DeliveryMode::Simulation)],
+            ),
+            node(
+                "b",
+                "B",
+                &["a"],
+                vec![option("tb", "1", "rb", "1", 10, DeliveryMode::Simulation)],
+            ),
         ]);
         assert!(matches!(
-            compile_goal_plan(&graph, &request("a", &[DeliveryMode::Simulation], 60, 100), 100),
+            compile_goal_plan(
+                &graph,
+                &request("a", &[DeliveryMode::Simulation], 60, 100),
+                100
+            ),
             Err(GoalPlanError::DependencyCycle { .. })
         ));
     }
@@ -1061,11 +1166,38 @@ mod tests {
     #[test]
     fn unrelated_cycle_does_not_block_target_plan() {
         let graph = graph(vec![
-            node("target", "Target", &[], vec![option("t-target", "1", "r-target", "1", 10, DeliveryMode::Simulation)]),
-            node("unrelated-a", "Unrelated A", &["unrelated-b"], vec![option("t-a", "1", "r-a", "1", 10, DeliveryMode::Simulation)]),
-            node("unrelated-b", "Unrelated B", &["unrelated-a"], vec![option("t-b", "1", "r-b", "1", 10, DeliveryMode::Simulation)]),
+            node(
+                "target",
+                "Target",
+                &[],
+                vec![option(
+                    "t-target",
+                    "1",
+                    "r-target",
+                    "1",
+                    10,
+                    DeliveryMode::Simulation,
+                )],
+            ),
+            node(
+                "unrelated-a",
+                "Unrelated A",
+                &["unrelated-b"],
+                vec![option("t-a", "1", "r-a", "1", 10, DeliveryMode::Simulation)],
+            ),
+            node(
+                "unrelated-b",
+                "Unrelated B",
+                &["unrelated-a"],
+                vec![option("t-b", "1", "r-b", "1", 10, DeliveryMode::Simulation)],
+            ),
         ]);
-        let plan = compile_goal_plan(&graph, &request("target", &[DeliveryMode::Simulation], 60, 100), 100).unwrap();
+        let plan = compile_goal_plan(
+            &graph,
+            &request("target", &[DeliveryMode::Simulation], 60, 100),
+            100,
+        )
+        .unwrap();
         assert_eq!(plan.steps.len(), 1);
         assert_eq!(plan.steps[0].capability_id, id("target"));
     }
@@ -1118,7 +1250,12 @@ mod tests {
 
     #[test]
     fn duplicate_capability_is_rejected() {
-        let duplicate = node("a", "A", &[], vec![option("t1", "1", "r1", "1", 10, DeliveryMode::Simulation)]);
+        let duplicate = node(
+            "a",
+            "A",
+            &[],
+            vec![option("t1", "1", "r1", "1", 10, DeliveryMode::Simulation)],
+        );
         assert!(matches!(
             compile_goal_plan(
                 &graph(vec![duplicate.clone(), duplicate]),
@@ -1132,11 +1269,25 @@ mod tests {
     #[test]
     fn duplicate_prerequisite_is_rejected() {
         let graph = graph(vec![
-            node("base", "Base", &[], vec![option("tb", "1", "rb", "1", 10, DeliveryMode::Simulation)]),
-            node("target", "Target", &["base", "base"], vec![option("tt", "1", "rt", "1", 10, DeliveryMode::Simulation)]),
+            node(
+                "base",
+                "Base",
+                &[],
+                vec![option("tb", "1", "rb", "1", 10, DeliveryMode::Simulation)],
+            ),
+            node(
+                "target",
+                "Target",
+                &["base", "base"],
+                vec![option("tt", "1", "rt", "1", 10, DeliveryMode::Simulation)],
+            ),
         ]);
         assert!(matches!(
-            compile_goal_plan(&graph, &request("target", &[DeliveryMode::Simulation], 60, 100), 100),
+            compile_goal_plan(
+                &graph,
+                &request("target", &[DeliveryMode::Simulation], 60, 100),
+                100
+            ),
             Err(GoalPlanError::DuplicatePrerequisite { .. })
         ));
     }
@@ -1164,7 +1315,7 @@ mod tests {
             .find(|node| node.capability_id == id("cap-net-debug"))
             .unwrap();
         target.practice_options[0].route_priority = 20; // 35 minutes
-        target.practice_options[1].route_priority = 1;  // 50 minutes
+        target.practice_options[1].route_priority = 1; // 50 minutes
 
         // Prerequisites need 25 minutes. The highest-priority target option would
         // produce a 75-minute route, while the 35-minute alternative fits in 70.
@@ -1239,7 +1390,11 @@ mod tests {
                 &basic_graph(),
                 &request(
                     "cap-net-debug",
-                    &[DeliveryMode::GuidedPractice, DeliveryMode::RetrievalPractice, DeliveryMode::Simulation],
+                    &[
+                        DeliveryMode::GuidedPractice,
+                        DeliveryMode::RetrievalPractice,
+                        DeliveryMode::Simulation
+                    ],
                     60,
                     59,
                 ),
@@ -1268,20 +1423,49 @@ mod tests {
             "target",
             "Target",
             &[],
-            vec![option("task", "1", "rubric", "1", 0, DeliveryMode::Simulation)],
+            vec![option(
+                "task",
+                "1",
+                "rubric",
+                "1",
+                0,
+                DeliveryMode::Simulation,
+            )],
         )]);
         assert_eq!(
-            compile_goal_plan(&graph, &request("target", &[DeliveryMode::Simulation], 60, 100), 100),
-            Err(GoalPlanError::InvalidField { field: "estimated_minutes" })
+            compile_goal_plan(
+                &graph,
+                &request("target", &[DeliveryMode::Simulation], 60, 100),
+                100
+            ),
+            Err(GoalPlanError::InvalidField {
+                field: "estimated_minutes"
+            })
         );
     }
 
     #[test]
     fn duplicate_practice_option_identity_is_rejected() {
-        let item = option("same-task", "1", "same-rubric", "1", 10, DeliveryMode::Simulation);
-        let graph = graph(vec![node("target", "Target", &[], vec![item.clone(), item])]);
+        let item = option(
+            "same-task",
+            "1",
+            "same-rubric",
+            "1",
+            10,
+            DeliveryMode::Simulation,
+        );
+        let graph = graph(vec![node(
+            "target",
+            "Target",
+            &[],
+            vec![item.clone(), item],
+        )]);
         assert!(matches!(
-            compile_goal_plan(&graph, &request("target", &[DeliveryMode::Simulation], 60, 100), 100),
+            compile_goal_plan(
+                &graph,
+                &request("target", &[DeliveryMode::Simulation], 60, 100),
+                100
+            ),
             Err(GoalPlanError::DuplicatePracticeOption { .. })
         ));
     }
@@ -1293,7 +1477,11 @@ mod tests {
                 &basic_graph(),
                 &request(
                     "cap-net-debug",
-                    &[DeliveryMode::GuidedPractice, DeliveryMode::RetrievalPractice, DeliveryMode::Simulation],
+                    &[
+                        DeliveryMode::GuidedPractice,
+                        DeliveryMode::RetrievalPractice,
+                        DeliveryMode::Simulation
+                    ],
                     60,
                     100,
                 ),
@@ -1306,12 +1494,36 @@ mod tests {
     #[test]
     fn duplicate_independent_nodes_have_stable_order() {
         let graph = graph(vec![
-            node("zeta", "Zeta", &[], vec![option("tz", "1", "rz", "1", 10, DeliveryMode::Simulation)]),
-            node("alpha", "Alpha", &[], vec![option("ta", "1", "ra", "1", 10, DeliveryMode::Simulation)]),
-            node("target", "Target", &["zeta", "alpha"], vec![option("tt", "1", "rt", "1", 10, DeliveryMode::Simulation)]),
+            node(
+                "zeta",
+                "Zeta",
+                &[],
+                vec![option("tz", "1", "rz", "1", 10, DeliveryMode::Simulation)],
+            ),
+            node(
+                "alpha",
+                "Alpha",
+                &[],
+                vec![option("ta", "1", "ra", "1", 10, DeliveryMode::Simulation)],
+            ),
+            node(
+                "target",
+                "Target",
+                &["zeta", "alpha"],
+                vec![option("tt", "1", "rt", "1", 10, DeliveryMode::Simulation)],
+            ),
         ]);
-        let plan = compile_goal_plan(&graph, &request("target", &[DeliveryMode::Simulation], 60, 100), 100).unwrap();
-        let ids: Vec<&str> = plan.steps.iter().map(|step| step.capability_id.0.as_str()).collect();
+        let plan = compile_goal_plan(
+            &graph,
+            &request("target", &[DeliveryMode::Simulation], 60, 100),
+            100,
+        )
+        .unwrap();
+        let ids: Vec<&str> = plan
+            .steps
+            .iter()
+            .map(|step| step.capability_id.0.as_str())
+            .collect();
         assert_eq!(ids, vec!["alpha", "zeta", "target"]);
     }
 
@@ -1421,9 +1633,20 @@ mod tests {
                 .map(|step| step.capability_id.clone())
                 .collect();
             let proposed_set: BTreeSet<_> = proposed_ids.iter().cloned().collect();
-            assert_eq!(proposed_set, expected_closure, "closure mismatch for seed {seed}");
-            assert_eq!(proposed_ids.len(), expected_closure.len(), "duplicate step for seed {seed}");
-            assert_eq!(plan.steps.len(), expected_closure.len(), "missing step for seed {seed}");
+            assert_eq!(
+                proposed_set, expected_closure,
+                "closure mismatch for seed {seed}"
+            );
+            assert_eq!(
+                proposed_ids.len(),
+                expected_closure.len(),
+                "duplicate step for seed {seed}"
+            );
+            assert_eq!(
+                plan.steps.len(),
+                expected_closure.len(),
+                "missing step for seed {seed}"
+            );
 
             let positions: BTreeMap<_, _> = plan
                 .steps
@@ -1434,7 +1657,11 @@ mod tests {
             let mut independently_summed_minutes = 0_u32;
 
             for (index, step) in plan.steps.iter().enumerate() {
-                assert_eq!(step.ordinal, (index + 1) as u32, "ordinal mismatch for seed {seed}");
+                assert_eq!(
+                    step.ordinal,
+                    (index + 1) as u32,
+                    "ordinal mismatch for seed {seed}"
+                );
                 let source_node = by_id
                     .get(&step.capability_id)
                     .expect("proposal step maps to a source node");
@@ -1454,16 +1681,22 @@ mod tests {
                     source_node
                         .practice_options
                         .iter()
-                        .any(|candidate| option_matches_ref(candidate, &PracticeOptionRef::from(&step.proposed_practice))),
+                        .any(|candidate| option_matches_ref(
+                            candidate,
+                            &PracticeOptionRef::from(&step.proposed_practice)
+                        )),
                     "proposal selected an undeclared option for seed {seed}"
                 );
                 assert!(
-                    request.constraints.allowed_delivery_modes
+                    request
+                        .constraints
+                        .allowed_delivery_modes
                         .contains(&step.proposed_practice.delivery_mode),
                     "proposal selected a disallowed modality for seed {seed}"
                 );
                 assert!(
-                    step.proposed_practice.estimated_minutes <= request.constraints.max_task_minutes,
+                    step.proposed_practice.estimated_minutes
+                        <= request.constraints.max_task_minutes,
                     "proposal exceeded per-task limit for seed {seed}"
                 );
                 independently_summed_minutes += step.proposed_practice.estimated_minutes;
@@ -1473,7 +1706,10 @@ mod tests {
                         source_node
                             .practice_options
                             .iter()
-                            .any(|candidate| option_matches_ref(candidate, &PracticeOptionRef::from(alternative))),
+                            .any(|candidate| option_matches_ref(
+                                candidate,
+                                &PracticeOptionRef::from(alternative)
+                            )),
                         "proposal exposed an undeclared alternative for seed {seed}"
                     );
                     assert_ne!(
@@ -1482,8 +1718,12 @@ mod tests {
                         "proposal duplicated its selected option in alternatives for seed {seed}"
                     );
                     assert!(
-                        request.constraints.allowed_delivery_modes.contains(&alternative.delivery_mode)
-                            && alternative.estimated_minutes <= request.constraints.max_task_minutes,
+                        request
+                            .constraints
+                            .allowed_delivery_modes
+                            .contains(&alternative.delivery_mode)
+                            && alternative.estimated_minutes
+                                <= request.constraints.max_task_minutes,
                         "proposal exposed an ineligible alternative for seed {seed}"
                     );
                 }
@@ -1501,12 +1741,20 @@ mod tests {
             }
             let permuted_plan = compile_goal_plan(&permuted_graph, &request, 100)
                 .unwrap_or_else(|error| panic!("permuted fixture {seed} was rejected: {error}"));
-            assert_eq!(plan.input_digest, permuted_plan.input_digest, "digest changed for seed {seed}");
-            assert_eq!(plan.steps, permuted_plan.steps, "route changed for seed {seed}");
-            assert_eq!(plan.estimated_total_minutes, permuted_plan.estimated_total_minutes);
+            assert_eq!(
+                plan.input_digest, permuted_plan.input_digest,
+                "digest changed for seed {seed}"
+            );
+            assert_eq!(
+                plan.steps, permuted_plan.steps,
+                "route changed for seed {seed}"
+            );
+            assert_eq!(
+                plan.estimated_total_minutes,
+                permuted_plan.estimated_total_minutes
+            );
         }
     }
-
 
     #[test]
     fn generated_budget_oracle_checks_feasibility_and_priority_preservation() {
@@ -1634,7 +1882,11 @@ mod tests {
             let plan = result.unwrap_or_else(|error| {
                 panic!("feasible generated budget rejected for seed {seed}: {error}")
             });
-            assert_eq!(plan.steps.len(), size, "chain closure incomplete for seed {seed}");
+            assert_eq!(
+                plan.steps.len(),
+                size,
+                "chain closure incomplete for seed {seed}"
+            );
 
             // Independently compute the minimum-duration suffix in route order.
             let mut suffix_minimum = vec![0_u32; size + 1];
@@ -1647,14 +1899,20 @@ mod tests {
                     .iter()
                     .filter(|option| {
                         option.estimated_minutes <= request.constraints.max_task_minutes
-                            && request.constraints.allowed_delivery_modes.contains(&option.delivery_mode)
+                            && request
+                                .constraints
+                                .allowed_delivery_modes
+                                .contains(&option.delivery_mode)
                     })
                     .map(|option| option.estimated_minutes)
                     .min()
                     .expect("generated option is eligible");
                 suffix_minimum[index] = suffix_minimum[index + 1] + local_minimum;
             }
-            assert_eq!(suffix_minimum[0], minimum_total, "lower bound differs for seed {seed}");
+            assert_eq!(
+                suffix_minimum[0], minimum_total,
+                "lower bound differs for seed {seed}"
+            );
 
             let mut prefix_total = 0_u32;
             let mut independent_total = 0_u32;
@@ -1667,7 +1925,10 @@ mod tests {
                     .iter()
                     .filter(|option| {
                         option.estimated_minutes <= request.constraints.max_task_minutes
-                            && request.constraints.allowed_delivery_modes.contains(&option.delivery_mode)
+                            && request
+                                .constraints
+                                .allowed_delivery_modes
+                                .contains(&option.delivery_mode)
                     })
                     .collect();
                 eligible.sort_by(|left, right| reference_option_order(left, right));
@@ -1689,22 +1950,34 @@ mod tests {
                 );
 
                 let first_option = eligible.first().expect("generated node has options");
-                let expected_basis = if option_matches_ref(first_option, &PracticeOptionRef::from(&step.proposed_practice)) {
+                let expected_basis = if option_matches_ref(
+                    first_option,
+                    &PracticeOptionRef::from(&step.proposed_practice),
+                ) {
                     PracticeSelectionBasis::CuratorPriority
                 } else {
                     PracticeSelectionBasis::BudgetFeasibility
                 };
-                assert_eq!(step.selection_basis, expected_basis, "selection basis mismatch for seed {seed}");
+                assert_eq!(
+                    step.selection_basis, expected_basis,
+                    "selection basis mismatch for seed {seed}"
+                );
 
                 let local_minimum = suffix_minimum[index] - suffix_minimum[index + 1];
                 let mut expected_alternatives: Vec<PracticeOptionRef> = eligible
                     .iter()
                     .filter(|option| {
-                        !option_matches_ref(option, &PracticeOptionRef::from(&step.proposed_practice))
-                            && minimum_total
-                                .checked_sub(local_minimum)
-                                .and_then(|other_minima| other_minima.checked_add(option.estimated_minutes))
-                                .is_some_and(|minimum_with_alternative| minimum_with_alternative <= budget)
+                        !option_matches_ref(
+                            option,
+                            &PracticeOptionRef::from(&step.proposed_practice),
+                        ) && minimum_total
+                            .checked_sub(local_minimum)
+                            .and_then(|other_minima| {
+                                other_minima.checked_add(option.estimated_minutes)
+                            })
+                            .is_some_and(|minimum_with_alternative| {
+                                minimum_with_alternative <= budget
+                            })
                     })
                     .map(|option| PracticeOptionRef::from(*option))
                     .collect();
@@ -1715,7 +1988,10 @@ mod tests {
                     .map(PracticeOptionRef::from)
                     .collect();
                 actual_alternatives.sort();
-                assert_eq!(actual_alternatives, expected_alternatives, "alternative eligibility mismatch for seed {seed}");
+                assert_eq!(
+                    actual_alternatives, expected_alternatives,
+                    "alternative eligibility mismatch for seed {seed}"
+                );
 
                 prefix_total += step.proposed_practice.estimated_minutes;
                 independent_total += step.proposed_practice.estimated_minutes;
@@ -1725,5 +2001,4 @@ mod tests {
             assert!(independent_total <= budget);
         }
     }
-
 }

@@ -16,8 +16,8 @@
 //! correctness-test responsibilities until separately instrumented.
 
 use praxis_core::{
-    compile_goal_plan, CapabilityGraph, CapabilityId, CapabilityNode, DeliveryMode,
-    GoalPlanConstraints, GoalPlanError, GoalPlanRequest, PracticeOption,
+    CapabilityGraph, CapabilityId, CapabilityNode, DeliveryMode, GoalPlanConstraints,
+    GoalPlanError, GoalPlanRequest, PracticeOption, compile_goal_plan,
 };
 use std::collections::BTreeSet;
 use std::hint::black_box;
@@ -79,8 +79,7 @@ fn make_graph(size: usize, option_count: usize, shape: Shape) -> CapabilityGraph
                 rubric_id: format!("rubric-{index:05}-{option_index:02}"),
                 rubric_version: "1".into(),
                 route_priority: u16::try_from(option_index).unwrap_or(u16::MAX),
-                rationale: "Synthetic benchmark fixture; not measured pedagogical efficacy."
-                    .into(),
+                rationale: "Synthetic benchmark fixture; not measured pedagogical efficacy.".into(),
                 estimated_minutes: 1 + ((option_index * 7) % MAX_TASK_MINUTES as usize) as u32,
                 delivery_mode: match option_index % 3 {
                     0 => DeliveryMode::RetrievalPractice,
@@ -249,11 +248,15 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         println!("Usage: cargo bench -p praxis-core --bench capability_plan");
-        println!("CSV columns: case,shape,nodes,options_per_node,iterations,steps,outcome,min_ns,p50_ns,p95_ns,max_ns,input_digest");
+        println!(
+            "CSV columns: case,shape,nodes,options_per_node,iterations,steps,outcome,min_ns,p50_ns,p95_ns,max_ns,input_digest"
+        );
         return;
     }
 
-    println!("case,shape,nodes,options_per_node,iterations,steps,outcome,min_ns,p50_ns,p95_ns,max_ns,input_digest");
+    println!(
+        "case,shape,nodes,options_per_node,iterations,steps,outcome,min_ns,p50_ns,p95_ns,max_ns,input_digest"
+    );
     for size in [10_usize, 100, 512, 4_096] {
         let options: &[usize] = if size <= 512 { &[1, 8, 64] } else { &[1, 8] };
 

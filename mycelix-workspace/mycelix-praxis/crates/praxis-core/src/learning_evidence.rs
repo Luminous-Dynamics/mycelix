@@ -320,7 +320,10 @@ mod tests {
 
         assert_eq!(decision.validate(), Ok(()));
         assert_eq!(event.assistance, AssistanceKind::DirectAnswer);
-        assert!(matches!(decision.outcome, AdmissionOutcome::Inconclusive { .. }));
+        assert!(matches!(
+            decision.outcome,
+            AdmissionOutcome::Inconclusive { .. }
+        ));
     }
 
     #[test]
@@ -389,6 +392,9 @@ mod tests {
             generated_at: 1,
         };
 
-        assert_eq!(estimate.validate(), Err(EvidenceContractError::DuplicateDimension));
+        assert_eq!(
+            estimate.validate(),
+            Err(EvidenceContractError::DuplicateDimension)
+        );
     }
 }
