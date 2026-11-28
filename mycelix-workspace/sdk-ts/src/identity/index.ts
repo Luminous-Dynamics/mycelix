@@ -165,11 +165,16 @@ export interface RevocationEntry {
 }
 
 /** Revocation check result */
+export type RevocationLookupStatus = 'RecordObserved' | 'NoRecordObserved';
+
+/** A query result; NoRecordObserved is not proof of global DHT completeness. */
 export interface RevocationCheckResult {
   /** Credential ID */
   credentialId: string;
   /** Current status as of checkedAt */
   status: RevocationStatus;
+  /** Whether a DHT revocation record was observed */
+  lookupStatus: RevocationLookupStatus;
   /** Reason (if a record was observed) */
   reason?: string;
   /** Effective time of the latest observed revocation/suspension record, in microseconds */
