@@ -38,4 +38,7 @@ expect_rejected "broken attempt chain repaired without changing expected disposi
 expect_rejected "partial multi-action unknown suffix treated as complete" \
   '(.cases[] | select(.case_id == "ITOPS-AH-016") | .attempts[1].effect) = "applied" | (.cases[] | select(.case_id == "ITOPS-AH-016") | .evidence[1].result) = "applied"'
 
-echo "PASS: all 10 attempt-history mutations were rejected."
+expect_rejected "partial multi-action suffix mislabelled as completed" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-016") | .expected_next_step) = "DO_NOT_RETRY"'
+
+echo "PASS: all 11 attempt-history mutations were rejected."
