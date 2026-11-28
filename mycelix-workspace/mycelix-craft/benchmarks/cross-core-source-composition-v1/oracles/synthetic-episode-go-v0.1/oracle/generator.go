@@ -122,7 +122,7 @@ func apply(ep map[string]any,c MutationCase)error{
  case "SYN-009":
   x,e:=list(ep["object_relationships"],"object_relationships");if e!=nil{return e};out:=make([]any,0,len(x));for _,v:=range x{m,e:=object(v,"relationship");if e!=nil{return e};if m["source"]=="CAL-4"&&m["target"]=="LB-17"{continue};out=append(out,v)};if len(out)==len(x){return errors.New("target relationship missing")};ep["object_relationships"]=out
  case "SYN-010":
-  ep["source_feed_attestation"]=map[string]any{"signature_status":"fixture_valid","selective_omission":true};ep["source_universe_coverage"]="Indeterminate"
+  x,e:=list(ep["events"],"events");if e!=nil{return e};ep["events"],e=remove(x,"event_id","EV-008");if e!=nil{return e};ep["source_feed_attestation"]=map[string]any{"signature_status":"fixture_valid","selective_omission":true,"event_id_omitted":"EV-008","source_id":"laboratory-lims"};ep["source_universe_coverage"]="Indeterminate"
  default:return fmt.Errorf("unsupported scenario %q",c.ID)
  }
  return nil
