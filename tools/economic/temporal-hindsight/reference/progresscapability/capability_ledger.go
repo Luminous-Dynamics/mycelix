@@ -109,6 +109,7 @@ type ReplayResultV1 struct {
 	CheckpointAuthentication string
 	SourceUniverseCompleteness string
 	CertificateDigest string
+	replaySeal string
 }
 
 type ProgressResultV1 struct {
@@ -299,19 +300,52 @@ func rawEventsDigest(events []CapabilityEventV1) string {
 	return digestBytes(b.Bytes())
 }
 
-func finalizeReplay(result ReplayResultV1) ReplayResultV1 {
+func replayCertificateDigest(result ReplayResultV1) string {
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-CAPABILITY-REPLAY-RESULT-V1")
-	writeString(&b,string(result.Disposition));writeString(&b,result.Reason);writeString(&b,result.ScopeDigest)
-	writeUint64(&b,result.ExpectedEventCount);writeUint64(&b,result.ObservedEventCount)
-	writeString(&b,result.GenesisDigest);writeString(&b,result.ObservedTailDigest)
-	writeString(&b,result.PendingEventID);writeString(&b,result.SubmittedEventsDigest)
-	writeUint32(&b,uint32(len(result.ActiveCapabilities)))
-	for _,cap:=range result.ActiveCapabilities {writeString(&b,cap.CapabilityID);writeUint64(&b,cap.Generation);writeString(&b,cap.TransitionDigest)}
-	writeString(&b,result.LedgerAuthentication);writeString(&b,result.IssuerAuthorityAuthentication)
-	writeString(&b,result.CheckpointAuthentication);writeString(&b,result.SourceUniverseCompleteness)
-	result.CertificateDigest=digestBytes(b.Bytes())
+	writeString(&b,string(result.Disposition))
+	writeString(&b,result.Reason)
+	writeString(&b,result.ScopeDigest)
+	_ = binary.Write(&b,binary.BigEndian,result.ExpectedEventCount)
+	_ = binary.Write(&b,binary.BigEndian,result.ObservedEventCount)
+	writeString(&b,result.GenesisDigest)
+	writeString(&b,result.ObservedTailDigest)
+	writeString(&b,result.PendingEventID)
+	if result.MutationBlocked { b.WriteByte(1) } else { b.WriteByte(0) }
+	writeString(&b,result.SubmittedEventsDigest)
+	_ = binary.Write(&b,binary.BigEndian,uint32(len(result.ActiveCapabilities)))
+	for _,cap:=range result.ActiveCapabilities {
+		writeString(&b,cap.CapabilityID)
+		_ = binary.Write(&b,binary.BigEndian,cap.Generation)
+		writeString(&b,cap.TransitionDigest)
+		_ = binary.Write(&b,binary.BigEndian,uint32(len(cap.OwnerCut)))
+		for _,coordinate:=range cap.OwnerCut {
+			writeString(&b,coordinate.OwnerRef)
+			_ = binary.Write(&b,binary.BigEndian,coordinate.Sequence)
+		}
+		writeString(&b,cap.IssuerRef)
+		writeString(&b,cap.IssuerKeyEpoch)
+		writeString(&b,cap.AuthorityGrantRef)
+		writeString(&b,cap.CheckpointRef)
+	}
+	writeString(&b,result.LedgerAuthentication)
+	writeString(&b,result.IssuerAuthorityAuthentication)
+	writeString(&b,result.CheckpointAuthentication)
+	writeString(&b,result.SourceUniverseCompleteness)
+	return digestBytes(b.Bytes())
+}
+
+func finalizeReplay(result ReplayResultV1) ReplayResultV1 {
+	result.CertificateDigest = replayCertificateDigest(result)
+	result.replaySeal = result.CertificateDigest
 	return result
+}
+
+func replayResultIntegrityValid(result ReplayResultV1) bool {
+	if result.replaySeal == "" || result.CertificateDigest != result.replaySeal {
+		return false
+	}
+	return result.CertificateDigest == replayCertificateDigest(result)
 }
 
 func failedReplay(result ReplayResultV1,reason string)ReplayResultV1 {
@@ -463,6 +497,10 @@ func DeriveProgressAntichainV1(scope CapabilityScopeV1,replay ReplayResultV1)Pro
 		ScopeDigest:replay.ScopeDigest,LedgerCertificateDigest:replay.CertificateDigest}
 	if replay.Disposition!=LedgerValid || replay.MutationBlocked{
 		result.Reason="ledger is not fully reconciled and structurally anchored; progress derivation is blocked"
+		return finalizeProgress(result)
+	}
+	if !replayResultIntegrityValid(replay) {
+		result.Reason="replay result integrity seal is absent or does not match its contents"
 		return finalizeProgress(result)
 	}
 	scopeDigest,err:=ScopeDigestV1(scope);if err!=nil{result.Reason=err.Error();return finalizeProgress(result)}
