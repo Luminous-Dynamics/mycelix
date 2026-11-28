@@ -22,9 +22,10 @@ func base() Capsule {
   Frontier:FrontierBinding{Kind:"CausalEventFrontier",Receipt:ref("frontier",5),Status:"Valid",Prefix:Established},
   Progress:ProgressBinding{Kind:"ProgressAntichain",Receipt:ref("progress",6),Status:"StableRelativeToDeclaredProgress",Universe:NotEvaluated,OwnerInventoryDigest:d(7)},
   Owner:OwnerBinding{Receipt:ref("owner-universe",7),Authentication:Established,Completeness:Established,FrontierDigest:d(5)},
+  Evidence:EvidenceBinding{IndependenceStatus:NotEvaluated},
   Authority:AuthorityBinding{Receipt:ref("authority",8),Principal:"assessor-1",Scope:"zone-1/decision:close",Validity:Established},
   Action:ActionBinding{Receipt:ref("plan",9),Digest:d(9),Revision:"rev-1",CoverageRevision:"rev-1",Count:2,Covered:2,CoverageDigest:d(9),Coverage:ref("coverage",10)},
-  Outcome:OutcomeBinding{Receipt:ref("outcome",11),Status:"Qualified",Reconciliation:"Resolved",ExecutionDigest:ref("execution",12).Digest,ActionPlanDigest:d(9)},Execution:ref("execution",12),
+  Outcome:OutcomeBinding{Receipt:ref("outcome",11),Status:"Qualified",Reconciliation:"Resolved",ExecutionDigest:ref("execution",12).Digest,ActionPlanDigest:d(9),MutationScope:"water-zone-A/repair-episode-1"},Execution:ref("execution",12),
   Claims:map[string]State{"authentication":Established,"authority":Established,"completeness":Established,"effect":Established,"truth":Established,"independence":NotEvaluated},Disposition:Justified,
  }
  ids:=map[Stage]string{}; schemas:=map[Stage]string{}; digests:=map[Stage]string{}
@@ -97,7 +98,7 @@ func TestCanonicalDigestDeterministicAndBindsPlan(t *testing.T) {
  c:=base(); first,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }
  for i,j:=0,len(c.Stages)-1;i<j;i,j=i+1,j-1 { c.Stages[i],c.Stages[j]=c.Stages[j],c.Stages[i] }
  second,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }; if first!=second { t.Fatal("stage permutation changed canonical DBC digest") }
- c.Action.Revision="rev-2"; c.Action.Digest=d(200); c.Action.CoverageDigest=d(200)
+ c.Action.Revision="rev-2"; c.Action.CoverageRevision="rev-2"; c.Action.Digest=d(200); c.Action.CoverageDigest=d(200)
  third,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }; if first==third { t.Fatal("plan change did not change capsule digest") }
 }
 type dbcKAT struct {
