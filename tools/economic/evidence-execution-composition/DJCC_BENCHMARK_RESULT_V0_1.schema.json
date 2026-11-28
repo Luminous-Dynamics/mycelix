@@ -2,12 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://luminousdynamics.io/schemas/economic/djcc-benchmark-result-v0.1.schema.json",
   "title": "DJCC Benchmark Result V0.1",
-  "description": "A reproducible benchmark-run record. It records failures and indeterminate outcomes as data; it does not itself certify a run or turn benchmark metrics into an assurance claim.",
+  "description": "A reproducible benchmark-run record. It records failures and indeterminate outcomes as data; it does not itself certify a run or turn benchmark metrics into an assurance claim. Qualification-specific constraints are conditional; cross-field arithmetic invariants are stated in x-semantic-invariants and must be checked by the independent result validator.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
     "benchmark_id",
+    "run_class",
+    "qualification_outcome",
     "run_id",
     "source",
     "corpus",
@@ -83,7 +85,8 @@
         "manifest_digest",
         "fixture_count",
         "executable_fixture_count",
-        "symbolic_fixture_count"
+        "symbolic_fixture_count",
+        "adversarial_class_count"
       ],
       "properties": {
         "manifest_digest": {
@@ -111,6 +114,10 @@
         },
         "oracle_digest": {
           "$ref": "#/$defs/sha256"
+        },
+        "adversarial_class_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -519,6 +526,20 @@
       "items": {
         "$ref": "#/$defs/artifact"
       }
+    },
+    "run_class": {
+      "enum": [
+        "smoke",
+        "exploratory",
+        "qualification"
+      ]
+    },
+    "qualification_outcome": {
+      "enum": [
+        "pass",
+        "fail",
+        "indeterminate"
+      ]
     }
   },
   "$defs": {
@@ -617,5 +638,129 @@
         }
       }
     }
-  }
+  },
+  "x-semantic-invariants": [
+    "positive_control_accepted must equal positive_control_total for a passing qualification",
+    "hard_negative_false_safe must be zero for a passing qualification",
+    "safety_mutants_killed must equal safety_mutant_total for a passing qualification",
+    "canonicalization_vector_matches must equal canonicalization_vector_total for a passing qualification",
+    "each percentile tuple must satisfy p50 <= p95 <= p99",
+    "fixture_count must equal executable_fixture_count + symbolic_fixture_count",
+    "all count fields must not exceed their corresponding denominators",
+    "started_at must be less than or equal to ended_at"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "run_class"
+        ],
+        "properties": {
+          "run_class": {
+            "const": "qualification"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "working_tree_clean": {
+                "const": true
+              }
+            }
+          },
+          "corpus": {
+            "properties": {
+              "adversarial_class_count": {
+                "minimum": 28
+              }
+            }
+          },
+          "execution": {
+            "properties": {
+              "timed_trials": {
+                "minimum": 30
+              }
+            }
+          },
+          "correctness": {
+            "properties": {
+              "positive_control_total": {
+                "minimum": 1
+              },
+              "hard_negative_total": {
+                "minimum": 1
+              },
+              "safety_mutant_total": {
+                "minimum": 1
+              },
+              "canonicalization_vector_total": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "qualification_outcome"
+        ],
+        "properties": {
+          "qualification_outcome": {
+            "const": "pass"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "correctness": {
+            "properties": {
+              "hard_negative_false_safe": {
+                "const": 0
+              },
+              "false_absence_count": {
+                "const": 0
+              },
+              "false_completeness_count": {
+                "const": 0
+              },
+              "false_authentication_count": {
+                "const": 0
+              },
+              "false_authority_count": {
+                "const": 0
+              },
+              "false_effect_count": {
+                "const": 0
+              },
+              "false_independence_count": {
+                "const": 0
+              },
+              "claim_ceiling_widening_count": {
+                "const": 0
+              },
+              "historical_frontier_leakage_count": {
+                "const": 0
+              },
+              "action_denominator_substitution_count": {
+                "const": 0
+              },
+              "unknown_outcome_retry_count": {
+                "const": 0
+              },
+              "correction_impact_recall": {
+                "const": 1
+              },
+              "full_incremental_outputs_identical": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
