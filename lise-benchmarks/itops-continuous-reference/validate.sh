@@ -18,46 +18,58 @@ jq -e '
 ' "$SCHEMA" >/dev/null
 
 jq -e '
-  .suite_id == "itops-continuous-scenario-reference"
-  and .schema_version == "0.1.0"
-  and .contract == "ITOPS-CONTINUOUS-001"
-  and .visibility == "PUBLIC_REFERENCE_SCENARIO"
-  and (.scenario.scenario_id | length) > 0
-  and (.scenario.time_profile.horizon_seconds >= 3600)
-  and (.scenario.time_profile.tick_seconds > 0)
-  and (.scenario.time_profile.seed >= 0)
-  and (.scenario.services | length) >= 3
-  and ([.scenario.services[].service_id] | length) == ([.scenario.services[].service_id] | unique | length)
-  and ([.scenario.operator_observations[].observation_id] | length) == ([.scenario.operator_observations[].observation_id] | unique | length)
-  and ([.scenario.fault_schedule[].event_id] | length) == ([.scenario.fault_schedule[].event_id] | unique | length)
-  and ([.scenario.terminal_propositions[].proposition_id] | length) == ([.scenario.terminal_propositions[].proposition_id] | unique | length)
-  and (.scenario.fault_schedule | length) >= 8
-  and ([.scenario.fault_schedule[].family] | unique | length) >= 6
-  and all(.scenario.operator_observations[]; .agent_visible == true and .observed_at_seconds <= .scenario.time_profile.horizon_seconds)
-  and all(.scenario.fault_schedule[];
+  . as $root
+  | $root.suite_id == "itops-continuous-scenario-reference"
+  and $root.schema_version == "0.1.0"
+  and $root.contract == "ITOPS-CONTINUOUS-001"
+  and $root.visibility == "PUBLIC_REFERENCE_SCENARIO"
+  and ($root.scenario.scenario_id | length) > 0
+  and ($root.scenario.time_profile.horizon_seconds >= 3600)
+  and ($root.scenario.time_profile.tick_seconds > 0)
+  and ($root.scenario.time_profile.seed >= 0)
+  and ($root.scenario.services | length) >= 3
+  and ([ $root.scenario.services[].service_id ] | length) == ([ $root.scenario.services[].service_id ] | unique | length)
+  and ([ $root.scenario.operator_observations[].observation_id ] | length) == ([ $root.scenario.operator_observations[].observation_id ] | unique | length)
+  and ([ $root.scenario.fault_schedule[].event_id ] | length) == ([ $root.scenario.fault_schedule[].event_id ] | unique | length)
+  and ([ $root.scenario.terminal_propositions[].proposition_id ] | length) == ([ $root.scenario.terminal_propositions[].proposition_id ] | unique | length)
+  and ($root.scenario.fault_schedule | length) >= 8
+  and ([ $root.scenario.fault_schedule[].family ] | unique | length) >= 6
+  and all($root.scenario.operator_observations[];
+    .agent_visible == true
+    and .observed_at_seconds <= $root.scenario.time_profile.horizon_seconds
+  )
+  and all($root.scenario.fault_schedule[];
     .agent_visible == false
     and .start_seconds >= 0
     and .duration_seconds > 0
-    and (.start_seconds + .duration_seconds) <= .scenario.time_profile.horizon_seconds
+    and (.start_seconds + .duration_seconds) <= $root.scenario.time_profile.horizon_seconds
   )
-  and all(.scenario.fault_schedule[].target_service_id as $target; any(.scenario.services[]; .service_id == $target))
-  and all(.scenario.dependencies[];
-    any(.scenario.services[]; .service_id == .from_service)
-    and any(.scenario.services[]; .service_id == .to_service)
+  and all($root.scenario.fault_schedule[].target_service_id as $target;
+    any($root.scenario.services[]; .service_id == $target)
   )
-  and all(.scenario.operator_observations[].target_service_id as $target; any(.scenario.services[]; .service_id == $target))
-  and all(.scenario.fault_schedule[].affected_observation_ids[] as $obs; any(.scenario.operator_observations[]; .observation_id == $obs))
-  and any(.scenario.fault_schedule[] as $a;
-    any(.scenario.fault_schedule[];
+  and all($root.scenario.dependencies[] as $edge;
+    any($root.scenario.services[]; .service_id == $edge.from_service)
+    and any($root.scenario.services[]; .service_id == $edge.to_service)
+  )
+  and all($root.scenario.operator_observations[].target_service_id as $target;
+    any($root.scenario.services[]; .service_id == $target)
+  )
+  and all($root.scenario.fault_schedule[].affected_observation_ids[] as $obs;
+    any($root.scenario.operator_observations[]; .observation_id == $obs)
+  )
+  and any($root.scenario.fault_schedule[] as $a;
+    any($root.scenario.fault_schedule[];
       .event_id != $a.event_id
       and .start_seconds < ($a.start_seconds + $a.duration_seconds)
       and $a.start_seconds < (.start_seconds + .duration_seconds)
     )
   )
-  and .scenario.agent_payload_policy.exposes_fault_schedule == false
-  and .scenario.agent_payload_policy.exposes_oracle == false
-  and .scenario.agent_payload_policy.observations_available_only_after_observed_time == true
-  and all(.scenario.terminal_propositions[]; .independent_verification_required == true)
+  and $root.scenario.agent_payload_policy.exposes_fault_schedule == false
+  and $root.scenario.agent_payload_policy.exposes_oracle == false
+  and $root.scenario.agent_payload_policy.observations_available_only_after_observed_time == true
+  and all($root.scenario.terminal_propositions[];
+    .independent_verification_required == true
+  )
 ' "$CORPUS" >/dev/null
 
 echo "PASS: ITOPS continuous public scenario satisfies structural and temporal invariants."
