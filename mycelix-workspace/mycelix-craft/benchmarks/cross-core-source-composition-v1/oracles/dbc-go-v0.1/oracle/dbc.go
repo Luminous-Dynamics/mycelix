@@ -37,6 +37,7 @@ const (
 )
 var stageOrder = []Stage{Frontier,SourceTrust,Semantic,Query,Policy,Authorization,Execution,Outcome}
 var dimensions = []string{"authentication","authority","completeness","effect","independence","truth"}
+const supportedProfileDigest = "f05c2d0f280b60c75240f9933f89ba5376ac9a7250f36a3832c14c679bafe902"
 
 type Ref struct { ID, Schema, Digest string }
 type Input struct { Slot string; Producer Stage; ReceiptID, Schema, Digest string; Required []string }
@@ -129,7 +130,7 @@ func externalRefs(c Capsule) map[string]Ref {
 }
 
 func Validate(c Capsule) error {
- if c.SchemaID!="mycelix.craft.decision-basis-capsule.v0.1" || c.ProfileRef!="mycelix.djcc.full-evidence-execution.v0.1" { return fail("PROFILE_MISMATCH","unsupported DBC schema/profile") }
+ if c.SchemaID!="mycelix.craft.decision-basis-capsule.v0.1" || c.ProfileRef!="mycelix.djcc.full-evidence-execution.v0.1" || c.ProfileDigest!=supportedProfileDigest { return fail("PROFILE_MISMATCH","unsupported DBC schema/profile or pinned DJCC profile digest") }
  for _,d:=range []string{c.ProfileDigest,c.QueryDigest,c.ScopeDigest} { if !digestOK(d) { return fail("DIGEST_INVALID","malformed profile/query/scope digest") } }
  if c.DecisionID=="" || c.QueryID=="" || c.QuerySchema=="" { return fail("IDENTITY_MISSING","decision/query identity missing") }
  if _,err:=time.Parse("2006-01-02T15:04:05Z",c.ValidAt); err!=nil { return fail("VALID_TIME_INVALID","valid_at must be canonical UTC seconds") }
@@ -153,6 +154,12 @@ func Validate(c Capsule) error {
  }
  if len(byStage)!=len(stageOrder) { return fail("STAGE_SET_INCOMPLETE","exactly eight DJCC stages are required") }
  for _,st:=range stageOrder { if _,ok:=byStage[st]; !ok { return fail("STAGE_SET_INCOMPLETE",string(st)) } }
+ matchesStageOutput:=func(r Ref,s StageReceipt) bool { return r.ID==s.ID && r.Schema==s.OutputSchema && r.Digest==s.OutputDigest }
+ if !matchesStageOutput(c.Frontier.Receipt,byStage[Frontier]) { return fail("FRONTIER_STAGE_BINDING_MISMATCH","frontier receipt differs from verifier_frontier stage output") }
+ if !matchesStageOutput(c.Policy,byStage[Policy]) { return fail("POLICY_STAGE_BINDING_MISMATCH","policy receipt differs from policy stage output") }
+ if !matchesStageOutput(c.Authority.Receipt,byStage[Authorization]) { return fail("AUTHORITY_STAGE_BINDING_MISMATCH","authority receipt differs from authorization stage output") }
+ if !matchesStageOutput(c.Execution,byStage[Execution]) { return fail("EXECUTION_STAGE_BINDING_MISMATCH","execution receipt differs from execution stage output") }
+ if !matchesStageOutput(c.Outcome.Receipt,byStage[Outcome]) { return fail("OUTCOME_STAGE_BINDING_MISMATCH","outcome receipt differs from outcome stage output") }
  for st,s:=range byStage {
   required:=edges()[st]; if len(s.Inputs)!=len(required) { return fail("DEPENDENCY_EDGE_SET_MISMATCH",string(st)) }
   slots:=map[string]bool{}
