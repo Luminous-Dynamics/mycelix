@@ -690,8 +690,7 @@ fn canonicalize_graph(mut graph: CapabilityGraph) -> CapabilityGraph {
         .sort_by(|left, right| left.capability_id.cmp(&right.capability_id));
     for node in &mut graph.nodes {
         node.prerequisites.sort();
-        node.practice_options
-            .sort_by(practice_option_order);
+        node.practice_options.sort_by(practice_option_order);
     }
     graph
 }
