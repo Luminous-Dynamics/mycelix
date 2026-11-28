@@ -1,6 +1,8 @@
 package oracle
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 )
 
@@ -111,5 +113,40 @@ func TestProviderCompletionIsNotIndependentOutcome(t *testing.T) {
 		result.ClaimCeiling.Effect != ClaimUnknown ||
 		result.Composition != CompositionUnknown {
 		t.Fatalf("provider completion was promoted to an observed outcome: %+v", result)
+	}
+}
+ 
+func TestCertificateSchemaIsValidJSONAndContainsAllStages(t *testing.T) {
+	raw, err := os.ReadFile("../../../../schemas/economic/decision-justification-composition-certificate-v0.1.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatalf("certificate schema is not valid JSON: %v", err)
+	}
+	if schema["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
+		t.Fatalf("unexpected JSON Schema dialect: %v", schema["$schema"])
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("certificate schema has no properties object")
+	}
+	stageEnvelope, ok := properties["stages"].(map[string]any)
+	if !ok {
+		t.Fatal("certificate schema has no stages envelope")
+	}
+	stageProperties, ok := stageEnvelope["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("certificate stages has no property registry")
+	}
+	for _, stage := range requiredStages {
+		if _, exists := stageProperties[string(stage)]; !exists {
+			t.Errorf("certificate schema is missing stage %q", stage)
+		}
+	}
+	stageRequired, ok := stageEnvelope["required"].([]any)
+	if !ok || len(stageRequired) != len(requiredStages) {
+		t.Fatalf("certificate schema must require all %d stages", len(requiredStages))
 	}
 }
