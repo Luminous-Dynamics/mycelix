@@ -1366,12 +1366,16 @@ mod tests {
             "repair",
             "independent:field-crew",
         );
-        let extra = wsr_action_denominator_observation(
+        let mut extra = wsr_action_denominator_observation(
             &plan,
             "obs:extra",
-            "unapproved-extra-work",
+            "repair",
             "independent:field-crew",
         );
+        // Start from a valid plan-bound observation, then mutate only its action
+        // identity. This exercises the owner's UnknownAction rejection without
+        // asking the fixture constructor to invent an action absent from the plan.
+        extra.action_id = "unapproved-extra-work".to_owned();
         let observations = vec![isolate, repair.clone(), repair, extra];
         let receipt = action_denominator::evaluate_action_coverage_v1(&plan, &observations, 200)
             .expect("owner evaluates a plan-bound observation set");
