@@ -247,3 +247,59 @@ func TestSharedDJCCStageEdgeCanonicalizationVectors(t *testing.T) {
 	}
 }
 
+func TestCompositionProfilesDeclareClaimOwnersAndNoImplicitNotApplicable(t *testing.T) {
+	manifest, err := LoadProfileManifest("../DJCC_PROFILES_V0_1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateProfileManifest(manifest); err != nil {
+		t.Fatalf("DJCC profiles failed independent validation: %v", err)
+	}
+	var decisionOnly *CompositionProfile
+	for i := range manifest.Profiles {
+		if manifest.Profiles[i].ProfileRef == "mycelix.djcc.historical-decision-only.v0.1" {
+			decisionOnly = &manifest.Profiles[i]
+			break
+		}
+	}
+	if decisionOnly == nil {
+		t.Fatal("historical decision-only profile is missing")
+	}
+	for _, stage := range []string{"execution", "outcome"} {
+		if !contains(decisionOnly.AllowedNotApplicable, stage) {
+			t.Errorf("decision-only profile must explicitly allow %s as NotApplicable", stage)
+		}
+	}
+	if contains(decisionOnly.ClaimStages["truth"], "outcome") {
+		t.Fatal("decision-only truth claim must not depend on an omitted physical outcome stage")
+	}
+}
+
+func TestProfileManifestRejectsClaimMappedToNotApplicableStage(t *testing.T) {
+	manifest, err := LoadProfileManifest("../DJCC_PROFILES_V0_1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.Profiles[0].AllowedNotApplicable = append(manifest.Profiles[0].AllowedNotApplicable, "source_trust")
+	if err := ValidateProfileManifest(manifest); err == nil {
+		t.Fatal("profile allowed a stage to be NotApplicable while claiming it as a claim producer")
+	}
+}
+
+func TestStageEdgeRejectsUnsortedOrUnknownRequiredClaims(t *testing.T) {
+	var digest [32]byte
+	edge := StageEdgeV1{
+		ProducerStage: "policy", ConsumerStage: "authorization",
+		InputName: "decision", OutputSchemaRef: "policy:v1",
+		RequiredClaims: []string{"truth", "authentication"},
+		OutputDigest: digest,
+	}
+	if _, err := CanonicalStageEdgeBytesV1(edge); err == nil {
+		t.Fatal("unsorted required claims accepted")
+	}
+	edge.RequiredClaims = []string{"nonexistent"}
+	if _, err := CanonicalStageEdgeBytesV1(edge); err == nil {
+		t.Fatal("unknown required claim accepted")
+	}
+}
+
