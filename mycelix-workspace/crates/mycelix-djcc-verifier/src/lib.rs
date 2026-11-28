@@ -271,6 +271,15 @@ fn validate_bindings(stage_id: StageId, bindings: &[InputBinding], out: &mut Vec
                 break;
             }
         }
+        if binding.name.starts_with("stage:") {
+            let matches = bindings.iter().filter(|candidate| candidate.name == binding.name).count();
+            if matches != 1 {
+                out.push(violation(
+                    "DJCC-STAGE-INPUT-NONUNIQUE",
+                    format!("{stage_id}: stage input binding {} is not unique", binding.name),
+                ));
+            }
+        }
         previous = Some(&binding.name);
     }
 }
@@ -282,6 +291,22 @@ fn validate_stage_dependencies(
     out: &mut Vec<Violation>,
 ) {
     let expected = stage_id.required_dependencies();
+
+    for binding in &stage.input_bindings {
+        if binding.name.starts_with("stage:") {
+            let matched = stage.dependencies.iter().any(|dependency| {
+                dependency.input_name == binding.name
+                    && dependency.output_digest == binding.digest
+                    && dependency.schema_ref == binding.schema_ref
+            });
+            if !matched {
+                out.push(violation(
+                    "DJCC-UNBOUND-STAGE-INPUT",
+                    format!("{stage_id}: stage input {} has no matching dependency edge", binding.name),
+                ));
+            }
+        }
+    }
 
     if !requires_output(stage.disposition) {
         if !stage.dependencies.is_empty() {
@@ -380,10 +405,7 @@ fn validate_claim_ceiling(
         let owner_claims = dimension_values(stage.claim_ceiling);
         for dimension in 0..5 {
             if declared[dimension] == ClaimState::EstablishedWithinProfile
-                && !matches!(
-                    owner_claims[dimension],
-                    ClaimState::EstablishedWithinProfile | ClaimState::NotApplicable
-                )
+                && owner_claims[dimension] != ClaimState::EstablishedWithinProfile
             {
                 out.push(violation(
                     "DJCC-CLAIM-CEILING-WIDENED",
@@ -840,10 +862,12 @@ mod tests {
         execution.disposition = StageDisposition::NotApplicable;
         execution.output_digest = None;
         execution.dependencies.clear();
+        execution.input_bindings.retain(|binding| binding.name == "scope");
         let outcome = input.stages.get_mut(&StageId::Outcome).unwrap();
         outcome.disposition = StageDisposition::NotApplicable;
         outcome.output_digest = None;
         outcome.dependencies.clear();
+        outcome.input_bindings.retain(|binding| binding.name == "scope");
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
         let mut profile = valid_profile();
         profile.allowed_not_applicable.clear();
@@ -861,10 +885,12 @@ mod tests {
         execution.disposition = StageDisposition::NotApplicable;
         execution.output_digest = None;
         execution.dependencies.clear();
+        execution.input_bindings.retain(|binding| binding.name == "scope");
         let outcome = input.stages.get_mut(&StageId::Outcome).unwrap();
         outcome.disposition = StageDisposition::NotApplicable;
         outcome.output_digest = None;
         outcome.dependencies.clear();
+        outcome.input_bindings.retain(|binding| binding.name == "scope");
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
         let report = verify_composition(&input, &valid_profile());
         assert!(report.is_valid(), "{:?}", report.violations);
@@ -935,5 +961,36 @@ mod tests {
             .violations
             .iter()
             .any(|item| item.code == "DJCC-COMPOSITION-DISPOSITION-MISMATCH"));
+    } 
+    #[test]
+    fn not_applicable_stage_cannot_support_an_established_effect_claim() {
+        let mut input = positive_input();
+        let execution = input.stages.get_mut(&StageId::Execution).unwrap();
+        execution.disposition = StageDisposition::NotApplicable;
+        execution.output_digest = None;
+        execution.dependencies.clear();
+        execution.input_bindings.retain(|binding| binding.name == "scope");
+        execution.claim_ceiling.effect = ClaimState::NotApplicable;
+        let report = verify_composition(&input, &valid_profile());
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-CLAIM-CEILING-WIDENED"));
     }
+
+    #[test]
+    fn unevaluated_stage_cannot_retain_orphaned_stage_input() {
+        let mut input = positive_input();
+        let policy = input.stages.get_mut(&StageId::Policy).unwrap();
+        policy.disposition = StageDisposition::NotEvaluated;
+        policy.output_digest = None;
+        policy.dependencies.clear();
+        // Deliberately retain the prior Query dependency binding.
+        let report = verify_composition(&input, &valid_profile());
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-UNBOUND-STAGE-INPUT"));
+    }
+
 }
