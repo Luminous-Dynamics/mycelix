@@ -20,9 +20,11 @@ on:
 permissions:
   contents: read
 
+# Each exact PR head gets an independent qualification run. Branch-level
+# cancel-in-progress can erase the only evidence for a superseded commit.
 concurrency:
-  group: djcc-seed-oracle-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: djcc-seed-oracle-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
 
 jobs:
   qualify:
