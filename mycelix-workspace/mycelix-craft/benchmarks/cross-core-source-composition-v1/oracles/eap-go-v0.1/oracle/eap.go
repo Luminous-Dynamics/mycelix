@@ -3,6 +3,7 @@ package oracle
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -343,3 +344,82 @@ func CanonicalDigest(p Proposal) (string,error) {
 	sum:=sha256.Sum256(append([]byte("MYCELIX-CRAFT-EAP-V0.1\x00"),b...))
 	return hex.EncodeToString(sum[:]),nil
 }
+func rejectDuplicateJSONKeys(data []byte) error {
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.UseNumber()
+	var readValue func() error
+	readValue = func() error {
+		token, err := decoder.Token()
+		if err != nil { return err }
+		delimiter, ok := token.(json.Delim)
+		if !ok { return nil }
+		switch delimiter {
+		case '{':
+			seen := map[string]bool{}
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil { return err }
+				key, ok := keyToken.(string)
+				if !ok { return fmt.Errorf("object key is not a string") }
+				if seen[key] { return fmt.Errorf("duplicate JSON object key %q", key) }
+				seen[key] = true
+				if err := readValue(); err != nil { return err }
+			}
+			end, err := decoder.Token()
+			if err != nil { return err }
+			if end != json.Delim('}') { return fmt.Errorf("malformed object terminator") }
+		case '[':
+			for decoder.More() { if err := readValue(); err != nil { return err } }
+			end, err := decoder.Token()
+			if err != nil { return err }
+			if end != json.Delim(']') { return fmt.Errorf("malformed array terminator") }
+		default:
+			return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
+		}
+		return nil
+	}
+	if err := readValue(); err != nil { return fmt.Errorf("scan EAP JSON keys: %w", err) }
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil { return fmt.Errorf("multiple JSON values are not permitted") }
+		return fmt.Errorf("trailing JSON data: %w", err)
+	}
+	return nil
+}
+
+func EncodeJSON(p Proposal) ([]byte,error) {
+	if p.AuthorizedEffects == nil { p.AuthorizedEffects = []string{} }
+	p.AuthorizedEffects = append([]string(nil),p.AuthorizedEffects...)
+	p.InvalidatedBy = append([]string(nil),p.InvalidatedBy...)
+	p.Candidate.ResultImpacts = append([]ResultImpact(nil),p.Candidate.ResultImpacts...)
+	sort.Strings(p.AuthorizedEffects)
+	sort.Strings(p.InvalidatedBy)
+	sort.Slice(p.Candidate.ResultImpacts,func(i,j int)bool{return p.Candidate.ResultImpacts[i].ResultID<p.Candidate.ResultImpacts[j].ResultID})
+	return json.Marshal(p)
+}
+
+func DecodeJSON(data []byte) (Proposal,error) {
+	if err:=rejectDuplicateJSONKeys(data); err!=nil { return Proposal{},err }
+	decoder:=json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	var p Proposal
+	if err:=decoder.Decode(&p); err!=nil { return Proposal{},fmt.Errorf("decode EAP proposal: %w",err) }
+	var trailing any
+	if err:=decoder.Decode(&trailing); err!=io.EOF {
+		if err==nil { return Proposal{},fmt.Errorf("multiple JSON values are not permitted") }
+		return Proposal{},fmt.Errorf("trailing JSON data: %w",err)
+	}
+	if p.AuthorizedEffects==nil || p.InvalidatedBy==nil || p.Candidate.ResultImpacts==nil {
+		return Proposal{},fmt.Errorf("required EAP arrays must be JSON arrays, not null or missing")
+	}
+	return p,nil
+}
+
+func ValidateJSON(data []byte) (Proposal,Report,error) {
+	p,err:=DecodeJSON(data)
+	if err!=nil { return Proposal{},Report{},err }
+	r:=Validate(p)
+	if len(r.Violations)>0 { return p,r,fmt.Errorf("%s: %s",r.Violations[0].Code,r.Violations[0].Message) }
+	return p,r,nil
+}
+
