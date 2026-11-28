@@ -1,0 +1,252 @@
+name: DJCC V0.1 independent seed oracle
+
+on:
+  pull_request:
+    paths:
+      - "docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md"
+      - "schemas/economic/decision-justification-composition-certificate-v0.1.schema.json"
+      - "tools/economic/evidence-execution-composition/**"
+      - "mycelix-workspace/crates/mycelix-djcc-verifier/**"
+      - ".github/workflows/djcc-seed-oracle.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md"
+      - "schemas/economic/decision-justification-composition-certificate-v0.1.schema.json"
+      - "tools/economic/evidence-execution-composition/**"
+      - "mycelix-workspace/crates/mycelix-djcc-verifier/**"
+      - ".github/workflows/djcc-seed-oracle.yml"
+
+permissions:
+  contents: read
+
+# Each exact PR head gets an independent qualification run. Branch-level
+# cancel-in-progress can erase the only evidence for a superseded commit.
+concurrency:
+  group: djcc-seed-oracle-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: DJCC seed oracle, schema and reproducibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact pull request head
+        id: checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact workflow head and required artifacts
+        id: assert_head
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md
+          test -f schemas/economic/decision-justification-composition-certificate-v0.1.schema.json
+          test -f tools/economic/evidence-execution-composition/DJCC_V0_1_SEEDS.json
+          test -f tools/economic/evidence-execution-composition/DJCC_PROFILES_V0_1.json
+          test -f tools/economic/evidence-execution-composition/DJCC_STAGE_EDGE_V1_KAT.tsv
+          test -f tools/economic/evidence-execution-composition/DJCC_BENCHMARK_PROTOCOL_V0_1.md
+          test -f tools/economic/evidence-execution-composition/DJCC_BENCHMARK_RESULT_V0_1.schema.json
+          jq -e '
+            .["$schema"] == "https://json-schema.org/draft/2020-12/schema" and
+            .properties.schema.const == "mycelix.djcc-benchmark-result.v0.1" and
+            (.required | index("run_class") != null) and
+            (.required | index("qualification_outcome") != null) and
+            (.properties.correctness.required | index("false_authentication_count") != null) and
+            (.allOf | length >= 2) and
+            (.["x-semantic-invariants"] | length >= 8)
+          ' tools/economic/evidence-execution-composition/DJCC_BENCHMARK_RESULT_V0_1.schema.json >/dev/null
+          test -f tools/economic/evidence-execution-composition/go.mod
+          test -f tools/economic/evidence-execution-composition/oracle/oracle.go
+          test -f tools/economic/evidence-execution-composition/oracle/oracle_test.go
+          test -f tools/economic/evidence-execution-composition/oracle/lineage_attestation.go
+          test -f tools/economic/evidence-execution-composition/oracle/lineage_attestation_test.go
+          test -f tools/economic/evidence-execution-composition/LINEAGE_ATTESTATION_V1_KAT.tsv
+          test -f mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml
+          test -f mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs
+          test -f mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
+
+      - name: Set up pinned Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+
+      - name: Check Go formatting
+        id: gofmt
+        continue-on-error: true
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            printf '\nExact gofmt diff:\n'
+            gofmt -d $unformatted
+            exit 1
+          fi
+
+      - name: Run independent expected-result oracle and schema tests
+        id: tests
+        continue-on-error: true
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/djcc"
+          go version 2>&1 | tee "$RUNNER_TEMP/djcc/go.log"
+          go test -v ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Run Go race detector
+        id: race
+        continue-on-error: true
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Run go vet
+        id: vet
+        continue-on-error: true
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./... 2>&1 | tee -a "$RUNNER_TEMP/djcc/go.log"
+
+      - name: Install pinned Rust toolchain
+        id: rust_toolchain
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustc +1.96.0 --version | tee "$RUNNER_TEMP/djcc/rust.log"
+          cargo +1.96.0 --version | tee -a "$RUNNER_TEMP/djcc/rust.log"
+
+      - name: Check Rust verifier formatting
+        id: rustfmt
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt +1.96.0 --edition 2024 --check mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
+
+      - name: Test Rust composition verifier
+        id: rust_tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc +1.96.0 --edition=2024 --test mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs -o "$RUNNER_TEMP/djcc/djcc-tests"
+          "$RUNNER_TEMP/djcc/djcc-tests"
+
+      - name: Clippy Rust composition verifier with warnings denied
+        id: clippy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup run 1.96.0 clippy-driver --edition=2024 --test mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs -o "$RUNNER_TEMP/djcc/djcc-tests-clippy" -D warnings
+
+      - name: Assemble exact-head seed qualification receipt
+        if: always()
+        shell: bash
+        env:
+          GOFMT: ${{ steps.gofmt.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          RACE: ${{ steps.race.outcome }}
+          VET: ${{ steps.vet.outcome }}
+          RUST_TOOLCHAIN: ${{ steps.rust_toolchain.outcome }}
+          RUSTFMT: ${{ steps.rustfmt.outcome }}
+          RUST_TESTS: ${{ steps.rust_tests.outcome }}
+          CLIPPY: ${{ steps.clippy.outcome }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/djcc"
+          mkdir -p "$dir"
+          jq -n \
+            --arg schema "mycelix.djcc-seed-oracle-qualification.v0.1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflow_sha "$(git rev-parse HEAD)" \
+            --arg go "$(go version 2>&1 || printf UNAVAILABLE)" \
+            --arg gofmt "$GOFMT" \
+            --arg tests "$TESTS" \
+            --arg race "$RACE" \
+            --arg vet "$VET" \
+            --arg rust_toolchain "$RUST_TOOLCHAIN" \
+            --arg rustfmt "$RUSTFMT" \
+            --arg rust_tests "$RUST_TESTS" \
+            --arg clippy "$CLIPPY" \
+            '{schema:$schema,repository:$repository,run_id:$run_id,run_attempt:$attempt,workflow_sha:$workflow_sha,go_toolchain:$go,rust_toolchain_outcome:$rust_toolchain,outcomes:{gofmt:$gofmt,go_tests:$tests,go_race:$race,go_vet:$vet,rustfmt:$rustfmt,rust_tests:$rust_tests,clippy:$clippy},claims:{seed_registry_integrity:"ProfileStructuralOnly",certificate_candidate_verification:"NotEvaluated",cross_language_canonicalization:"NotEvaluated",source_authentication:"NotEvaluated",owner_universe_completeness:"NotEvaluated",policy_correctness:"NotEvaluated",authority:"NotEvaluated",effect:"NotEvaluated",failure_domain_assessment:"StructuralOnly",lineage_attestation:"PrecheckOnly",resilience:"DeclaredFaultScenarioOnly"}}' \
+            > "$dir/qualification.json"
+          (
+            cd "$dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          )
+
+      - name: Upload DJCC seed evidence bundle
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: djcc-seed-oracle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/djcc/
+          if-no-files-found: error
+          retention-days: 90
+
+
+      - name: Format exact source snapshot for patch review
+        if: always() && steps.rust_toolchain.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -w tools/economic/evidence-execution-composition/oracle/*.go
+          rustfmt +1.96.0 --edition 2024 mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs
+          out="$RUNNER_TEMP/djcc/formatted-source"
+          mkdir -p "$out/oracle" "$out/rust"
+          cp tools/economic/evidence-execution-composition/oracle/*.go "$out/oracle/"
+          cp mycelix-workspace/crates/mycelix-djcc-verifier/src/lib.rs "$out/rust/"
+          cp mycelix-workspace/crates/mycelix-djcc-verifier/src/failure_domain.rs "$out/rust/"
+
+      - name: Upload exact formatted source snapshot
+        if: always() && steps.rust_toolchain.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: djcc-formatted-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/djcc/formatted-source/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Enforce exact-head qualification outcomes
+        if: always()
+        shell: bash
+        env:
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          HEAD: ${{ steps.assert_head.outcome }}
+          GOFMT: ${{ steps.gofmt.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          RACE: ${{ steps.race.outcome }}
+          VET: ${{ steps.vet.outcome }}
+          RUST_TOOLCHAIN: ${{ steps.rust_toolchain.outcome }}
+          RUSTFMT: ${{ steps.rustfmt.outcome }}
+          RUST_TESTS: ${{ steps.rust_tests.outcome }}
+          CLIPPY: ${{ steps.clippy.outcome }}
+        run: |
+          set -euo pipefail
+          for result in "$CHECKOUT" "$HEAD" "$GOFMT" "$TESTS" "$RACE" "$VET" "$RUST_TOOLCHAIN" "$RUSTFMT" "$RUST_TESTS" "$CLIPPY"; do
+            if [ "$result" != "success" ]; then
+              printf 'qualification gate failed or did not execute: %s\n' "$result"
+              exit 1
+            fi
+          done

@@ -1,0 +1,919 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/economic/djcc-benchmark-result-v0.1.schema.json",
+  "title": "DJCC Benchmark Result V0.1",
+  "description": "A reproducible benchmark-run record. It records failures and indeterminate outcomes as data; it does not itself certify a run or turn benchmark metrics into an assurance claim. Qualification-specific constraints are conditional; cross-field arithmetic invariants are stated in x-semantic-invariants and must be checked by the independent result validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "benchmark_id",
+    "run_class",
+    "qualification_outcome",
+    "run_id",
+    "source",
+    "corpus",
+    "profile",
+    "workload",
+    "environment",
+    "execution",
+    "correctness",
+    "dispositions",
+    "performance",
+    "artifacts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.djcc-benchmark-result.v0.1"
+    },
+    "benchmark_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head_sha",
+        "base_sha",
+        "working_tree_clean",
+        "toolchain_lock_digest"
+      ],
+      "properties": {
+        "head_sha": {
+          "$ref": "#/$defs/gitSha"
+        },
+        "base_sha": {
+          "$ref": "#/$defs/gitSha"
+        },
+        "working_tree_clean": {
+          "type": "boolean"
+        },
+        "toolchain_lock_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "build_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "build_provenance_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_digest",
+        "fixture_count",
+        "executable_fixture_count",
+        "symbolic_fixture_count",
+        "adversarial_class_count"
+      ],
+      "properties": {
+        "manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "fixture_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "executable_fixture_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "symbolic_fixture_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixture_set_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "oracle_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "oracle_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "adversarial_class_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adversarial_class_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "positive_control_class_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Unique adversarial class IDs with an executable positive-control fixture."
+        },
+        "hard_negative_class_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Unique adversarial class IDs with an executable hard-negative fixture."
+        },
+        "fixture_records": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "description": "Individually content-addressed executable fixture cases included in this exact run.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fixture_id",
+              "class_id",
+              "control_kind",
+              "digest",
+              "byte_length",
+              "media_type",
+              "generator_version",
+              "generator_seed"
+            ],
+            "properties": {
+              "fixture_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "class_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "control_kind": {
+                "enum": [
+                  "positive_control",
+                  "hard_negative"
+                ]
+              },
+              "digest": {
+                "$ref": "#/$defs/sha256"
+              },
+              "byte_length": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "media_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "generator_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "generator_seed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_ref",
+        "profile_digest"
+      ],
+      "properties": {
+        "profile_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "profile_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "trust_policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "identity_registry_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "accepted_frontier_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_count",
+        "event_count",
+        "dependency_edge_count",
+        "evidence_channel_count",
+        "failure_domain_count",
+        "delta_fraction",
+        "dependency_fanout",
+        "common_cause_density"
+      ],
+      "properties": {
+        "owner_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dependency_edge_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_channel_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_domain_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delta_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "dependency_fanout": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "common_cause_density": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "correction_position": {
+          "enum": [
+            "none",
+            "newest",
+            "median",
+            "oldest",
+            "before_frontier",
+            "after_frontier"
+          ]
+        },
+        "query_class": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "change_class": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "adversary_tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "kernel",
+        "architecture",
+        "cpu_model",
+        "logical_cpu_count",
+        "memory_bytes"
+      ],
+      "properties": {
+        "os": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kernel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "cpu_model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "logical_cpu_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "storage_model": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "runner_class": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "network_profile": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "random_seed",
+        "warmup_trials",
+        "timed_trials",
+        "toolchains"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "random_seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warmup_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timed_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "toolchains": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "dependency_lock_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "environment_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "positive_control_total",
+        "positive_control_accepted",
+        "hard_negative_total",
+        "hard_negative_false_safe",
+        "safety_mutant_total",
+        "safety_mutants_killed",
+        "false_absence_count",
+        "false_completeness_count",
+        "false_authority_count",
+        "false_effect_count",
+        "false_independence_count",
+        "claim_ceiling_widening_count",
+        "historical_frontier_leakage_count",
+        "action_denominator_substitution_count",
+        "unknown_outcome_retry_count",
+        "correction_impact_recall",
+        "correction_impact_precision",
+        "canonicalization_vector_total",
+        "canonicalization_vector_matches",
+        "full_incremental_outputs_identical",
+        "false_authentication_count"
+      ],
+      "properties": {
+        "positive_control_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "positive_control_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_negative_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_negative_false_safe": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "safety_mutant_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "safety_mutants_killed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_absence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_completeness_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_authentication_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_authority_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_effect_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_independence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "claim_ceiling_widening_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_frontier_leakage_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "action_denominator_substitution_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_outcome_retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correction_impact_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "correction_impact_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "canonicalization_vector_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "canonicalization_vector_matches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "full_incremental_outputs_identical": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "dispositions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage_counts",
+        "root_counts",
+        "claim_ceiling_counts"
+      ],
+      "properties": {
+        "stage_counts": {
+          "$ref": "#/$defs/dispositionCountMap"
+        },
+        "root_counts": {
+          "$ref": "#/$defs/dispositionCountMap"
+        },
+        "claim_ceiling_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/nonNegativeCount"
+          }
+        },
+        "abstention_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "latency_ns",
+        "cpu_time_ns",
+        "peak_rss_bytes",
+        "allocation_bytes",
+        "proof_bytes",
+        "io_bytes",
+        "network_bytes"
+      ],
+      "properties": {
+        "latency_ns": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "cpu_time_ns": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "peak_rss_bytes": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "allocation_bytes": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "proof_bytes": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "io_bytes": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "network_bytes": {
+          "$ref": "#/$defs/percentiles"
+        },
+        "cache_hit_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "incremental_to_full_cpu_ratio": {
+          "type": "number",
+          "minimum": 0
+        },
+        "incremental_to_full_latency_ratio": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "run_class": {
+      "enum": [
+        "smoke",
+        "exploratory",
+        "qualification"
+      ]
+    },
+    "qualification_outcome": {
+      "enum": [
+        "pass",
+        "fail",
+        "indeterminate"
+      ]
+    }
+  },
+  "$defs": {
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nonNegativeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dispositionCountMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/nonNegativeCount"
+      }
+    },
+    "percentiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "properties": {
+        "p50": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p95": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p99": {
+          "type": "number",
+          "minimum": 0
+        },
+        "confidence_interval_95": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "digest",
+        "byte_length",
+        "media_type"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      }
+    }
+  },
+  "x-semantic-invariants": [
+    "positive_control_accepted must equal positive_control_total for a passing qualification",
+    "hard_negative_false_safe must be zero for a passing qualification",
+    "safety_mutants_killed must equal safety_mutant_total for a passing qualification",
+    "canonicalization_vector_matches must equal canonicalization_vector_total for a passing qualification",
+    "each percentile tuple must satisfy p50 <= p95 <= p99",
+    "fixture_count must equal executable_fixture_count + symbolic_fixture_count",
+    "all count fields must not exceed their corresponding denominators",
+    "started_at must be less than or equal to ended_at",
+    "qualification requires at least 30 distinct adversarial_class_ids and adversarial_class_count must equal their count",
+    "qualification requires executable_fixture_count >= 30 and symbolic_fixture_count = 0",
+    "qualification requires 30 distinct adversarial classes, each represented in both positive_control_class_ids and hard_negative_class_ids",
+    "qualification requires at least 60 executable fixtures, zero symbolic fixtures, a fixture-set digest, and an independently versioned/digested oracle",
+    "qualification fixture_records must contain a unique fixture ID and unique content digest for every executable case",
+    "each adversarial class must map to exactly one positive_control and one hard_negative fixture record",
+    "fixture record class IDs and control kinds must exactly agree with the declared positive_control_class_ids and hard_negative_class_ids",
+    "fixture_count and executable_fixture_count must equal the fixture_records array length"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "run_class"
+        ],
+        "properties": {
+          "run_class": {
+            "const": "qualification"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "working_tree_clean": {
+                "const": true
+              }
+            }
+          },
+          "corpus": {
+            "properties": {
+              "adversarial_class_count": {
+                "minimum": 30
+              },
+              "adversarial_class_ids": {
+                "minItems": 30,
+                "uniqueItems": true
+              },
+              "executable_fixture_count": {
+                "minimum": 60
+              },
+              "symbolic_fixture_count": {
+                "const": 0
+              },
+              "fixture_count": {
+                "minimum": 60
+              },
+              "positive_control_class_ids": {
+                "minItems": 30,
+                "uniqueItems": true
+              },
+              "hard_negative_class_ids": {
+                "minItems": 30,
+                "uniqueItems": true
+              },
+              "fixture_records": {
+                "minItems": 60,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "adversarial_class_ids",
+              "positive_control_class_ids",
+              "hard_negative_class_ids",
+              "fixture_set_digest",
+              "oracle_version",
+              "oracle_digest",
+              "fixture_records"
+            ]
+          },
+          "execution": {
+            "properties": {
+              "timed_trials": {
+                "minimum": 30
+              }
+            }
+          },
+          "correctness": {
+            "properties": {
+              "positive_control_total": {
+                "minimum": 30
+              },
+              "hard_negative_total": {
+                "minimum": 30
+              },
+              "safety_mutant_total": {
+                "minimum": 1
+              },
+              "canonicalization_vector_total": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "qualification_outcome"
+        ],
+        "properties": {
+          "qualification_outcome": {
+            "const": "pass"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "correctness": {
+            "properties": {
+              "hard_negative_false_safe": {
+                "const": 0
+              },
+              "false_absence_count": {
+                "const": 0
+              },
+              "false_completeness_count": {
+                "const": 0
+              },
+              "false_authentication_count": {
+                "const": 0
+              },
+              "false_authority_count": {
+                "const": 0
+              },
+              "false_effect_count": {
+                "const": 0
+              },
+              "false_independence_count": {
+                "const": 0
+              },
+              "claim_ceiling_widening_count": {
+                "const": 0
+              },
+              "historical_frontier_leakage_count": {
+                "const": 0
+              },
+              "action_denominator_substitution_count": {
+                "const": 0
+              },
+              "unknown_outcome_retry_count": {
+                "const": 0
+              },
+              "correction_impact_recall": {
+                "const": 1
+              },
+              "full_incremental_outputs_identical": {
+                "const": true
+              },
+              "positive_control_total": {
+                "minimum": 1
+              },
+              "hard_negative_total": {
+                "minimum": 1
+              },
+              "safety_mutant_total": {
+                "minimum": 1
+              },
+              "canonicalization_vector_total": {
+                "minimum": 1
+              }
+            }
+          },
+          "run_class": {
+            "const": "qualification"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      djcc: ${{ steps.filter.outputs.djcc }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,12 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            djcc:
+              - 'docs/economic/DECISION-JUSTIFICATION-COMPOSITION-CERTIFICATE-V0.1.md'
+              - 'schemas/economic/decision-justification-composition-certificate-v0.1.schema.json'
+              - 'tools/economic/evidence-execution-composition/**'
+              - '.github/workflows/djcc-seed-oracle.yml'
+              - 'mycelix-workspace/crates/mycelix-djcc-verifier/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -113,6 +120,67 @@ jobs:
           exit $status
 
   # Per-cluster test jobs
+  # Independent composition-seed registry oracle (not a candidate certificate verifier).
+  test-djcc:
+    needs: changes
+    if: needs.changes.outputs.djcc == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact head and DJCC inputs
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f schemas/economic/decision-justification-composition-certificate-v0.1.schema.json
+          test -f tools/economic/evidence-execution-composition/DJCC_V0_1_SEEDS.json
+          test -f tools/economic/evidence-execution-composition/DJCC_PROFILES_V0_1.json
+          test -f tools/economic/evidence-execution-composition/go.mod
+      - name: Set up Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+      - name: Check Go formatting
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\\n' "$unformatted"
+            exit 1
+          fi
+      - name: Run independent DJCC seed oracle and schema tests
+        working-directory: tools/economic/evidence-execution-composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go test -v ./...
+      - name: Run DJCC oracle race detector
+        working-directory: tools/economic/evidence-execution-composition
+        run: go test -race ./...
+      - name: Run DJCC oracle vet
+        working-directory: tools/economic/evidence-execution-composition
+        run: go vet ./...
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Check DJCC Rust verifier formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml -- --check
+      - name: Test DJCC Rust verifier
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets
+      - name: Clippy DJCC Rust verifier with warnings denied
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-djcc-verifier/Cargo.toml --all-targets -- -D warnings
+
   test-cos-conformance:
     needs: changes
     if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
@@ -452,6 +520,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-djcc
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +541,10 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "DJCC seed oracle: ${{ needs.test-djcc.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-djcc.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
