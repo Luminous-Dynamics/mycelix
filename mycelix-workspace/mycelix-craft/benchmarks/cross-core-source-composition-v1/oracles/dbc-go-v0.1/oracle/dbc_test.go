@@ -100,12 +100,115 @@ func TestCanonicalDigestDeterministicAndBindsPlan(t *testing.T) {
  c.Action.Revision="rev-2"; c.Action.Digest=d(200); c.Action.CoverageDigest=d(200)
  third,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }; if first==third { t.Fatal("plan change did not change capsule digest") }
 }
-func TestKnownAnswerFixtureHasTwentyFourSeeds(t *testing.T) {
- b,err:=os.ReadFile(filepath.Join("..","fixtures","dbc-known-answer-v0.1.json")); if err!=nil { t.Fatal(err) }
- var m map[string]json.RawMessage; if err:=json.Unmarshal(b,&m); err!=nil { t.Fatal(err) }
- var schema string; var cases []json.RawMessage
- _=json.Unmarshal(m["schema_id"],&schema); _=json.Unmarshal(m["cases"],&cases)
- if schema!="mycelix.craft.dbc-known-answer.v0.1" || len(cases)!=24 { t.Fatalf("schema/case count mismatch: %s / %d",schema,len(cases)) }
+type dbcKAT struct {
+	ID string `json:"id"`
+	Mutation string `json:"mutation"`
+	ExpectedCode string `json:"expected_code"`
+	ExpectedDisposition string `json:"expected_disposition"`
+}
+type dbcKATManifest struct {
+	SchemaID string `json:"schema_id"`
+	Cases []dbcKAT `json:"cases"`
+}
+
+func applyMutation(c Capsule, mutation string) Capsule {
+	switch mutation {
+	case "none":
+	case "conflate_frontier_and_progress":
+		c.Progress.Kind = "CausalEventFrontier"
+	case "incomplete_frontier":
+		c.Frontier.Status = "Incomplete"
+	case "provisional_progress":
+		c.Progress.Status = "Provisional"
+	case "owner_universe_unknown":
+		c.Owner.Completeness = NotEvaluated
+	case "independence_without_profile":
+		c.Claims["independence"] = Established
+	case "expired_authority":
+		c.Authority.Validity = Rejected
+	case "policy_schema_substitution":
+		for i := range c.External { if c.External[i].Slot == "policy" { c.External[i].Schema = "schema.substituted-policy" } }
+	case "action_denominator_drift":
+		c.Action.CoverageDigest = d(999)
+	case "outcome_unknown_with_effect":
+		c.Outcome.Status = "Unknown"
+	case "duplicate_stage":
+		c.Stages[1].Stage = c.Stages[0].Stage
+	case "duplicate_receipt_id":
+		c.Stages[1].ID = c.Stages[0].ID
+	case "producer_digest_substitution":
+		c.Stages[1].Inputs[0].Digest = d(888)
+	case "producer_schema_substitution":
+		c.Stages[1].Inputs[0].Schema = "schema.substituted"
+	case "claim_ceiling_widening":
+		c.Stages[0].Claims["truth"] = Established
+	case "partial_action_coverage":
+		c.Action.Covered = 1
+	case "unresolved_outcome":
+		c.Outcome.Reconciliation = "Unresolved"
+	case "external_schema_substitution":
+		for i := range c.External { if c.External[i].Slot == "source_corpus" { c.External[i].Schema = "schema.substituted-corpus" } }
+	case "progress_universe_overclaim":
+		c.Progress.Universe = Established
+	case "producer_receipt_id_substitution":
+		c.Stages[1].Inputs[0].ReceiptID = "receipt-substituted"
+	case "missing_owner_universe":
+		filtered := make([]ExternalBinding, 0, len(c.External)-1)
+		for _, b := range c.External { if b.Slot != "owner_universe" { filtered = append(filtered, b) } }
+		c.External = filtered
+	case "dependency_slot_substitution":
+		c.Stages[1].Inputs[0].Slot = "unrecognized-input-slot"
+	case "duplicate_unknown":
+		c.Unknowns = []string{"same-unknown", "same-unknown"}
+	case "invalid_valid_at":
+		c.ValidAt = "not-a-canonical-time"
+	case "outcome_unknown_same_scope_mutation":
+		c.Outcome.Status = "Unknown"
+		c.Outcome.SameScopeMutationAttempt = true
+	case "owner_frontier_substitution":
+		c.Owner.FrontierDigest = d(777)
+	case "progress_inventory_substitution":
+		c.Progress.OwnerInventoryDigest = d(778)
+	case "temporal_frontier_substitution":
+		c.Temporal.FrontierDigest = d(779)
+	case "outcome_execution_substitution":
+		c.Outcome.ExecutionDigest = d(780)
+	case "coverage_revision_drift":
+		c.Action.CoverageRevision = "stale-plan-revision"
+	default:
+		panic("unimplemented DBC KAT mutation: " + mutation)
+	}
+	return c
+}
+
+func TestFrozenKnownAnswerMutationSuite(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "fixtures", "dbc-known-answer-v0.1.json"))
+	if err != nil { t.Fatal(err) }
+	var manifest dbcKATManifest
+	if err := json.Unmarshal(b, &manifest); err != nil { t.Fatal(err) }
+	if manifest.SchemaID != "mycelix.craft.dbc-known-answer.v0.1" { t.Fatalf("unexpected KAT schema %q", manifest.SchemaID) }
+	if len(manifest.Cases) != 30 { t.Fatalf("expected 30 frozen DBC cases, got %d", len(manifest.Cases)) }
+	seen := map[string]bool{}
+	for _, item := range manifest.Cases {
+		item := item
+		t.Run(item.ID, func(t *testing.T) {
+			if seen[item.ID] { t.Fatalf("duplicate DBC case ID %s", item.ID) }
+			seen[item.ID] = true
+			candidate := applyMutation(base(), item.Mutation)
+			err := Validate(candidate)
+			gotCode := ""
+			if err != nil { gotCode = Code(err) }
+			if gotCode != item.ExpectedCode {
+				t.Fatalf("mutation %s: got code %q, expected %q (err=%v)", item.Mutation, gotCode, item.ExpectedCode, err)
+			}
+			gotDisposition := string(Justified)
+			if err != nil { gotDisposition = string(Undecided) }
+			if gotDisposition != item.ExpectedDisposition {
+				t.Fatalf("mutation %s: got disposition %q, expected %q", item.Mutation, gotDisposition, item.ExpectedDisposition)
+			}
+		})
+	}
+	if len(seen) != len(manifest.Cases) { t.Fatalf("evaluated %d/%d unique DBC KATs", len(seen), len(manifest.Cases)) }
 }
 func TestCanonicalDigestBindsQueryAndPolicyInputs(t *testing.T) {
  c:=base(); one,err:=CanonicalDigest(c); if err!=nil { t.Fatal(err) }
