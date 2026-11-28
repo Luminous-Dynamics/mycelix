@@ -38,7 +38,7 @@ This fixture must not create a parallel event store, ledger, authority profile, 
 
 ## Validation and claim ceiling
 
-The jq validator is a dependency-light structural/semantic gate, **not a complete JSON Schema implementation**. A schema-aware validator is a separate qualification step.
+The jq validator is a dependency-light structural/semantic gate, **not a complete JSON Schema implementation**. In local authoring validation, the Draft 2020-12 schema passed `jsonschema` 4.26.0 meta-validation and the public scenario conformed; that schema-aware check is not yet wired into the hosted workflow. Referential integrity (such as fault-target service IDs and observation references) is enforced by the jq semantic gate rather than by JSON Schema.
 
 A passing public fixture proves only that this manifest shape satisfies its declared structural/temporal controls. It does not prove that an environment can be provisioned, an agent can operate it, recovery occurred, or any system beats SRE-Marathon, Incident-Arena, SWEOps-Bench or ITBench-AA. Hosted exact-head CI is the qualification authority for this repository artifact.
 
