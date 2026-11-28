@@ -54,8 +54,19 @@ The fixed dependency graph is explicit in the source. A future profile registry 
 
 The Go program validates the public seed manifest against its own expected-result table. The Rust program verifies structural composition of already supplied stage results. Neither currently verifies certificate signatures, source-log identity, authenticated owner-universe closure, Merkle root authority, semantic payload truth, legal authority, policy execution, one-shot effect admission, IVC proofs, or physical outcome.
 
-The two programs do not yet share byte-canonicalization vectors or compare candidate Rust outputs to Go expected results. That is the next qualification increment.
+## Shared Go/Rust stage-edge vectors
+
+`DJCC_STAGE_EDGE_V1_KAT.tsv` specifies the first shared byte-level contract:
+- domain separator `MYCELIX-DJCC-STAGE-EDGE-V1`;
+- four UTF-8 strings, each prefixed by a big-endian u32 **byte** length: producer stage, consumer stage, input name, output schema reference;
+- the producer's 32-byte output digest appended as raw bytes.
+
+The Go oracle and Rust candidate independently construct the canonical preimage and compare it with the same frozen known-answer bytes. One vector contains a non-ASCII UTF-8 input name to catch character-count versus byte-count errors.
+
+This is only a canonical stage-edge encoding vector. It is not yet a full certificate canonicalization, canonical JSON profile, or signed certificate digest. Root certificate encoding remains a separate deliverable.
+
+The Go manifest oracle and the Rust candidate still do not compare full candidate certificate outputs against one another. Shared stage-edge byte parity is the first narrow interoperability gate.
 
 ## Claim boundary
 
-This is **seed-registry validation plus a structural candidate verifier**, not an end-to-end trust verifier or production assurance result. The eight seed references are symbolic until exact synthetic fixture bytes are frozen and hashed. A Go/ Rust parity pass would still not establish external source truth or legal effect.
+This is **seed-registry validation plus a structural candidate verifier and one shared stage-edge byte vector**, not an end-to-end trust verifier or production assurance result. The eight seed references are symbolic until exact synthetic fixture bytes are frozen and hashed. Go/Rust edge parity does not establish complete certificate parity, external source truth, legal effect or physical outcome.
