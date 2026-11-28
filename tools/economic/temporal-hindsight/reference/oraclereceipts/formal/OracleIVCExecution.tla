@@ -22,9 +22,9 @@ VARIABLES
     pendingTargetFrontier
 
 vars ==
-    << stepCount, stateHead, proofHead, receiptFrontier, receiptHighWater,
-       pending, pendingBaseState, pendingBaseProof, pendingBaseFrontier,
-       pendingTargetState, pendingTargetProof, pendingTargetFrontier >>
+    << stepCount, stateHead, proofHead, adviceHead, receiptFrontier, receiptHighWater,
+       pending, pendingBaseState, pendingBaseProof, pendingBaseAdvice, pendingBaseFrontier,
+       pendingTargetState, pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
 Init ==
     /\ stepCount = 0
@@ -53,7 +53,7 @@ ApplyKnownStep ==
     /\ adviceHead' = adviceHead + 1
     /\ receiptFrontier' = receiptFrontier + 1
     /\ receiptHighWater' = receiptFrontier + 1
-    /\ UNCHANGED << pending, pendingBaseState, pendingBaseProof,
+    /\ UNCHANGED << pending, pendingBaseState, pendingBaseProof, pendingBaseAdvice,
                     pendingBaseFrontier, pendingTargetState,
                     pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
@@ -70,7 +70,7 @@ PrepareUnknownStep ==
     /\ pendingTargetProof' = proofHead + 1
     /\ pendingTargetAdvice' = adviceHead + 1
     /\ pendingTargetFrontier' = receiptFrontier + 1
-    /\ UNCHANGED << stepCount, stateHead, proofHead,
+    /\ UNCHANGED << stepCount, stateHead, proofHead, adviceHead,
                     receiptFrontier, receiptHighWater >>
 
 ReconcileApplied ==
@@ -82,7 +82,7 @@ ReconcileApplied ==
     /\ receiptFrontier' = pendingTargetFrontier
     /\ receiptHighWater' = pendingTargetFrontier
     /\ pending' = FALSE
-    /\ UNCHANGED << pendingBaseState, pendingBaseProof,
+    /\ UNCHANGED << pendingBaseState, pendingBaseProof, pendingBaseAdvice,
                     pendingBaseFrontier, pendingTargetState,
                     pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
@@ -111,20 +111,20 @@ MutantRegressFrontier ==
     /\ ~pending
     /\ receiptHighWater > 0
     /\ receiptFrontier' = 0
-    /\ UNCHANGED << stepCount, stateHead, proofHead, receiptHighWater,
-                    pending, pendingBaseState, pendingBaseProof,
+    /\ UNCHANGED << stepCount, stateHead, proofHead, adviceHead, receiptHighWater,
+                    pending, pendingBaseState, pendingBaseProof, pendingBaseAdvice,
                     pendingBaseFrontier, pendingTargetState,
-                    pendingTargetProof, pendingTargetFrontier >>
+                    pendingTargetProof, pendingTargetAdvice, pendingTargetFrontier >>
 
 (* Mutant 2: update the proof head without updating the corresponding state. *)
 MutantProofOnly ==
     /\ ~pending
     /\ proofHead < MaxSteps
     /\ proofHead' = proofHead + 1
-    /\ UNCHANGED << stepCount, stateHead, receiptFrontier,
+    /\ UNCHANGED << stepCount, stateHead, adviceHead, receiptFrontier,
                     receiptHighWater, pending, pendingBaseState,
-                    pendingBaseProof, pendingBaseFrontier,
-                    pendingTargetState, pendingTargetProof,
+                    pendingBaseProof, pendingBaseAdvice, pendingBaseFrontier,
+                    pendingTargetState, pendingTargetProof, pendingTargetAdvice,
                     pendingTargetFrontier >>
 
 (* Mutant 3: apply a step while the prior outcome is still Unknown. *)
