@@ -256,7 +256,7 @@ func SignableDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, err
 	if err != nil {
 		return "", fmt.Errorf("invalid oracle scope: %w", err)
 	}
-	if err := validateReceiptFields(scopeDigest, scope, receipt, false); err != nil {
+	if err := validateReceiptFields(scopeDigest, scope, receipt); err != nil {
 		return "", err
 	}
 	refs, err := canonicalEvidenceReferences(receipt.EvidenceReferences)
@@ -295,7 +295,7 @@ func SignableDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, err
 	return digestBytes(b.Bytes()), nil
 }
 
-func validateReceiptFields(scopeDigest string, scope OracleScopeV1, receipt OracleReceiptV1, requireSignature bool) error {
+func validateReceiptFields(scopeDigest string, scope OracleScopeV1, receipt OracleReceiptV1) error {
 	if receipt.Sequence == 0 {
 		return errors.New("receipt sequence must start at one")
 	}
@@ -340,17 +340,6 @@ func validateReceiptFields(scopeDigest string, scope OracleScopeV1, receipt Orac
 		}
 		if receipt.SupersedesReceiptID == receipt.ReceiptID {
 			return errors.New("receipt cannot supersede itself")
-		}
-	}
-	if requireSignature {
-		if err := requireIdentifier("signature scheme", receipt.SignatureScheme); err != nil {
-			return err
-		}
-		if len(receipt.SignatureBytes) == 0 || len(receipt.SignatureBytes) > MaxSignatureBytes {
-			return errors.New("signature bytes are empty or exceed configured limit")
-		}
-		if !validDigest(receipt.SignedMessageDigest) {
-			return errors.New("signed-message digest is malformed")
 		}
 	}
 	_ = scopeDigest
