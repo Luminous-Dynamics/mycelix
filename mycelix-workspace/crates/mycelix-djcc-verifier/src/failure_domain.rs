@@ -44,7 +44,7 @@ pub enum LineageAttestationBasis {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LineageAttestationPrecheck {
-    ReadyForExternalSignatureVerification,
+    ReadyForExternalTrustVerification,
     IndeterminateDisclosure,
     IndeterminateAssuranceBasis,
 }
@@ -55,6 +55,9 @@ pub enum LineageAttestationPrecheck {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LineageAttestationV1 {
     pub attestation_ref: String,
+    pub issuer_ref: String,
+    pub issuer_key_ref: String,
+    pub issuer_key_epoch: u64,
     pub issuer_ref: String,
     pub issuer_key_ref: String,
     pub issuer_key_epoch: u64,
@@ -87,7 +90,9 @@ pub struct LineageAttestationContextV1 {
     pub trust_policy_ref: String,
     pub trust_policy_digest: [u8; 32],
     pub identity_registry_digest: [u8; 32],
+    pub assurance_basis_ref: String,
     /// Trusted evaluation time associated with the accepted verifier frontier.
+    /// This is used for valid-time evaluation, not causal ordering.
     pub accepted_at_unix_seconds: u64,
     pub require_independent_audit: bool,
 }
@@ -219,6 +224,9 @@ pub fn canonical_lineage_attestation_bytes_v1(
         attestation.issuer_ref.as_str(),
         attestation.issuer_key_ref.as_str(),
         attestation.evidence_ref.as_str(),
+        context.issuer_ref.as_str(),
+        context.issuer_key_ref.as_str(),
+        context.assurance_basis_ref.as_str(),
         attestation.profile_ref.as_str(),
         attestation.trust_policy_ref.as_str(),
         attestation.assurance_basis_ref.as_str(),
@@ -258,14 +266,20 @@ pub fn canonical_lineage_attestation_bytes_v1(
     Ok(output)
 }
 
-/// Checks structural binding and preconditions before an external COSE/SCITT
-/// signature and issuer-trust verifier is invoked.
+/// Checks structural binding and valid-time preconditions before an external
+/// COSE/SCITT verifier is invoked.
 ///
-/// ReadyForExternalSignatureVerification means only that the canonical
-/// statement is bound to the expected context and its declared disclosure and
-/// assurance level meet the selected profile. It does not establish that the
-/// signature is valid, the issuer/key is trusted, the audit really occurred,
-/// the source universe is complete, or the channels are independent.
+/// ReadyForExternalTrustVerification means only that the canonical statement
+/// is structurally bound to the expected issuer, key epoch, scope, graph,
+/// profile, trust policy, identity-registry snapshot and accepted frontier,
+/// and that its declared disclosure and assurance basis meet the profile.
+/// It does not establish signature validity, issuer trust, log registration
+/// or inclusion at the accepted frontier, audit authenticity, source-universe
+/// completeness, or channel independence.
+///
+/// The self-reported issued_at timestamp is included in the signed statement
+/// but is not causal evidence. Its inclusion by the named issuer/log at the
+/// accepted verifier frontier must be proven by the external receipt verifier.
 pub fn precheck_lineage_attestation_v1(
     attestation: &LineageAttestationV1,
     context: &LineageAttestationContextV1,
@@ -289,15 +303,16 @@ pub fn precheck_lineage_attestation_v1(
     if attestation.valid_from_unix_seconds >= attestation.valid_until_unix_seconds {
         return Err("lineage attestation validity interval is empty or reversed".to_owned());
     }
-    if attestation.issued_at_unix_seconds > context.accepted_at_unix_seconds {
-        return Err("lineage attestation was issued after the accepted verifier frontier".to_owned());
-    }
     if context.accepted_at_unix_seconds < attestation.valid_from_unix_seconds
         || context.accepted_at_unix_seconds >= attestation.valid_until_unix_seconds
     {
         return Err("lineage attestation is outside its validity interval at the accepted frontier".to_owned());
     }
-    if attestation.evidence_ref != context.evidence_ref
+    if attestation.issuer_ref != context.issuer_ref
+        || attestation.issuer_key_ref != context.issuer_key_ref
+        || attestation.issuer_key_epoch != context.issuer_key_epoch
+        || attestation.assurance_basis_ref != context.assurance_basis_ref
+        || attestation.evidence_ref != context.evidence_ref
         || attestation.scope_digest != context.scope_digest
         || attestation.graph_digest != context.graph_digest
         || attestation.profile_ref != context.profile_ref
@@ -317,7 +332,7 @@ pub fn precheck_lineage_attestation_v1(
     {
         return Ok(LineageAttestationPrecheck::IndeterminateAssuranceBasis);
     }
-    Ok(LineageAttestationPrecheck::ReadyForExternalSignatureVerification)
+    Ok(LineageAttestationPrecheck::ReadyForExternalTrustVerification)
 }
 
 
@@ -1094,6 +1109,10 @@ mod tests {
             trust_policy_ref: attestation.trust_policy_ref.clone(),
             trust_policy_digest: attestation.trust_policy_digest,
             identity_registry_digest: attestation.identity_registry_digest,
+            issuer_ref: attestation.issuer_ref.clone(),
+            issuer_key_ref: attestation.issuer_key_ref.clone(),
+            issuer_key_epoch: attestation.issuer_key_epoch,
+            assurance_basis_ref: attestation.assurance_basis_ref.clone(),
             accepted_at_unix_seconds: 150,
             require_independent_audit: true,
         };
@@ -1105,12 +1124,54 @@ mod tests {
         let (attestation, context) = lineage_attestation_fixture();
         assert_eq!(
             precheck_lineage_attestation_v1(&attestation, &context).unwrap(),
-            LineageAttestationPrecheck::ReadyForExternalSignatureVerification
+            LineageAttestationPrecheck::ReadyForExternalTrustVerification
         );
         let mut substituted = context.clone();
         substituted.verifier_frontier_digest = [9; 32];
         assert!(
             precheck_lineage_attestation_v1(&attestation, &substituted)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_issuer = context.clone();
+        substituted_issuer.issuer_ref = "issuer:other".to_owned();
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_issuer)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_key_epoch = context.clone();
+        substituted_key_epoch.issuer_key_epoch += 1;
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_key_epoch)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_auditor = context.clone();
+        substituted_auditor.assurance_basis_ref = "auditor:other".to_owned();
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_auditor)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_policy = context.clone();
+        substituted_policy.trust_policy_digest = [9; 32];
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_policy)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_graph = context.clone();
+        substituted_graph.graph_digest = [9; 32];
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_graph)
+                .unwrap_err()
+                .contains("does not bind")
+        );
+        let mut substituted_scope = context.clone();
+        substituted_scope.scope_digest = [9; 32];
+        assert!(
+            precheck_lineage_attestation_v1(&attestation, &substituted_scope)
                 .unwrap_err()
                 .contains("does not bind")
         );
@@ -1143,20 +1204,21 @@ mod tests {
         permissive_context.require_independent_audit = false;
         assert_eq!(
             precheck_lineage_attestation_v1(&attestation, &permissive_context).unwrap(),
-            LineageAttestationPrecheck::ReadyForExternalSignatureVerification
+            LineageAttestationPrecheck::ReadyForExternalTrustVerification
         );
     }
 
     #[test]
     fn attestation_outside_frontier_or_validity_window_is_rejected() {
         let (mut attestation, context) = lineage_attestation_fixture();
+        // A self-reported issue timestamp is not a causal frontier proof;
+        // its inclusion at the accepted frontier belongs to the external
+        // COSE/SCITT receipt verifier.
         attestation.issued_at_unix_seconds = 151;
-        assert!(
-            precheck_lineage_attestation_v1(&attestation, &context)
-                .unwrap_err()
-                .contains("after the accepted verifier frontier")
+        assert_eq!(
+            precheck_lineage_attestation_v1(&attestation, &context).unwrap(),
+            LineageAttestationPrecheck::ReadyForExternalTrustVerification
         );
-        attestation.issued_at_unix_seconds = 100;
         attestation.valid_until_unix_seconds = 150;
         assert!(
             precheck_lineage_attestation_v1(&attestation, &context)
