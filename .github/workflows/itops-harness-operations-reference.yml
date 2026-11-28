@@ -28,7 +28,10 @@ jobs:
       - name: Require jq
         run: command -v jq
       - name: Install pinned Draft 2020-12 validator
-        run: python3 -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: -r lise-benchmarks/itops-harness-operations-reference/requirements-validation.txt
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-cache-dir
+          --only-binary=:all:
+          -r lise-benchmarks/itops-harness-operations-reference/requirements-validation.txt
       - name: Validate schema and world-harness factorial fixture
         run: bash lise-benchmarks/itops-harness-operations-reference/validate.sh
       - name: Run adversarial mutation controls
