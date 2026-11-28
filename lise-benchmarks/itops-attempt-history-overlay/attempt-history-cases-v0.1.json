@@ -1,0 +1,990 @@
+{
+  "suite_id": "itops-attempt-history-overlay",
+  "schema_version": "0.1.0",
+  "contract": "ITOPS-OUTCOME-ADAPTER-001",
+  "visibility": "PUBLIC_REFERENCE_ORACLE_FIXTURE",
+  "ownership": {
+    "operation_history_completeness": "Mycelix #6214",
+    "operation_bound_finality_and_retry": "Mycelix #6139",
+    "independent_terminal_outcome": "Mycelix #6357",
+    "outcome_oracle_base": "Mycelix #6853",
+    "denominator_hardening_prerequisite": "Mycelix #6863"
+  },
+  "cases": [
+    {
+      "case_id": "ITOPS-AH-001",
+      "family": "initial_no_attempt",
+      "operation": {
+        "operation_id": "op-1",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [],
+      "evidence": [],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "START_INITIAL_ATTEMPT",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-002",
+      "family": "verified_effect",
+      "operation": {
+        "operation_id": "op-2",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-2",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-1",
+          "dependency_group": "observer-domain-1",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "DO_NOT_RETRY",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-003",
+      "family": "unknown_effect_incomplete_history",
+      "operation": {
+        "operation_id": "op-3",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "INCOMPLETE",
+        "scope_matches": true,
+        "cursor_complete": false,
+        "gap_count": 1,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-004",
+      "family": "provider_ack_is_not_effect",
+      "operation": {
+        "operation_id": "op-4",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-4",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "provider_ack",
+          "source_id": "provider-api",
+          "dependency_group": "provider-account-resource-A",
+          "independence": "not_applicable",
+          "result": "acknowledged",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "VERIFIED_SAME_KEY",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-005",
+      "family": "qualified_no_effect_retry",
+      "operation": {
+        "operation_id": "op-5",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-5",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-2",
+          "dependency_group": "observer-domain-2",
+          "independence": "qualified_independent",
+          "result": "not_applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": "ev-5",
+        "idempotency_state": "VERIFIED_SAME_KEY",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "RETRY_SAME_REQUEST_KEY",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-006",
+      "family": "no_effect_without_idempotency_contract",
+      "operation": {
+        "operation_id": "op-6",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-6",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-3",
+          "dependency_group": "observer-domain-3",
+          "independence": "qualified_independent",
+          "result": "not_applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": "ev-6",
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-007",
+      "family": "shared_dependency_is_not_independent",
+      "operation": {
+        "operation_id": "op-7",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-7",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "provider-mirror",
+          "dependency_group": "provider-account-resource-A",
+          "independence": "shared_dependency",
+          "result": "not_applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": "ev-7",
+        "idempotency_state": "VERIFIED_SAME_KEY",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-008",
+      "family": "blind_retry_after_unknown",
+      "operation": {
+        "operation_id": "op-8",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "attempt_id": "attempt-2",
+          "ordinal": 2,
+          "previous_attempt_id": "attempt-1",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:02:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-8",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-4",
+          "dependency_group": "observer-domain-4",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "REJECT_BLIND_RETRY",
+      "hard_gate_violations": [
+        "blind_retry_after_unknown"
+      ]
+    },
+    {
+      "case_id": "ITOPS-AH-009",
+      "family": "resume_unattempted_suffix",
+      "operation": {
+        "operation_id": "op-9",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          },
+          {
+            "action_id": "action-b",
+            "sequence": 1
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-9",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-5",
+          "dependency_group": "observer-domain-5",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "RESUME_UNATTEMPTED_SUFFIX",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-010",
+      "family": "empty_but_incomplete_history",
+      "operation": {
+        "operation_id": "op-10",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "INCOMPLETE",
+        "scope_matches": true,
+        "cursor_complete": false,
+        "gap_count": 0,
+        "retention_covers_start": false,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [],
+      "evidence": [],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-011",
+      "family": "broken_attempt_chain",
+      "operation": {
+        "operation_id": "op-11",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "attempt_id": "attempt-3",
+          "ordinal": 3,
+          "previous_attempt_id": "attempt-2",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:03:00Z"
+        }
+      ],
+      "evidence": [],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "INVALID_HISTORY",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-012",
+      "family": "late_event_preserves_prior_frontier",
+      "operation": {
+        "operation_id": "op-12",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:10:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-12",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-6",
+          "dependency_group": "observer-domain-6",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": {
+        "as_of": "2026-11-28T20:55:00Z",
+        "status": "INCOMPLETE",
+        "expected_next_step": "HOLD_FOR_RECONCILIATION",
+        "known_attempt_ids": []
+      },
+      "expected_next_step": "DO_NOT_RETRY",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-013",
+      "family": "request_digest_drift",
+      "operation": {
+        "operation_id": "op-13",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "attempt_id": "attempt-2",
+          "ordinal": 2,
+          "previous_attempt_id": "attempt-1",
+          "action_id": "action-a",
+          "request_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:02:00Z"
+        }
+      ],
+      "evidence": [],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "INVALID_HISTORY",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-014",
+      "family": "idempotency_key_drift",
+      "operation": {
+        "operation_id": "op-14",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "attempt_id": "attempt-2",
+          "ordinal": 2,
+          "previous_attempt_id": "attempt-1",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-002",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:02:00Z"
+        }
+      ],
+      "evidence": [],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "INVALID_HISTORY",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-015",
+      "family": "conflicting_effect_observations",
+      "operation": {
+        "operation_id": "op-15",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-15a",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "provider_status",
+          "source_id": "provider-api",
+          "dependency_group": "provider-account-resource-A",
+          "independence": "not_applicable",
+          "result": "not_applied",
+          "freshness": "current"
+        },
+        {
+          "evidence_id": "ev-15b",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-7",
+          "dependency_group": "observer-domain-7",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    },
+    {
+      "case_id": "ITOPS-AH-016",
+      "family": "partial_multi_action_unknown_suffix",
+      "operation": {
+        "operation_id": "op-16",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001",
+        "actions": [
+          {
+            "action_id": "action-a",
+            "sequence": 0
+          },
+          {
+            "action_id": "action-b",
+            "sequence": 1
+          }
+        ]
+      },
+      "history": {
+        "status": "COMPLETE_FOR_SCOPE",
+        "scope_matches": true,
+        "cursor_complete": true,
+        "gap_count": 0,
+        "retention_covers_start": true,
+        "backfill_pending": false,
+        "provider_dependency_group": "provider-account-resource-A",
+        "as_of": "2026-11-28T21:00:00Z"
+      },
+      "attempts": [
+        {
+          "attempt_id": "attempt-1",
+          "ordinal": 1,
+          "previous_attempt_id": null,
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "accepted",
+          "effect": "applied",
+          "attempted_at": "2026-11-28T20:01:00Z"
+        },
+        {
+          "attempt_id": "attempt-2",
+          "ordinal": 2,
+          "previous_attempt_id": "attempt-1",
+          "action_id": "action-b",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "idempotency_key": "idem-001",
+          "dispatched": true,
+          "response": "timeout",
+          "effect": "unknown",
+          "attempted_at": "2026-11-28T20:02:00Z"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev-16a",
+          "action_id": "action-a",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-8",
+          "dependency_group": "observer-domain-8",
+          "independence": "qualified_independent",
+          "result": "applied",
+          "freshness": "current"
+        },
+        {
+          "evidence_id": "ev-16b",
+          "action_id": "action-b",
+          "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "independent_resource_observation",
+          "source_id": "resource-observer-8",
+          "dependency_group": "observer-domain-8",
+          "independence": "qualified_independent",
+          "result": "unknown",
+          "freshness": "current"
+        }
+      ],
+      "retry_basis": {
+        "no_effect_evidence_id": null,
+        "idempotency_state": "UNVERIFIED",
+        "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key": "idem-001"
+      },
+      "prior_frontier": null,
+      "expected_next_step": "HOLD_FOR_RECONCILIATION",
+      "hard_gate_violations": []
+    }
+  ]
+}
