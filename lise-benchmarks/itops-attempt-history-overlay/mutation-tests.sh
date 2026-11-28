@@ -48,4 +48,13 @@ expect_rejected "prior frontier names an attempt absent from the current trace" 
 expect_rejected "prior frontier is later than the current knowledge frontier" \
   '(.cases[] | select(.case_id == "ITOPS-AH-012") | .prior_frontier.as_of) = "2026-11-28T21:20:00Z"'
 
-echo "PASS: all 14 attempt-history mutations were rejected."
+expect_rejected "prior frontier claims a late attempt before it was recorded" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-012") | .prior_frontier.known_attempt_ids) = ["attempt-1"]'
+expect_rejected "prior frontier claims late evidence before it was observed" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-012") | .prior_frontier.known_evidence_ids) = ["ev-12"]'
+expect_rejected "evidence observed before frontier is omitted from its known set" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-012") | .evidence[0].observed_at) = "2026-11-28T20:40:00Z"'
+expect_rejected "event timestamp occurs after evidence observation" \
+  '(.cases[] | select(.case_id == "ITOPS-AH-012") | .evidence[0].event_at) = "2026-11-28T21:06:00Z"'
+
+echo "PASS: all 18 attempt-history mutations were rejected."
