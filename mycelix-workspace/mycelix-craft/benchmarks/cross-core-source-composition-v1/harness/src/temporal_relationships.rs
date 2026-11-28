@@ -882,7 +882,7 @@ pub fn project_temporal_relationships(
                 || replacement
                     .valid_to
                     .as_deref()
-                    .is_some_and(|valid_to| mutation.effective_at >= valid_to)
+                    .is_some_and(|valid_to| mutation.effective_at.as_str() >= valid_to)
             {
                 return Err(TemporalRelationshipErrorV1::InvalidReplacement);
             }
@@ -1143,18 +1143,24 @@ mod tests {
         }
     }
 
-    fn object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+    fn object_fixture_attribute(
+        name: &str,
+        value: impl Into<serde_json::Value>,
+    ) -> serde_json::Value {
         serde_json::json!({
             "name": name,
             "time": T08,
-            "value": value
+            "value": value.into()
         })
     }
 
-    fn event_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+    fn event_fixture_attribute(
+        name: &str,
+        value: impl Into<serde_json::Value>,
+    ) -> serde_json::Value {
         serde_json::json!({
             "name": name,
-            "value": value
+            "value": value.into()
         })
     }
 
