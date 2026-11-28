@@ -1,0 +1,375 @@
+{
+  "suite_id": "itops-qualification-impact-reference",
+  "schema_version": "0.1.0",
+  "contract": "ITOPS-QUAL-IMPACT-001",
+  "visibility": "PUBLIC_REFERENCE_ORACLE_FIXTURE",
+  "cases": [
+    {
+      "case_id": "ITOPS-QI-TOOL-SCHEMA-001",
+      "change_kind": "tool_schema_change",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [
+        "tool:payments:contract"
+      ],
+      "claims": [
+        {
+          "claim_id": "repair_payments",
+          "dependency_artifact_refs": [
+            "tool:payments:contract",
+            "skill:incident-repair:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "REQUALIFICATION_REQUIRED"
+        },
+        {
+          "claim_id": "read_catalog",
+          "dependency_artifact_refs": [
+            "tool:catalog:contract",
+            "skill:read-only:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": false,
+        "operation_ref": null,
+        "permission_revoked": false,
+        "expected_decision": "NOT_APPLICABLE"
+      },
+      "outcome_evidence": {
+        "required": false,
+        "observer_ref": null,
+        "observer_changed": false,
+        "coverage_complete": true,
+        "expected_status": "NOT_APPLICABLE"
+      },
+      "benchmark_score": {
+        "scored": false,
+        "baseline_protocol_digest": null,
+        "current_protocol_digest": null,
+        "expected_comparability": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-COMPATIBLE-ADD-001",
+      "change_kind": "compatible_tool_addition",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [
+        "tool:orders:read-contract"
+      ],
+      "claims": [
+        {
+          "claim_id": "read_catalog",
+          "dependency_artifact_refs": [
+            "tool:catalog:contract",
+            "skill:read-only:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        },
+        {
+          "claim_id": "query_orders",
+          "dependency_artifact_refs": [
+            "tool:orders:read-contract"
+          ],
+          "new_capability": true,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NEW_CAPABILITY_UNQUALIFIED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": false,
+        "operation_ref": null,
+        "permission_revoked": false,
+        "expected_decision": "NOT_APPLICABLE"
+      },
+      "outcome_evidence": {
+        "required": false,
+        "observer_ref": null,
+        "observer_changed": false,
+        "coverage_complete": true,
+        "expected_status": "NOT_APPLICABLE"
+      },
+      "benchmark_score": {
+        "scored": false,
+        "baseline_protocol_digest": null,
+        "current_protocol_digest": null,
+        "expected_comparability": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-PERMISSION-REVOKE-001",
+      "change_kind": "permission_revocation",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [
+        "authority:payments:write"
+      ],
+      "claims": [
+        {
+          "claim_id": "repair_payments",
+          "dependency_artifact_refs": [
+            "tool:payments:contract",
+            "skill:incident-repair:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        },
+        {
+          "claim_id": "read_catalog",
+          "dependency_artifact_refs": [
+            "tool:catalog:contract",
+            "skill:read-only:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": true,
+        "operation_ref": "payments.write",
+        "permission_revoked": true,
+        "expected_decision": "DENIED"
+      },
+      "outcome_evidence": {
+        "required": false,
+        "observer_ref": null,
+        "observer_changed": false,
+        "coverage_complete": true,
+        "expected_status": "NOT_APPLICABLE"
+      },
+      "benchmark_score": {
+        "scored": false,
+        "baseline_protocol_digest": null,
+        "current_protocol_digest": null,
+        "expected_comparability": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-OBSERVER-DRIFT-001",
+      "change_kind": "observer_adapter_change",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [
+        "observer:checkout:adapter"
+      ],
+      "claims": [
+        {
+          "claim_id": "repair_checkout",
+          "dependency_artifact_refs": [
+            "tool:checkout:contract",
+            "skill:incident-repair:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": false,
+        "operation_ref": null,
+        "permission_revoked": false,
+        "expected_decision": "NOT_APPLICABLE"
+      },
+      "outcome_evidence": {
+        "required": true,
+        "observer_ref": "observer:checkout:adapter",
+        "observer_changed": true,
+        "coverage_complete": false,
+        "expected_status": "INDETERMINATE"
+      },
+      "benchmark_score": {
+        "scored": false,
+        "baseline_protocol_digest": null,
+        "current_protocol_digest": null,
+        "expected_comparability": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-SPECIALIST-IDENTITY-001",
+      "change_kind": "specialist_identity_change",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [
+        "agent:payments-specialist:identity"
+      ],
+      "claims": [
+        {
+          "claim_id": "delegated_payments_repair",
+          "dependency_artifact_refs": [
+            "agent:payments-specialist:identity",
+            "skill:incident-repair:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "REQUALIFICATION_REQUIRED"
+        },
+        {
+          "claim_id": "single_agent_catalog_read",
+          "dependency_artifact_refs": [
+            "agent:primary:identity",
+            "tool:catalog:contract"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": false,
+        "operation_ref": null,
+        "permission_revoked": false,
+        "expected_decision": "NOT_APPLICABLE"
+      },
+      "outcome_evidence": {
+        "required": false,
+        "observer_ref": null,
+        "observer_changed": false,
+        "coverage_complete": true,
+        "expected_status": "NOT_APPLICABLE"
+      },
+      "benchmark_score": {
+        "scored": false,
+        "baseline_protocol_digest": null,
+        "current_protocol_digest": null,
+        "expected_comparability": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-EVALUATOR-CHANGE-001",
+      "change_kind": "evaluator_protocol_change",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [
+        "evaluator:itops-protocol"
+      ],
+      "claims": [
+        {
+          "claim_id": "repair_payments",
+          "dependency_artifact_refs": [
+            "tool:payments:contract",
+            "skill:incident-repair:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": false,
+        "operation_ref": null,
+        "permission_revoked": false,
+        "expected_decision": "NOT_APPLICABLE"
+      },
+      "outcome_evidence": {
+        "required": false,
+        "observer_ref": null,
+        "observer_changed": false,
+        "coverage_complete": true,
+        "expected_status": "NOT_APPLICABLE"
+      },
+      "benchmark_score": {
+        "scored": true,
+        "baseline_protocol_digest": "sha256:itops-eval-v0.1",
+        "current_protocol_digest": "sha256:itops-eval-v0.2",
+        "expected_comparability": "INCOMPARABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-INCOMPLETE-COVERAGE-001",
+      "change_kind": "incomplete_change_coverage",
+      "change_feed_complete": false,
+      "changed_artifact_refs": [
+        "tool:payments:contract"
+      ],
+      "claims": [
+        {
+          "claim_id": "repair_payments",
+          "dependency_artifact_refs": [
+            "tool:payments:contract",
+            "skill:incident-repair:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": true,
+          "expected_qualification_disposition": "REQUALIFICATION_REQUIRED"
+        },
+        {
+          "claim_id": "delegated_payments_repair",
+          "dependency_artifact_refs": [
+            "agent:payments-specialist:identity"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": true,
+          "expected_qualification_disposition": "UNDER_INVESTIGATION"
+        },
+        {
+          "claim_id": "read_catalog",
+          "dependency_artifact_refs": [
+            "tool:catalog:contract"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": false,
+        "operation_ref": null,
+        "permission_revoked": false,
+        "expected_decision": "NOT_APPLICABLE"
+      },
+      "outcome_evidence": {
+        "required": true,
+        "observer_ref": "observer:payments:primary",
+        "observer_changed": false,
+        "coverage_complete": false,
+        "expected_status": "INDETERMINATE"
+      },
+      "benchmark_score": {
+        "scored": false,
+        "baseline_protocol_digest": null,
+        "current_protocol_digest": null,
+        "expected_comparability": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "case_id": "ITOPS-QI-NO-OP-CONTROL-001",
+      "change_kind": "no_op_control",
+      "change_feed_complete": true,
+      "changed_artifact_refs": [],
+      "claims": [
+        {
+          "claim_id": "read_catalog",
+          "dependency_artifact_refs": [
+            "tool:catalog:contract",
+            "skill:read-only:v1"
+          ],
+          "new_capability": false,
+          "exposed_to_unknown_change": false,
+          "expected_qualification_disposition": "NOT_AFFECTED"
+        }
+      ],
+      "effect_authority": {
+        "applicable": true,
+        "operation_ref": "catalog.read",
+        "permission_revoked": false,
+        "expected_decision": "AUTHORIZED"
+      },
+      "outcome_evidence": {
+        "required": true,
+        "observer_ref": "observer:catalog:primary",
+        "observer_changed": false,
+        "coverage_complete": true,
+        "expected_status": "CURRENT"
+      },
+      "benchmark_score": {
+        "scored": true,
+        "baseline_protocol_digest": "sha256:itops-eval-v0.1",
+        "current_protocol_digest": "sha256:itops-eval-v0.1",
+        "expected_comparability": "COMPARABLE"
+      }
+    }
+  ]
+}

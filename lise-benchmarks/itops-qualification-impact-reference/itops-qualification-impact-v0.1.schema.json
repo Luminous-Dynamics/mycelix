@@ -1,0 +1,43 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema",
+ "$id":"https://luminousdynamics.io/schemas/itops-qualification-impact-v0.1.schema.json",
+ "title":"ITOPS qualification-impact orthogonal outcomes reference",
+ "type":"object","additionalProperties":false,
+ "required":["suite_id","schema_version","contract","visibility","cases"],
+ "properties":{
+  "suite_id":{"const":"itops-qualification-impact-reference"},
+  "schema_version":{"const":"0.1.0"},
+  "contract":{"const":"ITOPS-QUAL-IMPACT-001"},
+  "visibility":{"const":"PUBLIC_REFERENCE_ORACLE_FIXTURE"},
+  "cases":{"type":"array","minItems":8,"maxItems":8,"items":{"$ref":"#/$defs/case"}}
+ },
+ "$defs":{
+  "claim":{"type":"object","additionalProperties":false,"required":["claim_id","dependency_artifact_refs","new_capability","exposed_to_unknown_change","expected_qualification_disposition"],"properties":{
+   "claim_id":{"type":"string","minLength":1},"dependency_artifact_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+   "new_capability":{"type":"boolean"},"exposed_to_unknown_change":{"type":"boolean"},
+   "expected_qualification_disposition":{"enum":["REQUALIFICATION_REQUIRED","NOT_AFFECTED","UNDER_INVESTIGATION","NEW_CAPABILITY_UNQUALIFIED"]}
+  }},
+  "authority":{"type":"object","additionalProperties":false,"required":["applicable","operation_ref","permission_revoked","expected_decision"],"properties":{
+   "applicable":{"type":"boolean"},"operation_ref":{"type":["string","null"]},"permission_revoked":{"type":"boolean"},
+   "expected_decision":{"enum":["AUTHORIZED","DENIED","NOT_APPLICABLE"]}
+  }},
+  "outcomeEvidence":{"type":"object","additionalProperties":false,"required":["required","observer_ref","observer_changed","coverage_complete","expected_status"],"properties":{
+   "required":{"type":"boolean"},"observer_ref":{"type":["string","null"]},"observer_changed":{"type":"boolean"},"coverage_complete":{"type":"boolean"},
+   "expected_status":{"enum":["CURRENT","INDETERMINATE","NOT_APPLICABLE"]}
+  }},
+  "benchmarkScore":{"type":"object","additionalProperties":false,"required":["scored","baseline_protocol_digest","current_protocol_digest","expected_comparability"],"properties":{
+   "scored":{"type":"boolean"},"baseline_protocol_digest":{"type":["string","null"]},"current_protocol_digest":{"type":["string","null"]},
+   "expected_comparability":{"enum":["COMPARABLE","INCOMPARABLE","NOT_APPLICABLE"]}
+  }},
+  "case":{"type":"object","additionalProperties":false,"required":["case_id","change_kind","change_feed_complete","changed_artifact_refs","claims","effect_authority","outcome_evidence","benchmark_score"],"properties":{
+   "case_id":{"type":"string","minLength":1},
+   "change_kind":{"enum":["tool_schema_change","compatible_tool_addition","permission_revocation","observer_adapter_change","specialist_identity_change","evaluator_protocol_change","incomplete_change_coverage","no_op_control"]},
+   "change_feed_complete":{"type":"boolean"},
+   "changed_artifact_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+   "claims":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/claim"}},
+   "effect_authority":{"$ref":"#/$defs/authority"},
+   "outcome_evidence":{"$ref":"#/$defs/outcomeEvidence"},
+   "benchmark_score":{"$ref":"#/$defs/benchmarkScore"}
+  }}
+ }
+}
