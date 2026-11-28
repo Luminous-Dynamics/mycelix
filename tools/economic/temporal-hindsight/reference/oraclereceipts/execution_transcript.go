@@ -178,8 +178,18 @@ func ExecutionPublicInputDigestV1(scope OracleScopeV1, transition ExecutionTrans
 	if err != nil {
 		return "", err
 	}
-	if err := validateExecutionTransition(scopeDigest, scope, transition, "", "", nil, nil, nil, false); err != nil {
+	if err := requireIdentifier("execution step ID", transition.StepID); err != nil {
 		return "", err
+	}
+	for _, value := range []string{
+		transition.ProgramDigest, transition.EvaluatorVersionDigest,
+		transition.PolicyVersionDigest, transition.QueryPlanDigest,
+		transition.InputStateDigest, transition.OutputStateDigest,
+		transition.OutputDigest, transition.ReceiptFrontierDigest,
+	} {
+		if !validDigest(value) {
+			return "", errors.New("execution public input contains a malformed digest")
+		}
 	}
 	receipts, err := canonicalDigestSet(transition.ConsumedReceiptDigests, MaxEvidenceReferences, "consumed oracle receipt set")
 	if err != nil {
@@ -189,6 +199,10 @@ func ExecutionPublicInputDigestV1(scope OracleScopeV1, transition ExecutionTrans
 	if err != nil {
 		return "", err
 	}
+	return executionPublicInputDigestFromScopeDigestV1(scopeDigest, transition, receipts, supersedes)
+}
+
+func executionPublicInputDigestFromScopeDigestV1(scopeDigest string, transition ExecutionTransitionV1, receipts, supersedes []string) (string, error) {
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-IVC-PUBLIC-INPUTS-V1")
 	writeString(&b, scopeDigest)
@@ -227,7 +241,7 @@ func executionTransitionDigestV1(scopeDigest string, transition ExecutionTransit
 	if err != nil {
 		return "", err
 	}
-	publicFields, err := ExecutionPublicInputDigestFromScopeDigestV1(scopeDigest, transition, receipts, supersedes)
+	publicFields, err := executionPublicInputDigestFromScopeDigestV1(scopeDigest, transition, receipts, supersedes)
 	if err != nil {
 		return "", err
 	}
@@ -289,6 +303,7 @@ func validateExecutionTransition(
 	stateHead string,
 	proofHead string,
 	receiptSequence map[string]uint64,
+	receiptFrontiers []string,
 	appliedStepIDs map[string]struct{},
 	reservedStepIDs map[string]struct{},
 	checkHeads bool,
@@ -312,8 +327,11 @@ func validateExecutionTransition(
 	if !validDigest(transition.ReceiptFrontierDigest) {
 		return errors.New("receipt frontier digest is malformed")
 	}
-	if transition.ReceiptFrontierSequence > uint64(len(receiptSequence)) {
+	if transition.ReceiptFrontierSequence >= uint64(len(receiptFrontiers)) {
 		return errors.New("receipt frontier sequence exceeds verified receipt chain")
+	}
+	if transition.ReceiptFrontierDigest != receiptFrontiers[transition.ReceiptFrontierSequence] {
+		return errors.New("receipt frontier digest does not match the selected verified receipt-chain prefix")
 	}
 	if transition.IVCUpdate.ProtocolRef == "" || transition.IVCUpdate.ProtocolVersion == "" {
 		return errors.New("IVC protocol reference/version is incomplete")
@@ -366,6 +384,13 @@ func validateExecutionTransition(
 	supersedes, err := canonicalStepIDs(transition.SupersedesStepIDs)
 	if err != nil {
 		return err
+	}
+	publicInputsDigest, err := executionPublicInputDigestFromScopeDigestV1(scopeDigest, transition, receipts, supersedes)
+	if err != nil {
+		return err
+	}
+	if transition.IVCUpdate.PublicInputDigest != publicInputsDigest {
+		return errors.New("IVC public-input digest does not match the exact execution step")
 	}
 	for _, stepID := range supersedes {
 		if _, exists := appliedStepIDs[stepID]; !exists {
@@ -666,7 +691,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, appliedStepIDs, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, reservedStepIDs, true); err != nil {
 				result.Reason = err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -686,7 +711,7 @@ func ReplayOracleExecutionTranscriptV1(
 				result.Reason = "duplicate execution step ID"
 				return finalizeExecutionReplay(result)
 			}
-			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, appliedStepIDs, reservedStepIDs, true); err != nil {
+			if err := validateExecutionTransition(scopeDigest, scope, *event.Transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, reservedStepIDs, true); err != nil {
 				result.Reason = "unknown execution intent is invalid: " + err.Error()
 				return finalizeExecutionReplay(result)
 			}
@@ -705,7 +730,7 @@ func ReplayOracleExecutionTranscriptV1(
 				return finalizeExecutionReplay(result)
 			}
 			if event.Outcome == ExecutionReconciledApplied {
-				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, appliedStepIDs, reservedStepIDs, true); err != nil {
+				if err := validateExecutionTransition(scopeDigest, scope, pending.transition, state.stateDigest, state.proofDigest, receiptSequence, receiptFrontiers, appliedStepIDs, reservedStepIDs, true); err != nil {
 					result.Reason = "reconciled execution transition is no longer valid: " + err.Error()
 					return finalizeExecutionReplay(result)
 				}
