@@ -21,10 +21,11 @@ jq -e '
     and .history.retention_covers_start == true
     and .history.backfill_pending == false;
 
-  def evidence_for($action; $result):
+  def evidence_for($action; $attempt_id; $result):
     . as $c
     | any($c.evidence[];
         .action_id == $action
+        and .attempt_id == $attempt_id
         and .request_digest == $c.operation.request_digest
         and (.kind == "independent_resource_observation" or .kind == "owner_reconciliation")
         and .independence == "qualified_independent"
@@ -44,6 +45,7 @@ jq -e '
         and (.kind == "independent_resource_observation" or .kind == "owner_reconciliation")
         and .independence == "qualified_independent"
         and .freshness == "current"
+        and .attempt_id == $c.attempts[0].attempt_id
         and .result == "not_applied"
       )
       and $c.retry_basis.idempotency_state == "VERIFIED_SAME_KEY"
@@ -87,6 +89,9 @@ jq -e '
         | ($chain | length) > 1
           and $chain[0].effect == "applied"
           and $chain[1].dispatched == true
+          and $chain[1].effect == "applied"
+          and ($c | evidence_for($action; $chain[0].attempt_id; "applied"))
+          and ($c | evidence_for($action; $chain[1].attempt_id; "applied"))
       );
 
   def blind_retry:
@@ -119,6 +124,7 @@ jq -e '
         . as $ev
         | ($c.operation.actions | map(.action_id) | index($ev.action_id)) != null
           and $ev.request_digest == $c.operation.request_digest
+          and any($c.attempts[]; .attempt_id == $ev.attempt_id and .action_id == $ev.action_id)
           and $ev.event_at <= $ev.observed_at
           and $ev.observed_at <= $c.history.as_of
       )
@@ -134,9 +140,11 @@ jq -e '
           and all($c.operation.actions[];
             .action_id as $action
             | any($c.attempts[];
-                .action_id == $action and .effect == "applied"
+                . as $attempt
+                | $attempt.action_id == $action
+                  and $attempt.effect == "applied"
+                  and ($c | evidence_for($action; $attempt.attempt_id; "applied"))
               )
-              and ($c | evidence_for($action; "applied"))
           )
           and all($c.attempts[];
             .effect != "unknown" and .effect != "partial"
@@ -173,8 +181,9 @@ jq -e '
           )
           and all($c.attempts[]; .effect == "applied" or .effect == "not_applied")
           and all($c.attempts[];
-            .action_id as $action
-            | $c | evidence_for($action; "applied")
+            . as $attempt
+            | $attempt.effect == "applied"
+              and ($c | evidence_for($attempt.action_id; $attempt.attempt_id; "applied"))
           )
         elif $c.expected_next_step == "REJECT_BLIND_RETRY" then
           (
