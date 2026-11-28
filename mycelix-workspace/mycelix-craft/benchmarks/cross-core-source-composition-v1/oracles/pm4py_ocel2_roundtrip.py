@@ -10,6 +10,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import pathlib
 import re
 import sys
@@ -19,7 +20,22 @@ EXPECTED_PM4PY = "2.7.23.15"
 
 
 def canonical_value(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+
+
+def reject_duplicate_json_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON object member: {key}")
+        result[key] = value
+    return result
+
+
+def reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON numeric token: {value}")
 
 
 _RFC3339_TIME = re.compile(
@@ -122,6 +138,12 @@ def typed_value(value: Any, kind: str | None) -> Any:
     if kind == "float":
         if type(value) not in {int, float}:
             raise ValueError(f"expected numeric OCEL value, got {type(value).__name__}")
+        try:
+            finite = math.isfinite(value)
+        except OverflowError:
+            finite = False
+        if not finite:
+            raise ValueError("OCEL float value must be finite")
         return value
     if kind == "boolean":
         if type(value) is not bool:
@@ -131,7 +153,11 @@ def typed_value(value: Any, kind: str | None) -> Any:
 
 
 def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(
+        path.read_text(encoding="utf-8"),
+        object_pairs_hook=reject_duplicate_json_members,
+        parse_constant=reject_json_constant,
+    )
     require_keys(data, {"eventTypes", "objectTypes", "events", "objects"}, "OCEL root")
     for key in ("eventTypes", "objectTypes", "events", "objects"):
         if not isinstance(data.get(key), list):
@@ -184,6 +210,7 @@ def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
             seen_event_attributes.add(name)
             attributes.append((name, canonical_value(typed_value(item.get("value"), schema[name]))))
         relationships = []
+        seen_event_relationships: set[tuple[str, str | None]] = set()
         for relationship_index, raw_relationship in enumerate(raw_relationships):
             item = require_keys(
                 raw_relationship,
@@ -196,7 +223,11 @@ def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
                 raise ValueError(f"invalid event relationship endpoint on {event_id}")
             if qualifier is not None and not isinstance(qualifier, str):
                 raise ValueError(f"invalid event relationship qualifier on {event_id}")
-            relationships.append((object_id, qualifier))
+            identity = (object_id, qualifier)
+            if identity in seen_event_relationships:
+                raise ValueError(f"duplicate event relationship on {event_id}: {identity}")
+            seen_event_relationships.add(identity)
+            relationships.append(identity)
         events.append(
             (
                 event_id,
@@ -250,6 +281,7 @@ def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
                 )
             )
         relationships = []
+        seen_object_relationships: set[tuple[str, str | None]] = set()
         for relationship_index, raw_relationship in enumerate(raw_relationships):
             item = require_keys(
                 raw_relationship,
@@ -262,7 +294,11 @@ def normalize_inventory(path: pathlib.Path) -> dict[str, Any]:
                 raise ValueError(f"invalid object relationship endpoint on {object_id}")
             if qualifier is not None and not isinstance(qualifier, str):
                 raise ValueError(f"invalid object relationship qualifier on {object_id}")
-            relationships.append((target_id, qualifier))
+            identity = (target_id, qualifier)
+            if identity in seen_object_relationships:
+                raise ValueError(f"duplicate object relationship on {object_id}: {identity}")
+            seen_object_relationships.add(identity)
+            relationships.append(identity)
             pending_object_relationships.append((object_id, target_id))
         objects.append((object_id, object_type, sorted(attributes), sorted(relationships)))
 
