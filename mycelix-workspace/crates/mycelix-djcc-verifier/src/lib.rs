@@ -452,7 +452,7 @@ fn validate_stage_dependencies(
         {
             Some(profile_claims)
                 if dependency.required_claims.iter().copied().collect::<BTreeSet<_>>()
-                    == *profile_claims => {}
+                    == profile_claims.clone() => {}
             Some(_) => out.push(violation(
                 "DJCC-EDGE-CLAIMS-WEAKENED",
                 format!("{stage_id}: dependency {} claim requirements differ from the selected profile", dependency.stage_id),
@@ -541,6 +541,34 @@ fn dimension_values(ceiling: ClaimCeiling) -> [ClaimState; 5] {
         ceiling.authority,
         ceiling.effect,
     ]
+}
+
+fn validate_profile_dependency_graph(profile: &CompositionProfile, out: &mut Vec<Violation>) {
+    for stage_id in ALL_STAGE_IDS {
+        let expected = stage_id.required_dependencies();
+        let actual = profile.dependency_claims.get(&stage_id);
+        let actual_ids: Vec<_> = actual
+            .map(|parents| parents.keys().copied().collect())
+            .unwrap_or_default();
+        if actual_ids.as_slice() != expected {
+            out.push(violation(
+                "DJCC-PROFILE-EDGE-SET",
+                format!(
+                    "profile dependency graph for {stage_id} must contain exactly {expected:?}, got {actual_ids:?}"
+                ),
+            ));
+        }
+        if let Some(parents) = actual {
+            for (parent_id, claims) in parents {
+                if claims.is_empty() {
+                    out.push(violation(
+                        "DJCC-PROFILE-EDGE-CLAIMS-EMPTY",
+                        format!("profile edge {stage_id} <- {parent_id} has no required claims"),
+                    ));
+                }
+            }
+        }
+    }
 }
 
 fn validate_claim_ceiling(
@@ -760,6 +788,7 @@ pub fn verify_composition(
             "composition profile scope schema reference is empty",
         ));
     }
+    validate_profile_dependency_graph(profile, &mut violations);
 
     for stage_id in ALL_STAGE_IDS {
         if !input.stages.contains_key(&stage_id) {
@@ -937,10 +966,7 @@ mod tests {
             profile_ref: "profile:test:v1".to_owned(),
             profile_digest: digest(99),
             scope_schema_ref: "scope:v1".to_owned(),
-            allowed_not_applicable: BTreeSet::from([
-                StageId::Execution,
-                StageId::Outcome,
-            ]),
+            allowed_not_applicable: BTreeSet::new(),
             required_claims: BTreeSet::from([
                 ClaimDimension::Authentication,
                 ClaimDimension::Authority,
@@ -1394,6 +1420,10 @@ mod tests {
         mark_not_applicable(&mut input, StageId::Outcome);
         input.declared_claim_ceiling.effect = ClaimState::NotApplicable;
         let mut profile = valid_profile();
+        profile.allowed_not_applicable = BTreeSet::from([
+            StageId::Execution,
+            StageId::Outcome,
+        ]);
         remove_profile_claim(&mut profile, ClaimDimension::Effect);
         profile
             .claim_stages
@@ -1669,6 +1699,39 @@ mod tests {
             .violations
             .iter()
             .any(|item| item.code == "DJCC-NOT-APPLICABLE-CLAIM-STATE"));
+    }
+
+
+    #[test]
+    fn profile_cannot_weaken_or_expand_the_fixed_dependency_graph() {
+        let mut profile = valid_profile();
+        profile
+            .dependency_claims
+            .get_mut(&StageId::Query)
+            .unwrap()
+            .remove(&StageId::SourceTrust);
+        let report = verify_composition(&positive_input(), &profile);
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-PROFILE-EDGE-SET"));
+    }
+
+    #[test]
+    fn certificate_cannot_weaken_profile_required_edge_claims() {
+        let mut input = positive_input();
+        let query = input.stages.get_mut(&StageId::Query).unwrap();
+        let source = query
+            .dependencies
+            .iter_mut()
+            .find(|dependency| dependency.stage_id == StageId::SourceTrust)
+            .unwrap();
+        source.required_claims = vec![ClaimDimension::Authentication];
+        let report = verify_composition(&input, &valid_profile());
+        assert!(report
+            .violations
+            .iter()
+            .any(|item| item.code == "DJCC-EDGE-CLAIMS-WEAKENED"));
     }
 
 
