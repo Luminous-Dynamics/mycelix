@@ -45,4 +45,7 @@ expect_rejected "accepted recovery with an empty work denominator" '(.cases[] | 
 # A known-answer case cannot be relabelled to a disposition inconsistent with its family.
 expect_rejected "family disposition relabelled" '(.cases[] | select(.case_id == "ITOPS-OR-004") | .expected_disposition) = "Unknown"'
 
-echo "PASS: all 7 mutation controls were rejected."
+# CorrectDenial requires an explicit proposed operation and a matching denied action.
+expect_rejected "correct denial with erased work denominator" '(.cases[] | select(.case_id == "ITOPS-OR-009") | .expected_operation_ids) = [] | (.cases[] | select(.case_id == "ITOPS-OR-009") | .actions) = []'
+
+echo "PASS: all 8 mutation controls were rejected."
