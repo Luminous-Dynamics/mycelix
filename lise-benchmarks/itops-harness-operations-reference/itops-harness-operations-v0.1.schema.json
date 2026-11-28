@@ -1,0 +1,26 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://luminousdynamics.io/schemas/itops-harness-operations-v0.1.schema.json",
+  "title":"ITOPS harness-operations factorial reference",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["suite_id","schema_version","contract","visibility","agent_payload_policy","groups"],
+  "properties":{
+    "suite_id":{"const":"itops-harness-operations-reference"},
+    "schema_version":{"const":"0.1.0"},
+    "contract":{"const":"ITOPS-HARNESS-OPS-001"},
+    "visibility":{"const":"PUBLIC_REFERENCE_ORACLE_FIXTURE"},
+    "agent_payload_policy":{"$ref":"#/$defs/payloadPolicy"},
+    "groups":{"type":"array","minItems":2,"maxItems":2,"items":{"$ref":"#/$defs/group"}}
+  },
+  "$defs":{
+    "payloadPolicy":{"type":"object","additionalProperties":false,"required":["exposes_world_events","exposes_harness_transitions","exposes_terminal_oracle","observations_time_gated"],"properties":{"exposes_world_events":{"const":false},"exposes_harness_transitions":{"const":false},"exposes_terminal_oracle":{"const":false},"observations_time_gated":{"const":true}}},
+    "matchedProfile":{"type":"object","additionalProperties":false,"required":["seed","service_profile_id","retention_cohort_id","new_capability_cohort_id","horizon_seconds"],"properties":{"seed":{"type":"integer","minimum":0},"service_profile_id":{"type":"string","minLength":1},"retention_cohort_id":{"type":"string","minLength":1},"new_capability_cohort_id":{"type":"string","minLength":1},"horizon_seconds":{"type":"integer","minimum":1}}},
+    "worldEvent":{"type":"object","additionalProperties":false,"required":["event_id","family","agent_visible"],"properties":{"event_id":{"type":"string","minLength":1},"family":{"type":"string","minLength":1},"agent_visible":{"const":false}}},
+    "harnessTransition":{"type":"object","additionalProperties":false,"required":["transition_id","change_kind","breaking","required_requalification","agent_visible"],"properties":{"transition_id":{"type":"string","minLength":1},"change_kind":{"enum":["compatible_tool_addition","tool_schema_or_effect_change","tool_removal_with_live_skill_reference","skill_procedure_revision","specialist_identity_change","permission_revocation","observer_adapter_change"]},"breaking":{"type":"boolean"},"required_requalification":{"type":"boolean"},"agent_visible":{"const":false}}},
+    "terminal":{"type":"object","additionalProperties":false,"required":["service_degraded_minutes","prior_task_retention_percent","new_capability_success_percent","unauthorized_effect_count","invalidated_qualification_inherited","all_prior_tasks_retested","functional_contract_pass"],"properties":{"service_degraded_minutes":{"type":"number","minimum":0},"prior_task_retention_percent":{"type":"number","minimum":0,"maximum":100},"new_capability_success_percent":{"oneOf":[{"type":"number","minimum":0,"maximum":100},{"type":"null"}]},"unauthorized_effect_count":{"type":"integer","minimum":0},"invalidated_qualification_inherited":{"type":"boolean"},"all_prior_tasks_retested":{"type":"boolean"},"functional_contract_pass":{"type":"boolean"}}},
+    "arm":{"type":"object","additionalProperties":false,"required":["arm_id","world_drift_present","harness_drift_present","matched_profile","world_events","harness_transitions","terminal"],"properties":{"arm_id":{"enum":["W0H0","W1H0","W0H1","W1H1"]},"world_drift_present":{"type":"boolean"},"harness_drift_present":{"type":"boolean"},"matched_profile":{"$ref":"#/$defs/matchedProfile"},"world_events":{"type":"array","items":{"$ref":"#/$defs/worldEvent"}},"harness_transitions":{"type":"array","items":{"$ref":"#/$defs/harnessTransition"}},"terminal":{"$ref":"#/$defs/terminal"}}},
+    "expectedInteraction":{"type":"object","additionalProperties":false,"required":["service_degraded_minutes","prior_task_retention_percent"],"properties":{"service_degraded_minutes":{"type":"number"},"prior_task_retention_percent":{"type":"number"}}},
+    "group":{"type":"object","additionalProperties":false,"required":["group_id","classification","arms","expected_interaction"],"properties":{"group_id":{"enum":["ITOPS-HARNESS-SYNERGY-001","ITOPS-HARNESS-ADDITIVE-CONTROL-001"]},"classification":{"enum":["synergistic_interaction","additive_control"]},"arms":{"type":"array","minItems":4,"maxItems":4,"items":{"$ref":"#/$defs/arm"}},"expected_interaction":{"$ref":"#/$defs/expectedInteraction"}}}
+  }
+}
