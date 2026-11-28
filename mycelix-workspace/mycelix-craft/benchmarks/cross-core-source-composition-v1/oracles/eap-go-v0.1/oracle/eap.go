@@ -196,6 +196,11 @@ func Validate(p Proposal) Report {
 		!validDigest(p.PriorDecisionBasis.FrontierDigest) || !validDigest(p.PriorDecisionBasis.DecisionLossProfileDigest) {
 		add(&violations, "EAP-DBC-BINDING", "prior_decision_basis", "prior DBC identity, profile, scope and frontier bindings are incomplete")
 	}
+	switch p.PriorDecisionBasis.Disposition {
+	case "DecisionJustifiedAtAcceptedFrontier", "DecisionNotJustifiedAtAcceptedFrontier", "Indeterminate":
+	default:
+		add(&violations, "EAP-DBC-DISPOSITION", "prior_decision_basis.disposition", "unknown prior DBC disposition")
+	}
 	if _, ok := parseCanonicalUTC(p.PriorDecisionBasis.ValidAt); !ok {
 		add(&violations, "EAP-DBC-TIME", "prior_decision_basis.valid_at", "prior DBC valid time must be canonical UTC seconds")
 	}
