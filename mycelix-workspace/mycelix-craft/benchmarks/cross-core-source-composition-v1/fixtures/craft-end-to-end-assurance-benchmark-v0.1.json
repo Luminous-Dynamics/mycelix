@@ -119,6 +119,38 @@
         "verifier_portability",
         "unsupported_semantics_reporting"
       ]
+    },
+    {
+      "id": "epistemic_debt_and_observability",
+      "metrics": [
+        "unknown_detection_recall",
+        "unsupported_certainty_rate",
+        "time_to_detect_gap",
+        "stale_gap_persistence",
+        "duplicate_gap_rate",
+        "claim_ceiling_constraint_accuracy",
+        "mandatory_gap_block_rate",
+        "budgeted_observability_regret"
+      ],
+      "scenarios": [
+        "missing_not_at_random",
+        "selective_adverse_event_omission",
+        "late_evidence_after_frontier",
+        "source_identifier_rotation",
+        "signed_but_incomplete_feed",
+        "disputed_source",
+        "stale_source",
+        "unavailable_required_source"
+      ],
+      "baselines": [
+        "fixed_schedule",
+        "random_safe",
+        "expert_priority",
+        "EIG_greedy",
+        "EVSI_greedy",
+        "constrained_portfolio",
+        "budgeted_hindsight_upper_bound"
+      ]
     }
   ],
   "comparators": [
