@@ -9,7 +9,7 @@ It is not an SRE runtime, environment provisioner, agent, outcome ledger, author
 - `itops-continuous-scenario-v0.1.schema.json`: Draft 2020-12 JSON Schema.
 - `itops-continuous-scenario-v0.1.json`: one public, seeded, deterministic 2-hour reference timeline.
 - `validate.sh`: jq structural/semantic contract gate.
-- `mutation-tests.sh`: six evaluator-contract negative transformations.
+- `mutation-tests.sh`: ten evaluator-contract negative transformations.
 - `.github/workflows/itops-continuous-reference.yml`: small exact-revision workflow.
 
 ## Scenario semantics
@@ -19,7 +19,7 @@ The fixture includes:
 - A deterministic 7,200-second horizon and 30-second simulation tick.
 - Eight evaluator-only fault/change events across eight families.
 - Overlapping faults, a benign false-positive signal, a planned deployment, stale authorization, a telemetry blind spot, delayed recurrence and a dependency partition.
-- Eight operator observations delivered only after their observation time.
+- Eight operator observations delivered only after their observation time. Each scheduled event is linked only to observations occurring within that event's declared start/duration window; the semantic gate rejects impossible cause-after-observation timelines.
 - Four terminal propositions requiring independent verification.
 
 The agent receives only the time-filtered observation stream and its permitted action/tool surface. It must not receive the fault schedule, hidden causal labels, or terminal oracle. The schedule and terminal propositions are public in this *reference fixture* so maintainers can inspect validator semantics; they must be stripped from the evaluated agent's input by the future adapter.
