@@ -316,10 +316,7 @@ struct SnapshotDigestInput<'a> {
     revoked: &'a [String],
 }
 
-fn snapshot_digest(
-    cut: &TemporalRelationshipCutV1,
-    input: &SnapshotDigestInput<'_>,
-) -> [u8; 32] {
+fn snapshot_digest(cut: &TemporalRelationshipCutV1, input: &SnapshotDigestInput<'_>) -> [u8; 32] {
     let SnapshotDigestInput {
         known_relation_ids,
         visible_relation_ids,
@@ -505,12 +502,8 @@ fn validate_relation_claim_declaration(root: &Value) -> Result<(), TemporalRelat
             kind,
         )?;
     }
-    match declared_ocel_attribute_type(
-        root,
-        "objectTypes",
-        "temporal_relation_claim",
-        "valid_to",
-    )? {
+    match declared_ocel_attribute_type(root, "objectTypes", "temporal_relation_claim", "valid_to")?
+    {
         None | Some("time") => {}
         Some(_) => return Err(TemporalRelationshipErrorV1::InvalidOcel20),
     }
