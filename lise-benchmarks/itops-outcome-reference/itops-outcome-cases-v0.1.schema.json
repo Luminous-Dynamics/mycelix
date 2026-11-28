@@ -361,8 +361,20 @@
                 "maxItems": 0
               }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "verified_recovery"
+              }
+            },
+            "required": [
+              "family"
+            ]
           },
-          "else": {
+          "then": {
             "properties": {
               "expected_operation_ids": {
                 "minItems": 1
