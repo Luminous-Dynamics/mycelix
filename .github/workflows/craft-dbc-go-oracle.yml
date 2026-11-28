@@ -1,0 +1,110 @@
+name: Craft Decision Basis Capsule independent Go oracle
+
+on:
+  push:
+    branches:
+      - research/craft-dbc-capsule-oracle-v0.1-20261128
+  pull_request:
+    branches:
+      - research/craft-temporal-evidence-qualification-v0.1-20261128-r1
+    paths:
+      - ".github/workflows/craft-dbc-go-oracle.yml"
+      - "mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/dbc-go-v0.1/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: craft-dbc-go-oracle-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  exact-head:
+    name: Exact-head DBC structural oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      ORACLE_DIR: mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/oracles/dbc-go-v0.1
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert exact head and required sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -s "$ORACLE_DIR/go.mod"
+          test -s "$ORACLE_DIR/oracle/dbc.go"
+          test -s "$ORACLE_DIR/oracle/dbc_test.go"
+          test -s "$ORACLE_DIR/schema/decision-basis-capsule-v0.1.schema.json"
+          test -s "$ORACLE_DIR/fixtures/dbc-known-answer-v0.1.json"
+      - name: Install pinned Go 1.23.2
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        with:
+          go-version: 1.23.2
+          cache: false
+          check-latest: false
+      - name: Check Go formatting
+        id: gofmt
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l oracle/*.go)"
+          if [[ -n "$unformatted" ]]; then printf '%s\n' "$unformatted"; exit 1; fi
+      - name: Run DBC known-answer tests and coverage
+        id: tests
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go test -cover ./...
+      - name: Run Go race detector
+        id: race
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: go test -race ./...
+      - name: Run go vet
+        id: vet
+        working-directory: ${{ env.ORACLE_DIR }}
+        shell: bash
+        run: go vet ./...
+      - name: Assemble exact-head receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/craft-dbc-oracle"
+          mkdir -p "$out"
+          {
+            printf 'exact_head\t%s\n' "$EXPECTED_HEAD"
+            printf 'go_version\t%s\n' "$(go version 2>&1 || printf UNAVAILABLE)"
+            printf 'gofmt\t%s\n' "${{ steps.gofmt.outcome }}"
+            printf 'tests\t%s\n' "${{ steps.tests.outcome }}"
+            printf 'race\t%s\n' "${{ steps.race.outcome }}"
+            printf 'vet\t%s\n' "${{ steps.vet.outcome }}"
+            printf 'progress_antichain_source_universe_completeness\tNotEvaluated\n'
+            printf 'source_universe_completeness\tExternalReceiptRequired\n'
+            printf 'source_authentication\tNotEvaluated\n'
+            printf 'legal_authority\tNotEvaluated\n'
+            printf 'real_world_independence\tNotEvaluated\n'
+            printf 'physical_outcome\tNotEvaluated\n'
+            printf 'production_integration\tNotEvaluated\n'
+          } > "$out/qualification.tsv"
+          find "$ORACLE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum > "$out/source-sha256.txt"
+          ( cd "$out" && sha256sum qualification.tsv source-sha256.txt > SHA256SUMS )
+          cat "$out/qualification.tsv"
+      - name: Upload exact-head receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: craft-dbc-go-oracle-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/craft-dbc-oracle/
+          if-no-files-found: error
+          retention-days: 30

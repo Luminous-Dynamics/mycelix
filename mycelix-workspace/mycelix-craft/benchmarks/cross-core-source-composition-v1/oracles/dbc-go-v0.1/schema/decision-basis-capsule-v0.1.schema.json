@@ -1,0 +1,609 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-craft-decision-basis-capsule-v0.1.schema.json",
+  "title": "Mycelix Craft Decision Basis Capsule V0.1",
+  "description": "Structural reference-envelope schema. Digest equality, DJCC edge semantics and claim-ceiling non-widening require the independent semantic validator; referenced owner receipts must be verified by their owners.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "profile_ref",
+    "profile_digest",
+    "decision_id",
+    "query_id",
+    "query_digest",
+    "query_schema_id",
+    "scope",
+    "valid_at",
+    "policy",
+    "causal_event_frontier",
+    "progress_antichain",
+    "owner_universe",
+    "temporal",
+    "evidence",
+    "authority",
+    "action_plan",
+    "execution",
+    "outcome",
+    "external_bindings",
+    "stages",
+    "claims",
+    "disposition",
+    "unknowns",
+    "conflicts"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "mycelix.craft.decision-basis-capsule.v0.1"
+    },
+    "profile_ref": {
+      "const": "mycelix.djcc.full-evidence-execution.v0.1"
+    },
+    "profile_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "decision_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "query_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "query_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "query_schema_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "scope": {
+      "$ref": "#/$defs/digest"
+    },
+    "valid_at": {
+      "$ref": "#/$defs/identifier"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        }
+      }
+    },
+    "causal_event_frontier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "receipt",
+        "status",
+        "accepted_prefix_completeness"
+      ],
+      "properties": {
+        "kind": {
+          "const": "CausalEventFrontier"
+        },
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "status": {
+          "enum": [
+            "Valid",
+            "Incomplete",
+            "Invalid"
+          ]
+        },
+        "accepted_prefix_completeness": {
+          "$ref": "#/$defs/claimState"
+        }
+      }
+    },
+    "progress_antichain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "receipt",
+        "status",
+        "source_universe_completeness",
+        "owner_inventory_digest"
+      ],
+      "properties": {
+        "kind": {
+          "const": "ProgressAntichain"
+        },
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "status": {
+          "enum": [
+            "StableRelativeToDeclaredProgress",
+            "Provisional"
+          ]
+        },
+        "source_universe_completeness": {
+          "const": "NotEvaluated"
+        },
+        "owner_inventory_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "owner_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "completeness",
+        "authentication",
+        "frontier_digest"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "completeness": {
+          "$ref": "#/$defs/claimState"
+        },
+        "authentication": {
+          "$ref": "#/$defs/claimState"
+        },
+        "frontier_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "temporal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ocel_profile",
+        "source_corpus",
+        "projection_receipt",
+        "replay_receipt",
+        "frontier_digest",
+        "source_corpus_digest"
+      ],
+      "properties": {
+        "ocel_profile": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "source_corpus": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "projection_receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "replay_receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "frontier_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_corpus_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failure_domain_graph",
+        "lineage_attestation",
+        "independence_status"
+      ],
+      "properties": {
+        "failure_domain_graph": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/receiptRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lineage_attestation": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/receiptRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "independence_status": {
+          "$ref": "#/$defs/claimState"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "principal_id",
+        "scope",
+        "validity_status"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scope": {
+          "$ref": "#/$defs/identifier"
+        },
+        "validity_status": {
+          "$ref": "#/$defs/claimState"
+        }
+      }
+    },
+    "action_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "plan_digest",
+        "revision",
+        "action_count",
+        "covered_action_count",
+        "coverage_plan_digest",
+        "coverage_receipt",
+        "coverage_revision"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "revision": {
+          "$ref": "#/$defs/identifier"
+        },
+        "action_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "covered_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coverage_plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "coverage_receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "coverage_revision": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "execution": {
+      "$ref": "#/$defs/receiptRef"
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "status",
+        "reconciliation",
+        "execution_digest",
+        "plan_digest",
+        "mutation_scope",
+        "same_scope_mutation_attempt"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "status": {
+          "enum": [
+            "Qualified",
+            "Unknown",
+            "NotEvaluated"
+          ]
+        },
+        "reconciliation": {
+          "enum": [
+            "Resolved",
+            "Unresolved",
+            "NotRequired"
+          ]
+        },
+        "execution_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "mutation_scope": {
+          "$ref": "#/$defs/identifier"
+        },
+        "same_scope_mutation_attempt": {
+          "type": "boolean"
+        }
+      }
+    },
+    "external_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/externalBinding"
+      },
+      "minItems": 12
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/stage"
+      }
+    },
+    "claims": {
+      "$ref": "#/$defs/claims"
+    },
+    "disposition": {
+      "enum": [
+        "DecisionJustifiedAtAcceptedFrontier",
+        "DecisionNotJustifiedAtAcceptedFrontier",
+        "Indeterminate"
+      ]
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identifier"
+      },
+      "uniqueItems": true
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identifier"
+      },
+      "uniqueItems": true
+    },
+    "abstention_reason": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": ".*\\S.*"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "claimState": {
+      "enum": [
+        "EstablishedWithinProfile",
+        "Rejected",
+        "Indeterminate",
+        "NotEvaluated",
+        "UnsupportedByProfile",
+        "NotApplicable"
+      ]
+    },
+    "receiptRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "schema_id",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "schema_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authentication",
+        "authority",
+        "completeness",
+        "effect",
+        "independence",
+        "truth"
+      ],
+      "properties": {
+        "authentication": {
+          "$ref": "#/$defs/claimState"
+        },
+        "authority": {
+          "$ref": "#/$defs/claimState"
+        },
+        "completeness": {
+          "$ref": "#/$defs/claimState"
+        },
+        "effect": {
+          "$ref": "#/$defs/claimState"
+        },
+        "independence": {
+          "$ref": "#/$defs/claimState"
+        },
+        "truth": {
+          "$ref": "#/$defs/claimState"
+        }
+      }
+    },
+    "inputBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot",
+        "producer_stage",
+        "producer_receipt_id",
+        "producer_schema_id",
+        "producer_digest",
+        "required_claims"
+      ],
+      "properties": {
+        "slot": {
+          "$ref": "#/$defs/identifier"
+        },
+        "producer_stage": {
+          "enum": [
+            "verifier_frontier",
+            "source_trust",
+            "semantic_projection",
+            "query",
+            "policy",
+            "authorization",
+            "execution",
+            "outcome"
+          ]
+        },
+        "producer_receipt_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "producer_schema_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "producer_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "required_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "authentication",
+              "authority",
+              "completeness",
+              "effect",
+              "independence",
+              "truth"
+            ]
+          }
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "stage",
+        "schema_id",
+        "output_schema_id",
+        "profile_digest",
+        "scope_digest",
+        "source_commit",
+        "build_digest",
+        "output_digest",
+        "claims",
+        "inputs"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "stage": {
+          "enum": [
+            "verifier_frontier",
+            "source_trust",
+            "semantic_projection",
+            "query",
+            "policy",
+            "authorization",
+            "execution",
+            "outcome"
+          ]
+        },
+        "schema_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "output_schema_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "scope_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_commit": {
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "type": "string"
+        },
+        "build_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "claims": {
+          "$ref": "#/$defs/claims"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inputBinding"
+          }
+        }
+      }
+    },
+    "externalBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_stage",
+        "slot",
+        "receipt_id",
+        "schema_id",
+        "digest"
+      ],
+      "properties": {
+        "consumer_stage": {
+          "enum": [
+            "verifier_frontier",
+            "source_trust",
+            "semantic_projection",
+            "query",
+            "policy",
+            "authorization",
+            "execution",
+            "outcome"
+          ]
+        },
+        "slot": {
+          "$ref": "#/$defs/identifier"
+        },
+        "receipt_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "schema_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}
