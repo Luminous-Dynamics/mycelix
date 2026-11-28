@@ -1,0 +1,16 @@
+{
+  "schema_id": "mycelix.craft.decision-separating-observation.v0.1",
+  "case_id": "DSOP-002-hard-safety-branch",
+  "scope_basis": "declared_set",
+  "actions": ["release", "hold"],
+  "worlds": [
+    {"id": "w-clear", "losses": {"release": 0, "hold": 3}},
+    {"id": "w-unsafe", "losses": {"release": 0, "hold": 1}, "hard_violations": ["release"]}
+  ],
+  "observations": [
+    {
+      "id": "lab-verification",
+      "outcome_by_world": {"w-clear": "clear", "w-unsafe": "unsafe"}
+    }
+  ]
+}
