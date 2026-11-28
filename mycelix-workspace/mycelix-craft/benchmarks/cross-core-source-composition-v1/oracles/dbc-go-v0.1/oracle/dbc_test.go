@@ -30,8 +30,8 @@ func base() Capsule {
  for i,st:=range stageOrder { ids[st]=fmt.Sprintf("receipt-%s",st); schemas[st]=fmt.Sprintf("out-%s",st); digests[st]=d(20+i) }
  own:=map[Stage]map[string]State{
   Frontier:{"authentication":Established,"completeness":Established},SourceTrust:{"authentication":Established,"completeness":Established},
-  Semantic:{"completeness":Established},Query:{"completeness":Established,"truth":Established},Policy:{"truth":Established},
-  Authorization:{"authority":Established},Execution:{"effect":Established},Outcome:{"effect":Established,"truth":Established},
+  Semantic:{"completeness":Established},Query:{"authentication":Established,"completeness":Established,"truth":Established},Policy:{"authentication":Established,"truth":Established},
+  Authorization:{"authentication":Established,"authority":Established},Execution:{"authentication":Established,"effect":Established},Outcome:{"effect":Established,"truth":Established},
  }
  dep:=map[Stage][]edge{
   SourceTrust:{{Frontier,[]string{"authentication","completeness"}}},
