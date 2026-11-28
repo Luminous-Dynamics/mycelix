@@ -379,7 +379,7 @@ fn validate_stage_dependencies(
     }
 
     let actual_ids: Vec<_> = stage.dependencies.iter().map(|dep| dep.stage_id).collect();
-    if actual_ids != expected {
+    if actual_ids.as_slice() != expected {
         out.push(violation(
             "DJCC-DEPENDENCY-SET",
             format!(
@@ -1106,8 +1106,8 @@ mod tests {
             .as_bytes()
             .chunks_exact(2)
             .map(|pair| {
-                let high = (pair[0] as char).to_digit(16).expect("hex digit");
-                let low = (pair[1] as char).to_digit(16).expect("hex digit");
+                let high = char::from(pair[0]).to_digit(16).expect("hex digit");
+                let low = char::from(pair[1]).to_digit(16).expect("hex digit");
                 ((high << 4) | low) as u8
             })
             .collect()
