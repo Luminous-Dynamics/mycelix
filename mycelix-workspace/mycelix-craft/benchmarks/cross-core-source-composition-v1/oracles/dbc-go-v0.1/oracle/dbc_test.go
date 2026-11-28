@@ -18,13 +18,13 @@ func base() Capsule {
  c:=Capsule{
   SchemaID:"mycelix.craft.decision-basis-capsule.v0.1",ProfileRef:"mycelix.djcc.full-evidence-execution.v0.1",
   ProfileDigest:supportedProfileDigest,DecisionID:"decision-1",QueryID:"query-1",QueryDigest:d(2),QuerySchema:"query-v1",ScopeDigest:d(3),ValidAt:"2026-11-28T10:00:00Z",
-  Policy:ref("policy",4),Temporal:struct{ OCELProfile, SourceCorpus, Projection, Replay Ref }{ref("ocel-profile",13),ref("source-corpus",14),ref("projection",15),ref("replay",16)},
+  Policy:ref("policy",4),Temporal:struct{ OCELProfile, SourceCorpus, Projection, Replay Ref; FrontierDigest, SourceCorpusDigest string }{ref("ocel-profile",13),ref("source-corpus",14),ref("projection",15),ref("replay",16),d(5),d(14)},
   Frontier:FrontierBinding{Kind:"CausalEventFrontier",Receipt:ref("frontier",5),Status:"Valid",Prefix:Established},
-  Progress:ProgressBinding{Kind:"ProgressAntichain",Receipt:ref("progress",6),Status:"StableRelativeToDeclaredProgress",Universe:NotEvaluated},
-  Owner:OwnerBinding{Receipt:ref("owner-universe",7),Completeness:Established},
+  Progress:ProgressBinding{Kind:"ProgressAntichain",Receipt:ref("progress",6),Status:"StableRelativeToDeclaredProgress",Universe:NotEvaluated,OwnerInventoryDigest:d(7)},
+  Owner:OwnerBinding{Receipt:ref("owner-universe",7),Authentication:Established,Completeness:Established,FrontierDigest:d(5)},
   Authority:AuthorityBinding{Receipt:ref("authority",8),Principal:"assessor-1",Scope:"zone-1/decision:close",Validity:Established},
-  Action:ActionBinding{Receipt:ref("plan",9),Digest:d(9),Revision:"rev-1",Count:2,Covered:2,CoverageDigest:d(9),Coverage:ref("coverage",10)},
-  Outcome:OutcomeBinding{Receipt:ref("outcome",11),Status:"Qualified",Reconciliation:"Resolved"},Execution:ref("execution",12),
+  Action:ActionBinding{Receipt:ref("plan",9),Digest:d(9),Revision:"rev-1",CoverageRevision:"rev-1",Count:2,Covered:2,CoverageDigest:d(9),Coverage:ref("coverage",10)},
+  Outcome:OutcomeBinding{Receipt:ref("outcome",11),Status:"Qualified",Reconciliation:"Resolved",ExecutionDigest:ref("execution",12).Digest,ActionPlanDigest:d(9)},Execution:ref("execution",12),
   Claims:map[string]State{"authentication":Established,"authority":Established,"completeness":Established,"effect":Established,"truth":Established,"independence":NotEvaluated},Disposition:Justified,
  }
  ids:=map[Stage]string{}; schemas:=map[Stage]string{}; digests:=map[Stage]string{}
@@ -43,13 +43,25 @@ func base() Capsule {
   Execution:{{Authorization,[]string{"authentication","authority"}}},
   Outcome:{{SourceTrust,[]string{"authentication"}},{Semantic,[]string{"completeness"}},{Execution,[]string{"effect"}}},
  }
- for _,st:=range stageOrder { c.Stages=append(c.Stages,StageReceipt{ID:ids[st],Stage:st,Schema:"receipt-v1",OutputSchema:schemas[st],ProfileDigest:c.ProfileDigest,ScopeDigest:c.ScopeDigest,SourceCommit:strings.Repeat("a",40),BuildDigest:d(50+len(c.Stages)),Digest:d(60+len(c.Stages)),OutputDigest:digests[st],Claims:own[st]}) }
+ fullClaims:=func(partial map[string]State) map[string]State {
+  result:=map[string]State{}
+  for _,dim:=range dimensions { result[dim]=NotEvaluated }
+  for dim,state:=range partial { result[dim]=state }
+  return result
+ }
+ for _,st:=range stageOrder { c.Stages=append(c.Stages,StageReceipt{ID:ids[st],Stage:st,Schema:"receipt-v1",OutputSchema:schemas[st],ProfileDigest:c.ProfileDigest,ScopeDigest:c.ScopeDigest,SourceCommit:strings.Repeat("a",40),BuildDigest:d(50+len(c.Stages)),Digest:d(60+len(c.Stages)),OutputDigest:digests[st],Claims:fullClaims(own[st])}) }
  stageRef:=func(st Stage) Ref { for _,s:=range c.Stages { if s.Stage==st { return Ref{ID:s.ID,Schema:s.OutputSchema,Digest:s.OutputDigest} } }; return Ref{} }
  c.Frontier.Receipt=stageRef(Frontier)
  c.Policy=stageRef(Policy)
  c.Authority.Receipt=stageRef(Authorization)
  c.Execution=stageRef(Execution)
  c.Outcome.Receipt=stageRef(Outcome)
+ c.Owner.FrontierDigest=c.Frontier.Receipt.Digest
+ c.Progress.OwnerInventoryDigest=c.Owner.Receipt.Digest
+ c.Temporal.FrontierDigest=c.Frontier.Receipt.Digest
+ c.Temporal.SourceCorpusDigest=c.Temporal.SourceCorpus.Digest
+ c.Outcome.ExecutionDigest=c.Execution.Digest
+ c.Outcome.ActionPlanDigest=c.Action.Digest
  for st,ds:=range dep { for _,e:=range ds { var p StageReceipt; for _,x:=range c.Stages { if x.Stage==e.Producer { p=x } }; for i:=range c.Stages { if c.Stages[i].Stage==st { c.Stages[i].Inputs=append(c.Stages[i].Inputs,Input{Slot:string(e.Producer),Producer:e.Producer,ReceiptID:p.ID,Schema:p.OutputSchema,Digest:p.OutputDigest,Required:e.Required}) } } } }
  for slot,consumer:=range externalSlots { r:=externalRefs(c)[slot]; c.External=append(c.External,ExternalBinding{Consumer:consumer,Slot:slot,ReceiptID:r.ID,Schema:r.Schema,Digest:r.Digest}) }
  return c
