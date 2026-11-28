@@ -117,6 +117,64 @@ pub enum CompositionDisposition {
 pub struct Digest(pub [u8; 32]);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StageEdgeV1 {
+    pub producer_stage: String,
+    pub consumer_stage: String,
+    pub input_name: String,
+    pub output_schema_ref: String,
+    pub output_digest: Digest,
+}
+
+/// Encode one producer-output to consumer-input edge using the DJCC V1
+/// domain-separated byte contract. Strings use UTF-8 plus big-endian u32 byte
+/// lengths; the 32-byte output digest is appended raw.
+pub fn canonical_stage_edge_bytes_v1(edge: &StageEdgeV1) -> Result<Vec<u8>, String> {
+    const STAGES: [&str; 8] = [
+        "verifier_frontier",
+        "source_trust",
+        "semantic_projection",
+        "query",
+        "policy",
+        "authorization",
+        "execution",
+        "outcome",
+    ];
+    if !STAGES.contains(&edge.producer_stage.as_str())
+        || !STAGES.contains(&edge.consumer_stage.as_str())
+    {
+        return Err("stage edge contains an unknown producer or consumer stage".to_owned());
+    }
+
+    fn write_string(buffer: &mut Vec<u8>, value: &str) -> Result<(), String> {
+        if value.trim().is_empty() {
+            return Err("canonical DJCC string is empty".to_owned());
+        }
+        let bytes = value.as_bytes();
+        if bytes.len() > 4096 {
+            return Err("canonical DJCC string exceeds 4096 UTF-8 bytes".to_owned());
+        }
+        let length = u32::try_from(bytes.len())
+            .map_err(|_| "canonical DJCC string length exceeds u32".to_owned())?;
+        buffer.extend_from_slice(&length.to_be_bytes());
+        buffer.extend_from_slice(bytes);
+        Ok(())
+    }
+
+    let mut output = Vec::new();
+    write_string(&mut output, "MYCELIX-DJCC-STAGE-EDGE-V1")?;
+    for value in [
+        edge.producer_stage.as_str(),
+        edge.consumer_stage.as_str(),
+        edge.input_name.as_str(),
+        edge.output_schema_ref.as_str(),
+    ] {
+        write_string(&mut output, value)?;
+    }
+    output.extend_from_slice(&edge.output_digest.0);
+    Ok(output)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Producer {
     pub owner_ref: String,
     pub version_ref: String,
@@ -991,6 +1049,72 @@ mod tests {
             .violations
             .iter()
             .any(|item| item.code == "DJCC-UNBOUND-STAGE-INPUT"));
+    }
+ 
+    fn decode_hex(value: &str) -> Vec<u8> {
+        assert_eq!(value.len() % 2, 0, "hex input has odd length");
+        value
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let high = (pair[0] as char).to_digit(16).expect("hex digit");
+                let low = (pair[1] as char).to_digit(16).expect("hex digit");
+                ((high << 4) | low) as u8
+            })
+            .collect()
+    }
+
+    #[test]
+    fn shared_go_rust_stage_edge_canonicalization_vectors_match() {
+        const VECTORS: &str = include_str!(
+            "../../../../tools/economic/evidence-execution-composition/DJCC_STAGE_EDGE_V1_KAT.tsv"
+        );
+        let mut seen = 0;
+        for (line_index, line) in VECTORS.lines().enumerate() {
+            let line = line.trim_end_matches('\r');
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let fields: Vec<_> = line.split('\t').collect();
+            assert_eq!(fields.len(), 7, "vector line {}", line_index + 1);
+            let digest_bytes = decode_hex(fields[5]);
+            let digest: [u8; 32] = digest_bytes
+                .try_into()
+                .expect("stage-edge output digest must be 32 bytes");
+            let edge = StageEdgeV1 {
+                producer_stage: fields[1].to_owned(),
+                consumer_stage: fields[2].to_owned(),
+                input_name: fields[3].to_owned(),
+                output_schema_ref: fields[4].to_owned(),
+                output_digest: Digest(digest),
+            };
+            let actual = canonical_stage_edge_bytes_v1(&edge)
+                .expect("shared stage-edge fixture is valid");
+            let expected = decode_hex(fields[6]);
+            assert_eq!(
+                actual,
+                expected,
+                "canonical stage-edge bytes differ for {}",
+                fields[0]
+            );
+            seen += 1;
+        }
+        assert_eq!(seen, 3, "all shared stage-edge vectors must execute");
+    }
+
+    #[test]
+    fn canonical_stage_edge_rejects_unknown_stage_and_empty_input_name() {
+        let mut edge = StageEdgeV1 {
+            producer_stage: "unknown".to_owned(),
+            consumer_stage: "query".to_owned(),
+            input_name: "frontier".to_owned(),
+            output_schema_ref: "schema:v1".to_owned(),
+            output_digest: Digest([1; 32]),
+        };
+        assert!(canonical_stage_edge_bytes_v1(&edge).is_err());
+        edge.producer_stage = "verifier_frontier".to_owned();
+        edge.input_name = "  ".to_owned();
+        assert!(canonical_stage_edge_bytes_v1(&edge).is_err());
     }
 
 }
