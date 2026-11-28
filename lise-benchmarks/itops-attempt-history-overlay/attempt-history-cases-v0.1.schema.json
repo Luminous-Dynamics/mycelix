@@ -34,8 +34,8 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 17,
-      "maxItems": 17,
+      "minItems": 18,
+      "maxItems": 18,
       "items": {
         "$ref": "#/$defs/case"
       }
@@ -422,7 +422,8 @@
             "idempotency_key_drift",
             "conflicting_effect_observations",
             "partial_multi_action_unknown_suffix",
-            "retry_after_confirmed_effect"
+            "retry_after_confirmed_effect",
+            "duplicate_effect_confirmed_across_attempts"
           ]
         },
         "operation": {
@@ -468,7 +469,8 @@
               "blind_retry_after_unknown",
               "duplicate_effect",
               "operation_identity_substitution",
-              "history_chain_break"
+              "history_chain_break",
+              "retry_after_confirmed_effect"
             ]
           }
         }
